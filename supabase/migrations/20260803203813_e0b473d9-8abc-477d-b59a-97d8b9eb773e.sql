@@ -1,0 +1,1 @@
+GRANT SELECT (id, number, establishment_id, sector_id, status, capacity) ON public.tables TO anon;

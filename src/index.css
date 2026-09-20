@@ -1,0 +1,225 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 33% 98%;
+    --foreground: 220 20% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 10%;
+
+    --primary: 25 95% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 20% 10%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 10% 46%;
+
+    --accent: 25 95% 95%;
+    --accent-foreground: 25 95% 30%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 25 95% 53%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 220 20% 10%;
+    --sidebar-foreground: 220 10% 90%;
+    --sidebar-primary: 25 95% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 15% 16%;
+    --sidebar-accent-foreground: 220 10% 90%;
+    --sidebar-border: 220 15% 18%;
+    --sidebar-ring: 25 95% 53%;
+
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+  }
+
+  .dark {
+    --background: 220 20% 7%;
+    --foreground: 220 10% 95%;
+
+    --card: 220 20% 10%;
+    --card-foreground: 220 10% 95%;
+
+    --popover: 220 20% 10%;
+    --popover-foreground: 220 10% 95%;
+
+    --primary: 25 95% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 15% 16%;
+    --secondary-foreground: 220 10% 95%;
+
+    --muted: 220 15% 16%;
+    --muted-foreground: 220 10% 55%;
+
+    --accent: 220 15% 16%;
+    --accent-foreground: 25 95% 60%;
+
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 15% 18%;
+    --input: 220 15% 18%;
+    --ring: 25 95% 53%;
+
+    --sidebar-background: 220 25% 6%;
+    --sidebar-foreground: 220 10% 85%;
+    --sidebar-primary: 25 95% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 15% 12%;
+    --sidebar-accent-foreground: 220 10% 85%;
+    --sidebar-border: 220 15% 14%;
+    --sidebar-ring: 25 95% 53%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+/* Print styles for thermal ticket (80mm) */
+.print-portal {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+
+  html,
+  body {
+    width: 80mm !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+  .print-ticket,
+  .print-ticket * {
+    visibility: visible !important;
+  }
+  .print-ticket {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    font-size: 12px;
+    padding: 4mm;
+  }
+
+  /* Ticket rendered through a portal directly on <body>: hide the whole app
+     so the print job contains only the ticket (no blank pages). */
+  body.printing-ticket #root {
+    display: none !important;
+  }
+  body.printing-ticket .print-portal {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+  }
+  body.printing-ticket .print-portal * {
+    visibility: visible !important;
+  }
+}
+
+
+/* === Ticket fiscal 80mm (FacturaTicket80mm) === */
+.ticket-80mm {
+  width: 72mm;
+  margin: 0 auto;
+  padding: 2mm;
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #000;
+  background: #fff;
+  font-size: 12px;
+  line-height: 1.25;
+}
+.ticket-80mm .ft-center { text-align: center; }
+.ticket-80mm .ft-bold { font-weight: 700; }
+.ticket-80mm .ft-mono { font-family: 'Courier New', monospace; }
+.ticket-80mm .ft-title { font-size: 15px; font-weight: 700; margin-bottom: 1mm; }
+.ticket-80mm .ft-doc { font-size: 16px; font-weight: 700; margin: 1mm 0; letter-spacing: 1px; }
+.ticket-80mm .ft-line { font-size: 12px; word-break: break-word; }
+.ticket-80mm .ft-sep {
+  border-top: 1px dashed #000;
+  margin: 1.5mm 0;
+}
+.ticket-80mm .ft-item { margin-bottom: 1mm; }
+.ticket-80mm .ft-item-name { white-space: normal; word-break: break-word; }
+.ticket-80mm .ft-item-amounts { display: flex; justify-content: space-between; padding-left: 4mm; }
+.ticket-80mm .ft-row { display: flex; justify-content: space-between; font-size: 12px; }
+.ticket-80mm .ft-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 18px;
+  font-weight: 700;
+  margin-top: 1.5mm;
+}
+.ticket-80mm .ft-qr { display: flex; justify-content: center; margin: 2mm 0; }
+.ticket-80mm .ft-qr-source { position: absolute; width: 0; height: 0; overflow: hidden; opacity: 0; pointer-events: none; }
+.ticket-80mm .ft-qr-img {
+  width: 32mm;
+  height: 32mm;
+  background: #fff;
+  display: block;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+@media print {
+  .no-print { display: none !important; }
+  /* El ticket fiscal maneja su propio ancho/padding: anulamos el padding del
+     contenedor genérico .print-ticket para que 72mm + 2mm*2 = 76mm entren en 80mm. */
+  .print-ticket:has(.ticket-80mm) {
+    width: 80mm;
+    padding: 0 !important;
+    font-size: 12px;
+  }
+  .ticket-80mm {
+    width: 72mm;
+    margin: 0 auto;
+  }
+  .ticket-80mm .ft-qr-source { display: none !important; }
+  .ticket-80mm .ft-qr-img {
+    width: 32mm !important;
+    height: 32mm !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .ticket-80mm .ft-item,
+  .ticket-80mm .ft-qr,
+  .ticket-80mm .ft-total { break-inside: avoid; page-break-inside: avoid; }
+}
+

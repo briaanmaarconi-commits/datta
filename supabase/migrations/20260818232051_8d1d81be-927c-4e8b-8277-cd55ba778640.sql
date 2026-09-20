@@ -1,0 +1,1 @@
+update public.products set category_id = '67eb55f1-dce5-42db-a1b9-cb136d42233c' where name ilike '%bander%' and category_id = 'cf62b89e-40f1-4c00-ac13-fe69addf1c81';

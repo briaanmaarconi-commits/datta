@@ -1,0 +1,1 @@
+ALTER TABLE public.shift_controls DROP CONSTRAINT IF EXISTS shift_controls_establishment_id_shift_date_key;

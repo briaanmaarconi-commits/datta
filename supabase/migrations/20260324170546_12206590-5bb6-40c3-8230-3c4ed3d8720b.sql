@@ -1,0 +1,1 @@
+CREATE POLICY "Public can view active establishments" ON public.establishments FOR SELECT USING (is_active = true);

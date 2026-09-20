@@ -1,0 +1,1 @@
+REVOKE SELECT (status) ON public.tables FROM anon;
