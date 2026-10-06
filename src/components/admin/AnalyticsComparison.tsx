@@ -42,6 +42,18 @@ function monthLabel(my: MonthYear): string {
   return `${MONTH_NAMES[my.month]} ${my.year}`;
 }
 
+function formatRangeLabel(fromIso: string, toIso: string): string {
+  const f = new Date(fromIso);
+  const t = new Date(toIso);
+  const full = (d: Date) => d.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
+  if (f.toDateString() === t.toDateString()) return full(f);
+  const sameMonth = f.getFullYear() === t.getFullYear() && f.getMonth() === t.getMonth();
+  const toLabel = sameMonth
+    ? `${t.getDate()} de ${t.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}`
+    : full(t);
+  return `del ${f.getDate()}${sameMonth ? '' : ` de ${f.toLocaleDateString('es-AR', { month: 'long' })}`} al ${toLabel}`;
+}
+
 function getComparisonRanges(period: string, customFrom?: string, customTo?: string, monthA?: MonthYear, monthB?: MonthYear) {
   const now = new Date();
   let currentFrom: Date, currentTo: Date, prevFrom: Date, prevTo: Date;
@@ -445,6 +457,14 @@ export default function AnalyticsComparison() {
           </div>
         )}
       </div>
+
+      <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="inline-block h-2 w-2 rounded-full bg-orange-500" aria-hidden />
+        <span><span className="font-medium text-foreground">{labelCurrent}</span>: {formatRangeLabel(ranges.current.from, ranges.current.to)}</span>
+        <span className="text-muted-foreground/50">vs</span>
+        <span className="inline-block h-2 w-2 rounded-full bg-blue-500" aria-hidden />
+        <span><span className="font-medium text-foreground">{labelPrevious}</span>: {formatRangeLabel(ranges.previous.from, ranges.previous.to)}</span>
+      </p>
 
       {/* General Score */}
       {score !== null && (

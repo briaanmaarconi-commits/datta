@@ -2,9 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { DollarSign, ShoppingCart, Receipt, Clock } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toArgDate, argDayRange } from '@/lib/utils';
-import HealthScoreCard from '@/components/admin/HealthScoreCard';
 import InsightsFeed from '@/components/admin/InsightsFeed';
 
 
@@ -47,30 +45,44 @@ export default function AdminDashboard() {
     refetchInterval: 30000,
   });
 
+  const fmt = (n: number) => `$ ${Math.round(n).toLocaleString('es-AR')}`;
+  const occupancy = stats?.totalTables ? Math.round((stats.activeTables / stats.totalTables) * 100) : 0;
+
   const cards = [
-    { title: 'Ventas hoy', value: `$${(stats?.totalSales ?? 0).toFixed(2)}`, icon: DollarSign },
-    { title: 'Pedidos hoy', value: stats?.totalOrders ?? 0, icon: ShoppingCart },
-    { title: 'Ticket promedio', value: `$${(stats?.avgTicket ?? 0).toFixed(2)}`, icon: Receipt },
-    { title: 'Mesas activas', value: `${stats?.activeTables ?? 0}/${stats?.totalTables ?? 0}`, icon: Clock },
+    { title: 'Ventas hoy', value: fmt(stats?.totalSales ?? 0), sub: `${stats?.closedOrders ?? 0} pedidos cobrados`, icon: DollarSign },
+    { title: 'Pedidos hoy', value: stats?.totalOrders ?? 0, sub: 'Registrados en el día', icon: ShoppingCart },
+    { title: 'Ticket promedio', value: fmt(stats?.avgTicket ?? 0), sub: 'Por pedido cerrado', icon: Receipt },
+    { title: 'Mesas activas', value: `${stats?.activeTables ?? 0}/${stats?.totalTables ?? 0}`, sub: `${occupancy}% de ocupación`, icon: Clock, progress: occupancy },
   ];
 
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
 
-      <HealthScoreCard />
-
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {cards.map(c => (
-          <Card key={c.title}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{c.title}</CardTitle>
-              <c.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{c.value}</div>
-            </CardContent>
-          </Card>
+          <div
+            key={c.title}
+            className="group relative overflow-hidden rounded-2xl bg-white p-5 shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl"
+          >
+            <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-[#EA580C]/10 blur-2xl transition-opacity opacity-60 group-hover:opacity-100" />
+            <div className="relative flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wider text-[#18181B]/60">{c.title}</p>
+                <div className="mt-2 font-heading text-3xl font-bold tracking-tight text-[#18181B]">{c.value}</div>
+              </div>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EA580C]/15 text-[#EA580C] ring-1 ring-[#EA580C]/30">
+                <c.icon className="h-5 w-5" />
+              </div>
+            </div>
+            <p className="relative mt-2 text-xs text-[#18181B]/50">{c.sub}</p>
+            {c.progress !== undefined && (
+              <div className="relative mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#18181B]/10">
+                <div className="h-full rounded-full bg-[#EA580C]" style={{ width: `${c.progress}%` }} />
+              </div>
+            )}
+            <div className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-[#EA580C] to-transparent" />
+          </div>
         ))}
       </div>
 

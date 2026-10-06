@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -103,6 +103,11 @@ export default function MenuView() {
   const dessertCat = categories.find(c => c.name.toLowerCase().includes('postre') || c.name.toLowerCase().includes('dessert'));
   const dessertProducts = dessertCat ? products.filter(p => p.category_id === dessertCat.id) : [];
 
+  // Al cargar las categorías, la carta abre directamente en la primera (sin vista "Todo")
+  useEffect(() => {
+    if (!selectedCat && categories.length > 0) setSelectedCat(categories[0].id);
+  }, [categories, selectedCat]);
+
   const filteredProducts = selectedCat ? products.filter(p => p.category_id === selectedCat) : products;
 
   if (loadingEst || loadingProducts) {
@@ -157,7 +162,6 @@ export default function MenuView() {
 
         {/* Category filters */}
         <div className="flex gap-2 overflow-x-auto pb-2">
-          <Button size="sm" variant={!selectedCat ? 'default' : 'outline'} onClick={() => setSelectedCat(null)}>Todo</Button>
           {categories.map(c => (
             <Button key={c.id} size="sm" variant={selectedCat === c.id ? 'default' : 'outline'} onClick={() => setSelectedCat(c.id)} className="whitespace-nowrap">
               {c.name}

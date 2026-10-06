@@ -1,3 +1,4 @@
+import { edgeErrorMessage } from '@/lib/invokeError';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -65,7 +66,7 @@ export default function SuperAdminUsers() {
       const res = await supabase.functions.invoke('create-user', {
         body: { email, password, fullName, role, establishmentId: role === 'superadmin' ? null : establishmentId || null },
       });
-      if (res.error) throw new Error(res.error.message || 'Error al crear usuario');
+      if (res.error) throw new Error(await edgeErrorMessage(res.error, 'Error al crear usuario'));
       if (res.data?.error) throw new Error(res.data.error);
     },
     onSuccess: () => {
@@ -87,7 +88,7 @@ export default function SuperAdminUsers() {
           establishmentId: editRole === 'superadmin' ? null : editEstablishmentId || null,
         },
       });
-      if (res.error) throw new Error(res.error.message || 'Error al actualizar');
+      if (res.error) throw new Error(await edgeErrorMessage(res.error, 'Error al actualizar'));
       if (res.data?.error) throw new Error(res.data.error);
     },
     onSuccess: () => {
@@ -103,7 +104,7 @@ export default function SuperAdminUsers() {
       const res = await supabase.functions.invoke('create-user', {
         body: { action: 'delete_role', roleId: id },
       });
-      if (res.error) throw new Error(res.error.message || 'Error al eliminar');
+      if (res.error) throw new Error(await edgeErrorMessage(res.error, 'Error al eliminar'));
       if (res.data?.error) throw new Error(res.data.error);
     },
     onSuccess: () => {

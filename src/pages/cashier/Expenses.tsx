@@ -13,6 +13,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useShowMore, ShowMoreButton } from '@/components/ui/show-more';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -320,6 +321,8 @@ export default function CashierExpenses() {
     return result;
   }, [transactions, filterType, dateFrom, dateTo]);
 
+  const txList = useShowMore<any>(filteredTx, 15);
+
   // Tips are neutral (income + mirror expense): excluded from totals.
   const countableTx = filteredTx.filter((t: any) => !isTipTx({ type: t.type, amount: t.amount, categoryName: t.finance_categories?.name }));
   const totalIncome = countableTx.filter((t: any) => t.type === 'income').reduce((s: number, t: any) => s + Number(t.amount), 0);
@@ -554,7 +557,7 @@ export default function CashierExpenses() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredTx.map((t: any) => (
+              {txList.visible.map((t: any) => (
                 <TableRow key={t.id}>
                   <TableCell>{new Date(t.date + 'T12:00:00').toLocaleDateString('es')}</TableCell>
                   <TableCell>
@@ -608,6 +611,7 @@ export default function CashierExpenses() {
               )}
             </TableBody>
           </Table>
+          <ShowMoreButton hiddenCount={txList.hiddenCount} expanded={txList.expanded} onToggle={() => txList.setExpanded(!txList.expanded)} />
         </CardContent>
       </Card>
 

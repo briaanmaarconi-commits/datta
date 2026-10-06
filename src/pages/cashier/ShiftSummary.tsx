@@ -15,7 +15,8 @@ import { useAuditLog } from '@/hooks/useAuditLog';
 import { useActiveShift } from '@/hooks/useActiveShift';
 import ShiftReportTicket, { ShiftReportBody, ShiftReportData } from '@/components/cashier/ShiftReportTicket';
 import { summarizeManualMovements, computeExpectedCash } from '@/lib/cashReconciliation';
-import { getOrdersCutoff } from '@/lib/shiftScope';
+import { getOrdersCutoff, getShiftDisplayDate, formatShiftDate, formatShiftRange } from '@/lib/shiftScope';
+import { toArgDate } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,11 +66,11 @@ export default function ShiftSummary() {
     const to = shift.closed_at ?? new Date().toISOString();
 
     const [ordersRes, expensesRes, invoicesRes, fiscalRes, profileRes, courtesyRes, accountsRes, anomaliesRes] = await Promise.all([
+      // Ventas del turno = comprobantes emitidos (momento del cobro)
       supabase
-        .from('orders')
+        .from('invoices')
         .select('total, payment_method')
         .eq('establishment_id', establishmentId!)
-        .eq('status', 'closed')
         .gte('created_at', from)
         .lte('created_at', to),
       supabase
@@ -163,7 +164,7 @@ export default function ShiftSummary() {
 
     return {
       establishmentName: establishment?.name,
-      shiftDate: shift.shift_date,
+      shiftDate: getShiftDisplayDate(shift) ?? shift.shift_date,
       openedAt: shift.opened_at,
       closedAt: shift.closed_at ?? new Date().toISOString(),
       closedByName: (profileRes as any)?.data?.full_name ?? null,
@@ -190,15 +191,16 @@ export default function ShiftSummary() {
 
 
 
-  // Stats for orders since shift opened
+  // Ventas del turno: se toman de los comprobantes (momento del COBRO), no de la
+  // creación del pedido. Una mesa puede abrirse antes de que arranque el turno y
+  // cobrarse dentro del turno: esa venta pertenece a este turno.
   const { data: stats } = useQuery({
     queryKey: ['shift-stats', establishmentId, activeShift?.id],
     queryFn: async () => {
       let query = supabase
-        .from('orders')
-        .select('id, total, status, payment_method')
-        .eq('establishment_id', establishmentId!)
-        .eq('status', 'closed');
+        .from('invoices')
+        .select('id, total, payment_method')
+        .eq('establishment_id', establishmentId!);
 
       if (activeShift?.opened_at) {
         query = query.gte('created_at', activeShift.opened_at);
@@ -207,12 +209,19 @@ export default function ShiftSummary() {
       const { data, error } = await query;
       if (error) throw error;
 
-      const totalSales = data.reduce((s, o) => s + Number(o.total), 0);
-      const avgTicket = data.length > 0 ? totalSales / data.length : 0;
-      const cash = data.filter(o => o.payment_method === 'cash').reduce((s, o) => s + Number(o.total), 0);
-      const card = data.filter(o => o.payment_method === 'card').reduce((s, o) => s + Number(o.total), 0);
-      const transfer = data.filter(o => o.payment_method === 'transfer').reduce((s, o) => s + Number(o.total), 0);
-      return { totalSales, closedOrders: data.length, avgTicket, cash, card, transfer };
+      const rows = data ?? [];
+      const totalSales = rows.reduce((s, o) => s + Number(o.total), 0);
+      const avgTicket = rows.length > 0 ? totalSales / rows.length : 0;
+      const sumBy = (m: string) =>
+        rows.filter(o => o.payment_method === m).reduce((s, o) => s + Number(o.total), 0);
+      return {
+        totalSales,
+        closedOrders: rows.length,
+        avgTicket,
+        cash: sumBy('cash'),
+        card: sumBy('card'),
+        transfer: sumBy('transfer'),
+      };
     },
     enabled: !!establishmentId,
     refetchInterval: 30000,
@@ -308,7 +317,8 @@ export default function ShiftSummary() {
   const openShift = useMutation({
     mutationFn: async () => {
       const now = new Date().toISOString();
-      const today = now.split('T')[0];
+      // Fecha del turno = día en hora Argentina en que se abre la caja
+      const today = toArgDate(new Date());
       const { error } = await supabase.from('shift_controls').insert({
         establishment_id: establishmentId!,
         shift_date: today,
@@ -696,8 +706,7 @@ export default function ShiftSummary() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Fecha</TableHead>
-                  <TableHead>Apertura</TableHead>
-                  <TableHead>Cierre</TableHead>
+                  <TableHead>Horario</TableHead>
                   <TableHead>Fondo</TableHead>
                   <TableHead>Diferencia</TableHead>
                   <TableHead>Estado</TableHead>
@@ -709,9 +718,8 @@ export default function ShiftSummary() {
                   const diff = s.cash_difference != null ? Number(s.cash_difference) : null;
                   return (
                     <TableRow key={s.id}>
-                      <TableCell>{new Date(s.shift_date + 'T12:00:00').toLocaleDateString('es')}</TableCell>
-                      <TableCell>{s.opened_at ? new Date(s.opened_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : '-'}</TableCell>
-                      <TableCell>{s.closed_at ? new Date(s.closed_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : '-'}</TableCell>
+                      <TableCell>{formatShiftDate(s)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatShiftRange(s)}</TableCell>
                       <TableCell>${Number(s.initial_cash ?? 0).toFixed(2)}</TableCell>
                       <TableCell>
                         {diff != null ? (

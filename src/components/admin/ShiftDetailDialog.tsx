@@ -18,6 +18,7 @@ interface ShiftDetailDialogProps {
 }
 
 import { isAutomaticSaleTx, isTipTx, summarizeManualMovements, computeExpectedCash } from '@/lib/cashReconciliation';
+import { formatShiftDate, formatShiftRange } from '@/lib/shiftScope';
 
 const money = (n: number) => `$${(n ?? 0).toFixed(2)}`;
 
@@ -29,17 +30,12 @@ export default function ShiftDetailDialog({ open, onOpenChange, shift, establish
       const from = shift.opened_at ?? `${shift.shift_date}T00:00:00.000Z`;
       const to = shift.closed_at ?? new Date().toISOString();
 
-      const [ordersRes, invoicesRes, txRes, fiscalRes] = await Promise.all([
-        supabase
-          .from('orders')
-          .select('id, total, table_id, created_by, created_at, payment_method, order_items(quantity, product_id, products(name))')
-          .eq('establishment_id', establishmentId)
-          .eq('status', 'closed')
-          .gte('created_at', from)
-          .lte('created_at', to),
+      // Las ventas del turno se toman de los comprobantes (momento del COBRO).
+      // Un pedido puede haberse abierto antes del turno y cobrarse dentro de él.
+      const [invoicesRes, txRes, fiscalRes] = await Promise.all([
         supabase
           .from('invoices')
-          .select('tip_amount, tip_waiter_id, tip_payment_method')
+          .select('id, total, payment_method, order_ids, tip_amount, tip_waiter_id, tip_payment_method')
           .eq('establishment_id', establishmentId)
           .gte('created_at', from)
           .lte('created_at', to),
@@ -58,17 +54,30 @@ export default function ShiftDetailDialog({ open, onOpenChange, shift, establish
           .lte('created_at', to),
       ]);
 
+      if (invoicesRes.error) throw invoicesRes.error;
+      const invoiceRows = (invoicesRes.data ?? []) as any[];
+
+      const paidOrderIds = Array.from(
+        new Set(invoiceRows.flatMap((i: any) => (i.order_ids ?? []) as string[])),
+      );
+
+      const ordersRes = paidOrderIds.length
+        ? await supabase
+            .from('orders')
+            .select('id, total, table_id, created_by, created_at, payment_method, order_items(quantity, product_id, products(name))')
+            .in('id', paidOrderIds)
+        : ({ data: [], error: null } as any);
       if (ordersRes.error) throw ordersRes.error;
       const orders = ordersRes.data ?? [];
 
-      const totalSales = orders.reduce((s: number, o: any) => s + Number(o.total), 0);
-      const orderCount = orders.length;
+      const totalSales = invoiceRows.reduce((s: number, i: any) => s + Number(i.total), 0);
+      const orderCount = invoiceRows.length;
       const avgTicket = orderCount > 0 ? totalSales / orderCount : 0;
 
       // Payment methods
       const byMethod = (m: string) => {
-        const list = orders.filter((o: any) => o.payment_method === m);
-        return { amount: list.reduce((s: number, o: any) => s + Number(o.total), 0), count: list.length };
+        const list = invoiceRows.filter((i: any) => i.payment_method === m);
+        return { amount: list.reduce((s: number, i: any) => s + Number(i.total), 0), count: list.length };
       };
       const payments = {
         cash: byMethod('cash'),
@@ -207,7 +216,7 @@ export default function ShiftDetailDialog({ open, onOpenChange, shift, establish
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Detalle del turno — {shift ? new Date(shift.shift_date + 'T12:00:00').toLocaleDateString('es') : ''}</DialogTitle>
+          <DialogTitle>Detalle del turno — {shift ? formatShiftDate(shift) : ''}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -216,10 +225,8 @@ export default function ShiftDetailDialog({ open, onOpenChange, shift, establish
             <div className="text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                {shift.opened_at ? new Date(shift.opened_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : '-'}
-                {' → '}
-                {shift.closed_at ? new Date(shift.closed_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : '-'}
-                {data?.durationHours != null && ` (${data.durationHours.toFixed(1)} h)`}
+                {formatShiftRange(shift)}
+                {data?.durationHours != null && ` · ${data.durationHours.toFixed(1)} h`}
               </span>
               {data?.closedByName && <span>Cierra: {data.closedByName}</span>}
               {data?.controlledByName && <span>Controla: {data.controlledByName}</span>}

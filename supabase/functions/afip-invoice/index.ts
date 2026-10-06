@@ -317,9 +317,13 @@ Deno.serve(async (req) => {
     );
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+    if (!authHeader?.startsWith("Bearer ")) {
+      return json({ error: "Sesión no válida. Cerrá sesión y volvé a entrar para facturar." }, 401);
+    }
     const { data: { user }, error: userErr } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
-    if (userErr || !user) return json({ error: "Unauthorized" }, 401);
+    if (userErr || !user) {
+      return json({ error: "Tu sesión expiró. Cerrá sesión y volvé a entrar para facturar." }, 401);
+    }
 
     const body = await req.json();
     const { action, establishment_id } = body;
@@ -334,7 +338,11 @@ Deno.serve(async (req) => {
       r.role === "superadmin" ||
       ((r.role === "admin" || r.role === "cashier") && r.establishment_id === establishment_id)
     );
-    if (!allowed) return json({ error: "Forbidden" }, 403);
+    if (!allowed) {
+      return json({
+        error: "Tu usuario no tiene permiso para facturar en este local. Pedile al administrador que revise tu rol.",
+      }, 403);
+    }
 
     const { data: est, error: estErr } = await supabase
       .from("establishments")

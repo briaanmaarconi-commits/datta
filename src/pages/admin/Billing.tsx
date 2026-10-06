@@ -23,6 +23,7 @@ import FiscalTicketDialog from '@/components/cashier/FiscalTicketDialog';
 import type { FacturaTicketData } from '@/components/cashier/FacturaTicket80mm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useShowMore, ShowMoreButton } from '@/components/ui/show-more';
 
 const PAYMENT_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia' };
 
@@ -122,6 +123,7 @@ export default function AdminBilling() {
     [invoices, fiscaledIds, onlyPending]
   );
 
+  const rowsList = useShowMore<any>(rows, 15);
   const selectable = rows.filter((r: any) => !r.hasFiscal);
   const selectedRows = selectable.filter((r: any) => selected.has(r.id));
   const selectedTotal = selectedRows.reduce((s: number, r: any) => s + Number(r.total), 0);
@@ -325,7 +327,7 @@ export default function AdminBilling() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map((inv: any) => (
+                  {rowsList.visible.map((inv: any) => (
                     <TableRow key={inv.id}>
                       <TableCell>
                         {!inv.hasFiscal && (
@@ -362,6 +364,7 @@ export default function AdminBilling() {
                   ))}
                 </TableBody>
               </Table>
+              <ShowMoreButton hiddenCount={rowsList.hiddenCount} expanded={rowsList.expanded} onToggle={() => rowsList.setExpanded(!rowsList.expanded)} />
             </div>
           )}
 

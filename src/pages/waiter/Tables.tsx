@@ -21,13 +21,8 @@ import WaiterCallNotifications from '@/components/waiter/WaiterCallNotifications
 import CourtesyDialog from '@/components/shared/CourtesyDialog';
 import { useCloseTableAsCourtesy, CourtesyType } from '@/hooks/useCloseTableAsCourtesy';
 import { getOrdersCutoff } from '@/lib/shiftScope';
-
-const STATUS_COLORS: Record<string, string> = {
-  free: 'bg-green-500/20 border-green-500 text-green-700',
-  occupied: 'bg-red-500/20 border-red-500 text-red-700',
-  billing: 'bg-yellow-500/20 border-yellow-500 text-yellow-700',
-};
-const STATUS_LABELS: Record<string, string> = { free: 'Libre', occupied: 'Ocupada', billing: 'En preparación' };
+import { getTableVisualState } from '@/lib/tableStatus';
+import TableStatusLegend from '@/components/shared/TableStatusLegend';
 
 interface OrderingState {
   type: 'new' | 'existing';
@@ -58,6 +53,20 @@ export default function WaiterTables() {
     },
     onError: (e: any) => toast.error(e?.message || 'Error al cerrar como cortesía'),
   });
+
+  useEffect(() => {
+    if (!establishmentId) return;
+    const channel = supabase
+      .channel('waiter-tables-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tables', filter: `establishment_id=eq.${establishmentId}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['tables', establishmentId] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `establishment_id=eq.${establishmentId}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['active-orders', establishmentId] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [establishmentId, queryClient]);
 
   const handleCourtesy = (type: CourtesyType, notes: string, accountId: string | null) => {
     if (!courtesyTable) return;
@@ -471,6 +480,8 @@ export default function WaiterTables() {
           </Alert>
         )}
 
+        <div className="mt-4"><TableStatusLegend /></div>
+
         <TabsContent value="list">
           {(() => {
             const sectorGroups = sectors.map(sector => ({
@@ -481,15 +492,16 @@ export default function WaiterTables() {
 
             const renderTable = (table: any) => {
               const tableOrders = activeOrders.filter(o => o.table_id === table.id);
+              const visualState = getTableVisualState(table, tableOrders);
               return (
                 <Card
                   key={table.id}
-                  className={`cursor-pointer border-2 transition-all hover:shadow-md ${STATUS_COLORS[table.status]}`}
+                  className={`cursor-pointer border-2 transition-all hover:shadow-md ${visualState.cardClass}`}
                   onClick={() => handleTableClick(table)}
                 >
                   <CardContent className="p-4 text-center">
                     <div className="text-2xl font-bold">{table.number}</div>
-                    <Badge variant="outline" className="mt-1">{STATUS_LABELS[table.status]}</Badge>
+                    <Badge variant="outline" className="mt-1">{visualState.label}</Badge>
                     {(table as any).guest_count > 0 && (
                       <p className="text-xs mt-1 flex items-center justify-center gap-1"><Users className="h-3 w-3" /> {(table as any).guest_count}</p>
                     )}
@@ -528,8 +540,8 @@ export default function WaiterTables() {
                         <button
                           key={s}
                           className={`w-5 h-5 rounded-full border-2 transition-all ${table.status === s ? 'ring-2 ring-offset-1 ring-foreground scale-110' : 'opacity-50 hover:opacity-100'}`}
-                          style={{ backgroundColor: s === 'free' ? '#22C55E' : s === 'occupied' ? '#EF4444' : '#F59E0B' }}
-                          title={STATUS_LABELS[s]}
+                          style={{ backgroundColor: s === 'free' ? '#22C55E' : '#EF4444' }}
+                          title={s === 'free' ? 'Libre' : s === 'occupied' ? 'Ocupada' : 'Pidió la cuenta'}
                           onClick={(e) => {
                             e.stopPropagation();
                             if (table.status !== s) changeTableStatus.mutate({ tableId: table.id, status: s });

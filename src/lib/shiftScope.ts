@@ -26,3 +26,52 @@ export function getOrdersCutoff(activeShift?: { opened_at?: string | null; creat
   return new Date(earliest).toISOString();
 }
 
+const AR_TZ = 'America/Argentina/Buenos_Aires';
+
+type ShiftLike = { shift_date?: string | null; opened_at?: string | null; closed_at?: string | null } | null | undefined;
+
+/**
+ * Fecha (YYYY-MM-DD, hora Argentina) que le corresponde al turno: la de su apertura.
+ * Un turno que abre 22:00 y cierra 02:00 pertenece al día en que se abrió la caja.
+ */
+export function getShiftDisplayDate(shift: ShiftLike): string | null {
+  if (!shift) return null;
+  if (shift.opened_at) return toArgDate(shift.opened_at);
+  return shift.shift_date ?? null;
+}
+
+/** Fecha del turno formateada dd/mm/aaaa según la apertura. */
+export function formatShiftDate(shift: ShiftLike): string {
+  const d = getShiftDisplayDate(shift);
+  if (!d) return '-';
+  return new Date(d + 'T12:00:00').toLocaleDateString('es');
+}
+
+function argTime(iso?: string | null): string {
+  if (!iso) return '-';
+  return new Date(iso).toLocaleTimeString('es', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: AR_TZ,
+  });
+}
+
+/** Rango horario del turno, marcando cuando el cierre cae en el día siguiente. */
+export function formatShiftRange(shift: ShiftLike): string {
+  if (!shift) return '-';
+  const start = argTime(shift.opened_at);
+  const end = argTime(shift.closed_at);
+  let suffix = '';
+  if (shift.opened_at && shift.closed_at) {
+    const openDay = toArgDate(shift.opened_at);
+    const closeDay = toArgDate(shift.closed_at);
+    if (openDay !== closeDay) {
+      const days = Math.round(
+        (new Date(closeDay + 'T12:00:00').getTime() - new Date(openDay + 'T12:00:00').getTime()) / 86400000,
+      );
+      suffix = days === 1 ? ' (+1 día)' : ` (+${days} días)`;
+    }
+  }
+  return `${start} → ${end}${suffix}`;
+}
+

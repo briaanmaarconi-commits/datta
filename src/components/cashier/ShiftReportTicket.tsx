@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { formatShiftDate, formatShiftRange } from '@/lib/shiftScope';
 
 export interface ShiftReportData {
   establishmentName?: string;
@@ -60,12 +60,10 @@ export function ShiftReportBody({ data, reprint }: { data: ShiftReportData; repr
         </p>
         {reprint && <p className="text-xs font-bold">*** REIMPRESIÓN ***</p>}
         <p className="text-xs">
-          Fecha: {format(new Date(data.shiftDate + 'T12:00:00'), 'dd/MM/yyyy', { locale: es })}
+          Fecha del turno: {formatShiftDate({ shift_date: data.shiftDate, opened_at: data.openedAt })}
         </p>
         <p className="text-xs">
-          Apertura: {data.openedAt ? format(new Date(data.openedAt), 'dd/MM HH:mm') : '-'}
-          {'   '}
-          Cierre: {data.closedAt ? format(new Date(data.closedAt), 'dd/MM HH:mm') : '-'}
+          Horario: {formatShiftRange({ opened_at: data.openedAt, closed_at: data.closedAt })}
         </p>
         {data.closedByName && <p className="text-xs">Cierra: {data.closedByName}</p>}
       </div>

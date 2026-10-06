@@ -5,8 +5,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Maximize, Minimize, Users, UtensilsCrossed, Clock } from 'lucide-react';
-
-const STATUS_LABELS: Record<string, string> = { free: 'Libre', occupied: 'Ocupada', billing: 'Cuenta' };
+import { getTableVisualState } from '@/lib/tableStatus';
+import TableStatusLegend from '@/components/shared/TableStatusLegend';
 
 export default function AdminMonitor() {
   const { establishmentId } = useAuth();
@@ -67,40 +67,6 @@ export default function AdminMonitor() {
     return () => document.removeEventListener('fullscreenchange', handler);
   }, []);
 
-  const getTableStyle = (table: any) => {
-    if (table.status === 'free') return {
-      bg: 'bg-gradient-to-br from-emerald-500/15 to-emerald-600/5',
-      border: 'border-emerald-500/40',
-      dot: 'bg-emerald-500',
-      text: 'text-emerald-700 dark:text-emerald-400',
-      badge: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
-    };
-    const tableOrders = activeOrders.filter(o => o.table_id === table.id);
-    const hasPreparingOrNew = tableOrders.some(o => o.status === 'new' || o.status === 'preparing');
-    if (hasPreparingOrNew) return {
-      bg: 'bg-gradient-to-br from-amber-500/15 to-amber-600/5',
-      border: 'border-amber-500/40',
-      dot: 'bg-amber-500 animate-pulse',
-      text: 'text-amber-700 dark:text-amber-400',
-      badge: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20',
-    };
-    return {
-      bg: 'bg-gradient-to-br from-red-500/15 to-red-600/5',
-      border: 'border-red-500/40',
-      dot: 'bg-red-500',
-      text: 'text-red-700 dark:text-red-400',
-      badge: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20',
-    };
-  };
-
-  const getTableStatusLabel = (table: any) => {
-    if (table.status === 'free') return 'Libre';
-    const tableOrders = activeOrders.filter(o => o.table_id === table.id);
-    const hasPreparingOrNew = tableOrders.some(o => o.status === 'new' || o.status === 'preparing');
-    if (hasPreparingOrNew) return 'Preparando';
-    if (table.status === 'billing') return 'Cuenta';
-    return 'Ocupada';
-  };
 
   const occupied = tables.filter(t => t.status !== 'free').length;
   const preparing = tables.filter(t => {
@@ -123,19 +89,19 @@ export default function AdminMonitor() {
   });
 
   const renderTable = (table: any) => {
-    const style = getTableStyle(table);
+    const style = getTableVisualState(table, activeOrders.filter(order => order.table_id === table.id));
     return (
       <div
         key={table.id}
-        className={`relative rounded-xl border-2 ${style.bg} ${style.border} p-4 transition-all duration-300 hover:scale-[1.03] hover:shadow-lg cursor-default`}
+        className={`relative rounded-md border-2 ${style.cardClass} p-4 transition-all duration-300 hover:shadow-lg cursor-default`}
       >
         <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5">
-          <span className={`h-2 w-2 rounded-full ${style.dot}`} />
+          <span className={`h-2 w-2 rounded-full ${style.dotClass}`} />
         </div>
         <div className="space-y-2">
-          <div className={`text-2xl font-bold font-display ${style.text}`}>{table.number}</div>
-          <Badge variant="outline" className={`text-[10px] font-medium px-2 py-0.5 ${style.badge}`}>
-            {getTableStatusLabel(table)}
+          <div className={`text-2xl font-bold font-display ${style.textClass}`}>{table.number}</div>
+          <Badge variant="outline" className={`text-[10px] font-medium px-2 py-0.5 ${style.badgeClass}`}>
+            {style.label}
           </Badge>
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Users className="h-3 w-3" />
@@ -160,6 +126,8 @@ export default function AdminMonitor() {
           </Button>
         </div>
       </div>
+
+      <TableStatusLegend />
 
       {/* Stats bar */}
       <div className="grid grid-cols-3 gap-3">

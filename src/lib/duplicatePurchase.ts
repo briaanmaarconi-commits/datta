@@ -75,8 +75,13 @@ export async function findSimilarPurchases(params: {
     out.push({ id: p.id, source: 'stock', label: p.supplier, date: p.invoice_date, amount: Number(p.total) });
   });
 
+  // Al editar una compra, su propio gasto espejo automático ("Compra: proveedor…") no es un duplicado
+  const isOwnMirror = (desc: string) =>
+    !!params.excludePurchaseId && norm(desc).startsWith(norm(`Compra: ${supplier}`));
+
   (txs ?? []).forEach((t: any) => {
     if (params.excludeTransactionId && t.id === params.excludeTransactionId) return;
+    if (isOwnMirror(t.description || '')) return;
     if (!sameAmount(Number(t.amount), amount)) return;
     if (!namesMatch(t.description || '', supplier)) return;
     out.push({

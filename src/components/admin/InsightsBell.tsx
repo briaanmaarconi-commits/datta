@@ -156,7 +156,7 @@ export default function InsightsBell() {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
+          <Bell className="h-5 w-5 text-[#EA580C]" />
           {unread > 0 && (
             <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
               {unread > 9 ? '9+' : unread}
@@ -172,11 +172,11 @@ export default function InsightsBell() {
           </div>
           <div className="flex items-center gap-1">
             <Button size="sm" variant="ghost" onClick={runAnalysisNow} disabled={running} title="Analizar ahora">
-              <Sparkles className="h-4 w-4" />
+              <Sparkles className="h-4 w-4 text-[#EA580C]" />
             </Button>
             {unread > 0 && (
               <Button size="sm" variant="ghost" onClick={markAllRead} title="Marcar todas como leídas">
-                <CheckCheck className="h-4 w-4" />
+                <CheckCheck className="h-4 w-4 text-[#EA580C]" />
               </Button>
             )}
           </div>

@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Lightbulb, TrendingUp, ShoppingCart } from 'lucide-react';
+import { useShowMore, ShowMoreButton } from '@/components/ui/show-more';
 
 export default function SuggestionsTab() {
   const { establishmentId } = useAuth();
@@ -53,6 +54,7 @@ export default function SuggestionsTab() {
     .sort((a, b) => a.daysOfStock - b.daysOfStock);
 
   const needsBuying = suggestions.filter(s => s.daysOfStock < COVERAGE_DAYS);
+  const buyingList = useShowMore<any>(needsBuying, 8);
   const topConsumed = [...suggestions].sort((a, b) => b.totalConsumed - a.totalConsumed).slice(0, 5);
 
   return (
@@ -70,7 +72,7 @@ export default function SuggestionsTab() {
         <CardContent>
           {needsBuying.length > 0 ? (
             <div className="space-y-2">
-              {needsBuying.map(s => (
+              {buyingList.visible.map(s => (
                 <div key={s.id} className="flex items-center justify-between p-3 rounded border">
                   <div>
                     <span className="font-medium">{s.name}</span>
@@ -88,6 +90,7 @@ export default function SuggestionsTab() {
                   </div>
                 </div>
               ))}
+              <ShowMoreButton hiddenCount={buyingList.hiddenCount} expanded={buyingList.expanded} onToggle={() => buyingList.setExpanded(!buyingList.expanded)} />
             </div>
           ) : (
             <p className="text-muted-foreground text-center py-4">

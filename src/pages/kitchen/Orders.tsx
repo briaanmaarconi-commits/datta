@@ -194,13 +194,17 @@ export default function KitchenOrders() {
 
 
   const buildTicket = (order: any, reprint = false): KitchenTicketData => {
-    const isAddition = orders.some(
+    const isDelivery = order.channel === 'delivery';
+    const isAddition = !isDelivery && !!order.table_id && orders.some(
       (o: any) => o.table_id === order.table_id && new Date(o.created_at) < new Date(order.created_at)
     );
     return {
       establishmentName: establishment?.name,
-      tableNumber: order.tables?.number,
-      sectorName: order.tables?.sectors?.name ?? null,
+      tableNumber: isDelivery ? null : order.tables?.number,
+      isDelivery,
+      platform: isDelivery ? (order.external_platform ?? null) : null,
+      customerName: isDelivery ? (order.customer_name ?? null) : null,
+      sectorName: isDelivery ? null : (order.tables?.sectors?.name ?? null),
       createdAt: order.created_at,
       isAddition,
       reprint,

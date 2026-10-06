@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import FloatingCalculator from '@/components/cashier/FloatingCalculator';
 import { useDeliverySettings } from '@/hooks/useDeliverySettings';
 import { Bike } from 'lucide-react';
+import SectionHelp from '@/components/shared/SectionHelp';
+import { usePrivateTheme } from '@/hooks/usePrivateTheme';
 
 const operationItems = [
   { title: 'Mesas', url: '/cashier', icon: Grid3X3 },
@@ -26,7 +28,7 @@ const managementItems = [
   { title: 'Mesas y sectores', url: '/cashier/tables-config', icon: LayoutGrid },
   { title: 'Personal', url: '/cashier/staff', icon: Users },
   { title: 'Caja', url: '/cashier/cash', icon: Wallet },
-  { title: 'Costos', url: '/cashier/costs', icon: Calculator },
+  { title: 'Precios y márgenes', url: '/cashier/costs', icon: Calculator },
   { title: 'Stock', url: '/cashier/stock', icon: Package },
   { title: 'Auditoría', url: '/cashier/audit', icon: ScrollText },
 ];
@@ -44,10 +46,8 @@ function SidebarNav() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="p-4">
-        {!collapsed && (
-          <h1 className="text-2xl font-bold tracking-tight text-sidebar-primary">datta</h1>
-        )}
+      <SidebarHeader className="border-b border-sidebar-border p-5">
+        {collapsed ? <span className="font-display text-xl font-bold text-sidebar-primary">d</span> : <h1 className="workspace-brand">datta</h1>}
       </SidebarHeader>
       <SidebarContent>
         {[{ label: 'Operación', items: opItems }, { label: 'Gestión', items: managementItems }].map(group => (
@@ -81,16 +81,18 @@ function SidebarNav() {
 }
 
 export default function CashierLayout({ children }: { children: React.ReactNode }) {
+  usePrivateTheme();
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="workspace-shell flex min-h-screen w-full">
         <SidebarNav />
         <div className="flex-1 flex flex-col">
-          <header className="h-14 flex items-center border-b px-4 bg-card">
+          <header className="workspace-header">
             <SidebarTrigger />
             <span className="ml-3 text-sm font-medium text-muted-foreground">Caja</span>
+            <span className="ml-2 flex items-center"><SectionHelp /></span>
           </header>
-          <main className="flex-1 p-6">{children}</main>
+          <main className="workspace-main">{children}</main>
         </div>
       </div>
       <FloatingCalculator />

@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState } from 'react';
+import { useShowMore, ShowMoreButton } from '@/components/ui/show-more';
 
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   entry: { label: 'Entrada', color: 'bg-green-500/20 text-green-700 border-green-500/30' },
@@ -29,6 +30,8 @@ export default function StockHistoryTab() {
     },
     enabled: !!establishmentId,
   });
+
+  const movementsList = useShowMore<any>(movements, 15);
 
   return (
     <div className="space-y-4">
@@ -58,7 +61,7 @@ export default function StockHistoryTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {movements.map((m: any) => {
+            {movementsList.visible.map((m: any) => {
               const t = TYPE_LABELS[m.type] || { label: m.type, color: '' };
               return (
                 <TableRow key={m.id}>
@@ -77,6 +80,7 @@ export default function StockHistoryTab() {
             )}
           </TableBody>
         </Table>
+        <ShowMoreButton hiddenCount={movementsList.hiddenCount} expanded={movementsList.expanded} onToggle={() => movementsList.setExpanded(!movementsList.expanded)} />
       </div>
     </div>
   );

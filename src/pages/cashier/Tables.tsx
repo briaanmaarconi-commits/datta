@@ -42,14 +42,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-
-const STATUS_COLORS: Record<string, string> = {
-  free: 'bg-green-500/20 border-green-500 text-green-700',
-  occupied: 'bg-red-500/20 border-red-500 text-red-700',
-  billing: 'bg-yellow-500/20 border-yellow-500 text-yellow-700',
-};
-const STATUS_LABELS: Record<string, string> = { free: 'Libre', occupied: 'Ocupada', billing: 'En preparación' };
+import { getTableVisualState } from '@/lib/tableStatus';
+import TableStatusLegend from '@/components/shared/TableStatusLegend';
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'Efectivo', icon: Banknote },
@@ -102,6 +96,22 @@ export default function CashierTables() {
     enabled: !!establishmentId,
   });
 
+  const { data: activeTableOrders = [] } = useQuery({
+    queryKey: ['cashier-active-table-orders', establishmentId, ordersCutoff],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('id, table_id, status')
+        .eq('establishment_id', establishmentId!)
+        .neq('channel', 'delivery')
+        .in('status', ['new', 'preparing', 'ready', 'delivered'])
+        .gte('created_at', ordersCutoff);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!establishmentId,
+  });
+
   const { data: establishment } = useQuery({
     queryKey: ['establishment-name', establishmentId],
     queryFn: async () => {
@@ -118,6 +128,9 @@ export default function CashierTables() {
       .channel('cashier-tables-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tables', filter: `establishment_id=eq.${establishmentId}` }, () => {
         queryClient.invalidateQueries({ queryKey: ['tables', establishmentId] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `establishment_id=eq.${establishmentId}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['cashier-active-table-orders', establishmentId] });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -682,11 +695,15 @@ export default function CashierTables() {
         </Alert>
       )}
 
+      <TableStatusLegend />
+
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        {tables.map(table => (
+        {tables.map(table => {
+          const visualState = getTableVisualState(table, activeTableOrders.filter(order => order.table_id === table.id));
+          return (
           <Card
             key={table.id}
-            className={`cursor-pointer border-2 transition-all hover:shadow-md ${STATUS_COLORS[table.status]}`}
+            className={`cursor-pointer border-2 transition-all hover:shadow-md ${visualState.cardClass}`}
             onClick={() => {
               if (!isShiftOpen) {
                 toast.error('No hay turno abierto. Abrí un turno primero.');
@@ -703,10 +720,11 @@ export default function CashierTables() {
           >
             <CardContent className="p-4 text-center">
               <div className="text-2xl font-bold">{table.number}</div>
-              <Badge variant="outline" className="mt-1">{STATUS_LABELS[table.status]}</Badge>
+              <Badge variant="outline" className="mt-1">{visualState.label}</Badge>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
 
       <Dialog open={!!selectedTable} onOpenChange={v => { if (!v) { setSelectedTable(null); setAmountPaid(''); setTipAmount(''); setTipWaiterId(''); setAdjustments([]); setExcludedItemIds([]); setZeroReason(''); } }}>

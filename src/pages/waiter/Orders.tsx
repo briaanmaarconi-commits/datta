@@ -79,6 +79,8 @@ export default function WaiterOrders() {
         .from('orders')
         .select('*, tables(number), order_items(*, products(name))')
         .eq('establishment_id', establishmentId!)
+        // Los pedidos de delivery no son de mesas: los gestiona caja
+        .neq('channel', 'delivery')
         .in('status', ['new', 'preparing', 'ready', 'delivered'])
         .order('created_at', { ascending: false })
         .limit(50);
