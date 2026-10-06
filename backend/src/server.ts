@@ -19,6 +19,7 @@ import { registerAfipInvoice } from "./fn/afipInvoice.js";
 import { registerAiFunctions } from "./fn/ai.js";
 import { registerChat } from "./fn/chat.js";
 import { startCron } from "./cron.js";
+import { registerWeb } from "./web.js";
 
 export async function buildApp() {
   const app = Fastify({ logger: true, bodyLimit: 25 * 1024 * 1024, trustProxy: true });
@@ -63,6 +64,8 @@ export async function buildApp() {
   await registerAiFunctions(app);
   await registerChat(app);
   await registerRealtime(app);
+
+  await registerWeb(app);
 
   await loadCatalog();
   return app;
