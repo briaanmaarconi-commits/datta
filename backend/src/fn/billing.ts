@@ -207,10 +207,13 @@ export async function registerBilling(app: FastifyInstance) {
     const b = z.object({ amount: z.number().positive().max(100_000_000), establishment_id: uuid.optional(), apply_to_all: z.boolean().default(false) }).safeParse(req.body);
     if (!b.success) return fail(reply, 400, "Precio inválido");
     return withDb(SERVICE, async (c) => {
-      await c.query(
-        `INSERT INTO public.app_settings (key, value) VALUES ('plan_price', to_jsonb($1::numeric)) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
-        [b.data.amount],
-      );
+      // el precio del plan (para clientes nuevos) solo cambia cuando no se está editando a un cliente puntual
+      if (!b.data.establishment_id) {
+        await c.query(
+          `INSERT INTO public.app_settings (key, value) VALUES ('plan_price', to_jsonb($1::numeric)) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+          [b.data.amount],
+        );
+      }
       if (!b.data.establishment_id) await c.query(`UPDATE public.client_plans SET price = $1 WHERE is_active`, [b.data.amount]);
       const targets = b.data.establishment_id
         ? (await c.query(`SELECT id, mp_preapproval_id, mp_status FROM public.establishments WHERE id = $1`, [b.data.establishment_id])).rows

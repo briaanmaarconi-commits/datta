@@ -318,7 +318,13 @@ describe("Mercado Pago", () => {
     const put = mpCalls.find((c) => c.method === "PUT" && c.url === "/preapproval/pre-1")!;
     expect(put.body.auto_recurring.transaction_amount).toBe(65000);
     expect(Number((await owner.query(`SELECT agreed_price FROM public.establishments WHERE id = $1`, [ids.est])).rows[0].agreed_price)).toBe(65000);
-    expect(Number((await owner.query(`SELECT value FROM public.app_settings WHERE key = 'plan_price'`)).rows[0].value)).toBe(65000);
+    // un cambio puntual no toca el precio del plan
+    expect(Number((await owner.query(`SELECT value FROM public.app_settings WHERE key = 'plan_price'`)).rows[0].value)).not.toBe(65000);
+    // aplicar a todos sí
+    const all = await call("superU", "/api/fn/billing/update-price", { amount: 70000, apply_to_all: true });
+    expect(all.json().updated).toBeGreaterThanOrEqual(1);
+    expect(Number((await owner.query(`SELECT value FROM public.app_settings WHERE key = 'plan_price'`)).rows[0].value)).toBe(70000);
+    expect(mpState.preapprovals["pre-1"].auto_recurring.transaction_amount).toBe(70000);
   });
 
   it("cancelar la suscripción la cancela en MP", async () => {

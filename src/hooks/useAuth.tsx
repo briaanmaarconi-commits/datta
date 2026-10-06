@@ -4,6 +4,15 @@ import type { Database } from '@/lib/dbTypes';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
+export interface ServiceInfo {
+  status: 'trial' | 'active' | 'past_due' | 'suspended' | 'cancelled';
+  nextDueDate: string | null;
+  trialEndsAt: string | null;
+  overdueDays: number;
+  daysToSuspension: number | null;
+  payUrl: string | null;
+}
+
 export interface AuthUser {
   id: string;
   email: string | null;
@@ -19,6 +28,10 @@ interface AuthState {
   session: AuthSession | null;
   role: AppRole | null;
   establishmentId: string | null;
+  /** Estado de la suscripción del local (aviso de mora / prueba gratis). */
+  service: ServiceInfo | null;
+  /** Mensaje si el servicio del local fue suspendido y la sesión se cerró. */
+  blockedMessage: string | null;
   loading: boolean;
   roleLoading: boolean;
 }
@@ -36,22 +49,27 @@ const SIGNED_OUT: AuthState = {
   session: null,
   role: null,
   establishmentId: null,
+  service: null,
+  blockedMessage: null,
   loading: false,
   roleLoading: false,
 };
 
 interface MeResponse {
-  user: { id: string; email: string | null; role: AppRole | null; establishmentId: string | null } | null;
+  user: { id: string; email: string | null; role: AppRole | null; establishmentId: string | null; service?: ServiceInfo | null } | null;
+  blocked?: { reason: string; message: string } | null;
 }
 
 function toState(me: MeResponse): AuthState {
-  if (!me.user) return SIGNED_OUT;
+  if (!me.user) return { ...SIGNED_OUT, blockedMessage: me.blocked?.message ?? null };
   const user = { id: me.user.id, email: me.user.email };
   return {
     user,
     session: { user },
     role: me.user.role,
     establishmentId: me.user.establishmentId,
+    service: me.user.service ?? null,
+    blockedMessage: null,
     loading: false,
     roleLoading: false,
   };
@@ -73,7 +91,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void loadMe();
     // Si el backend responde 401 (sesión vencida/revocada) volvemos al login.
-    const onUnauthorized = () => setState((prev) => (prev.user ? SIGNED_OUT : prev));
+    const onUnauthorized = () => {
+      setState((prev) => (prev.user ? SIGNED_OUT : prev));
+      void loadMe(); // si fue por suspensión del servicio, /me trae el mensaje para mostrarlo en el login
+    };
     window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
   }, [loadMe]);

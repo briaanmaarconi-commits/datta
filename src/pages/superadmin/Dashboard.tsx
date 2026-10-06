@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { db } from '@/lib/db';
+import { billing, type BillingOverview } from '@/lib/billingApi';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2, DollarSign, TrendingUp, Users, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -37,23 +38,18 @@ export default function SuperAdminDashboard() {
     },
   });
 
-  const activeClients = establishments.filter((e: any) => e.is_active && e.service_status === 'active').length;
+  const { data: overview } = useQuery({ queryKey: ['billing-overview'], queryFn: () => billing<BillingOverview>('overview') });
+  const activeClients = overview ? overview.totals.counts.active + overview.totals.counts.trial : 0;
   const totalClients = establishments.length;
-  const mrr = establishments
-    .filter((e: any) => e.is_active && e.service_status === 'active')
-    .reduce((s: number, e: any) => s + Number(e.agreed_price || 0), 0);
+  const mrr = overview?.totals.mrr ?? 0;
 
   const totalIncome = transactions.filter((t: any) => t.type === 'income').reduce((s: number, t: any) => s + Number(t.amount), 0);
   const totalExpense = transactions.filter((t: any) => t.type === 'expense').reduce((s: number, t: any) => s + Number(t.amount), 0);
   const margin = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome * 100) : 0;
 
   // Morosidad: active clients without payment for current month
-  const currentMonth = new Date().getMonth() + 1;
-  const currentYear = new Date().getFullYear();
-  const activeEstablishments = establishments.filter((e: any) => e.is_active && e.service_status === 'active');
-  const overdueClients = activeEstablishments.filter((e: any) =>
-    !allPayments.some((p: any) => p.establishment_id === e.id && p.period_month === currentMonth && p.period_year === currentYear)
-  );
+  const overdueClients = (overview?.clients ?? []).filter((c) => c.effective_status === 'past_due');
+  void allPayments;
 
   // Plans distribution
   const planMap: Record<string, number> = {};
@@ -177,13 +173,13 @@ export default function SuperAdminDashboard() {
                 <div key={e.id} className="flex items-center justify-between p-2 rounded-md bg-destructive/10">
                   <div>
                     <span className="font-medium">{e.name}</span>
-                    <span className="text-sm text-muted-foreground ml-2">{e.client_plans?.name || 'Sin plan'} — ${Number(e.agreed_price || 0).toLocaleString('es-AR')}/mes</span>
+                    <span className="text-sm text-muted-foreground ml-2">${Number(e.agreed_price || 0).toLocaleString('es-AR')}/mes — {e.overdue_days} días de atraso, se suspende en {e.days_to_suspension} días</span>
                   </div>
-                  <Badge variant="destructive">Pendiente</Badge>
+                  <Badge variant="destructive">Vencido</Badge>
                 </div>
               ))}
             </div>
-            <button onClick={() => navigate('/superadmin/clients')} className="text-sm text-primary mt-3 hover:underline">Ver todos los clientes →</button>
+            <button onClick={() => navigate('/superadmin/billing')} className="text-sm text-primary mt-3 hover:underline">Ir a Cobranzas →</button>
           </CardContent>
         </Card>
       )}

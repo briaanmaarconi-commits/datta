@@ -24,6 +24,7 @@ import SuperAdminAnalytics from "./pages/superadmin/Analytics";
 import SuperAdminMonitor from "./pages/superadmin/Monitor";
 import SuperAdminCash from "./pages/superadmin/Cash";
 import SuperAdminPlans from "./pages/superadmin/Plans";
+import SuperAdminBilling from "./pages/superadmin/Billing";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminMenu from "./pages/admin/Menu";
 import AdminTables from "./pages/admin/Tables";
@@ -76,6 +77,7 @@ const App = () => (
           {/* Super Admin / Datta */}
           <Route path="/superadmin" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminDashboard /></SuperAdminLayout></ProtectedRoute>} />
           <Route path="/superadmin/clients" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminClients /></SuperAdminLayout></ProtectedRoute>} />
+          <Route path="/superadmin/billing" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminBilling /></SuperAdminLayout></ProtectedRoute>} />
           <Route path="/superadmin/users" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminUsers /></SuperAdminLayout></ProtectedRoute>} />
           <Route path="/superadmin/monitor" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminMonitor /></SuperAdminLayout></ProtectedRoute>} />
           <Route path="/superadmin/analytics" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminAnalytics /></SuperAdminLayout></ProtectedRoute>} />

@@ -14,9 +14,11 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
+import SubscriptionPanel from '@/components/superadmin/SubscriptionPanel';
+import { billing, type BillingOverview } from '@/lib/billingApi';
 
-const SERVICE_LABELS: Record<string, string> = { active: 'Activo', suspended: 'Suspendido', cancelled: 'Cancelado' };
-const SERVICE_BADGE: Record<string, 'default' | 'secondary' | 'destructive'> = { active: 'default', suspended: 'secondary', cancelled: 'destructive' };
+const SERVICE_LABELS: Record<string, string> = { trial: 'Prueba gratis', active: 'Al día', past_due: 'Vencido', suspended: 'Suspendido', cancelled: 'Cancelado' };
+const SERVICE_BADGE: Record<string, 'default' | 'secondary' | 'destructive'> = { trial: 'secondary', active: 'default', past_due: 'destructive', suspended: 'destructive', cancelled: 'destructive' };
 const PAYMENT_METHODS: Record<string, string> = { transfer: 'Transferencia', cash: 'Efectivo', card: 'Tarjeta', check: 'Cheque', other: 'Otro' };
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
@@ -93,7 +95,8 @@ export default function SuperAdminClients() {
 
   const createPayment = useMutation({
     mutationFn: async () => {
-      const { error } = await db.from('client_payments').insert({
+      // El backend registra el pago, deja al cliente al día, corre el vencimiento y lo anota en Caja Datta.
+      await billing('register-payment', {
         establishment_id: paymentEstId!,
         amount: Number(payForm.amount),
         payment_method: payForm.payment_method,
@@ -101,12 +104,7 @@ export default function SuperAdminClients() {
         period_year: Number(payForm.period_year),
         payment_date: payForm.payment_date,
         notes: payForm.notes || null,
-        created_by: user?.id || null,
       });
-      if (error) {
-        if (error.code === '23505') throw new Error('Ya existe un pago registrado para ese período');
-        throw error;
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sa-client-payments'] });
@@ -156,6 +154,8 @@ export default function SuperAdminClients() {
     (e.city || '').toLowerCase().includes(search.toLowerCase())
   );
 
+  const { data: billingOverview } = useQuery({ queryKey: ['billing-overview'], queryFn: () => billing<BillingOverview>('overview') });
+  const billingDetail = detailId ? billingOverview?.clients.find((c) => c.id === detailId) ?? null : null;
   const detail = detailId ? establishments.find((e: any) => e.id === detailId) : null;
   const detailPayments = detailId ? allPayments.filter((p: any) => p.establishment_id === detailId) : [];
 
@@ -293,8 +293,9 @@ export default function SuperAdminClients() {
           <DialogHeader><DialogTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" />{(detail as any)?.name}</DialogTitle></DialogHeader>
           {detail && (
             <Tabs defaultValue="info">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="info">Información</TabsTrigger>
+                <TabsTrigger value="subscription">Suscripción</TabsTrigger>
                 <TabsTrigger value="payments">Pagos</TabsTrigger>
               </TabsList>
               <TabsContent value="info" className="space-y-4">
@@ -310,6 +311,11 @@ export default function SuperAdminClients() {
                   <div><span className="text-muted-foreground">Estado:</span> <Badge variant={SERVICE_BADGE[(detail as any).service_status] || 'secondary'}>{SERVICE_LABELS[(detail as any).service_status] || (detail as any).service_status}</Badge></div>
                   <div><span className="text-muted-foreground">Mes actual:</span> {isCurrentMonthPaid(detailId!) ? <Badge variant="default" className="bg-green-600">Pagado</Badge> : <Badge variant="destructive">Pendiente</Badge>}</div>
                 </div>
+              </TabsContent>
+              <TabsContent value="subscription">
+                {billingDetail && billingOverview ? (
+                  <SubscriptionPanel key={billingDetail.id} client={billingDetail} mpEnabled={billingOverview.mp_enabled} />
+                ) : <p className="text-sm text-muted-foreground py-4">Cargando…</p>}
               </TabsContent>
               <TabsContent value="payments">
                 <div className="flex justify-end mb-3">

@@ -9,7 +9,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const invalidSessionHandled = useRef(false);
-  const { user, role, loading, roleLoading, signIn, signOut, getRoleRedirectPath } = useAuth();
+  const { user, role, loading, roleLoading, signIn, signOut, getRoleRedirectPath, blockedMessage } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,6 +26,11 @@ export default function Login() {
     }
   }, [user, role, loading, roleLoading, navigate, signOut, getRoleRedirectPath]);
 
+  // si el servicio del local se suspendió mientras estaba la sesión abierta, se avisa al volver al login
+  useEffect(() => {
+    if (blockedMessage) toast.error(blockedMessage, { duration: 10000 });
+  }, [blockedMessage]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -33,7 +38,7 @@ export default function Login() {
     setIsLoading(false);
 
     if (error) {
-      toast.error('Credenciales incorrectas');
+      toast.error((error as Error)?.message || 'Credenciales incorrectas');
     }
   };
 

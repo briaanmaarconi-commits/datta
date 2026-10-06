@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Users, BarChart3, LogOut, Monitor, Wallet, CreditCard } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, BarChart3, LogOut, Monitor, Wallet, CreditCard, Receipt } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,6 +13,7 @@ import { usePrivateTheme } from '@/hooks/usePrivateTheme';
 const items = [
   { title: 'Dashboard', url: '/superadmin', icon: LayoutDashboard },
   { title: 'Clientes', url: '/superadmin/clients', icon: Building2 },
+  { title: 'Cobranzas', url: '/superadmin/billing', icon: Receipt },
   { title: 'Usuarios', url: '/superadmin/users', icon: Users },
   { title: 'Monitoreo', url: '/superadmin/monitor', icon: Monitor },
   { title: 'Analíticas', url: '/superadmin/analytics', icon: BarChart3 },

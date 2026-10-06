@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import ChatBot from '@/components/admin/ChatBot';
 import InsightsBell from '@/components/admin/InsightsBell';
 import SectionHelp from '@/components/shared/SectionHelp';
+import ServiceBanner from '@/components/shared/ServiceBanner';
 import { usePrivateTheme } from '@/hooks/usePrivateTheme';
 
 const items = [
@@ -152,6 +153,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="workspace-shell flex min-h-screen w-full">
         <SidebarNav />
         <div className="flex-1 flex flex-col">
+          <ServiceBanner />
           <header className="workspace-header">
             <SidebarTrigger />
             <span className="ml-3 text-sm font-medium text-muted-foreground">Admin</span>
