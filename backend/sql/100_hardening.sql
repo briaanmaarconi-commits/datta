@@ -29,9 +29,11 @@ DROP POLICY IF EXISTS "Anyone can view product reviews" ON public.product_review
 DROP POLICY IF EXISTS "Anyone can view waiter reviews" ON public.waiter_reviews;
 DROP POLICY IF EXISTS "Public can view active establishment basic info" ON public.establishments;
 
+DROP POLICY IF EXISTS "Staff can view establishment product reviews" ON public.product_reviews;
 CREATE POLICY "Staff can view establishment product reviews" ON public.product_reviews
   FOR SELECT TO authenticated
   USING (establishment_id = public.get_user_establishment(auth.uid()));
+DROP POLICY IF EXISTS "Staff can view establishment waiter reviews" ON public.waiter_reviews;
 CREATE POLICY "Staff can view establishment waiter reviews" ON public.waiter_reviews
   FOR SELECT TO authenticated
   USING (establishment_id = public.get_user_establishment(auth.uid()));
@@ -95,11 +97,14 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE r record; est uuid; payload jsonb;
 BEGIN
   IF TG_OP = 'DELETE' THEN r := OLD; ELSE r := NEW; END IF;
-  est := CASE TG_TABLE_NAME
-    WHEN 'order_items' THEN (SELECT o.establishment_id FROM public.orders o WHERE o.id = r.order_id)
-    WHEN 'product_recipes' THEN (SELECT p.establishment_id FROM public.products p WHERE p.id = r.product_id)
-    ELSE r.establishment_id
-  END;
+  -- IF/ELSIF (no CASE): plpgsql resuelve los campos de r al planificar toda la expresión.
+  IF TG_TABLE_NAME = 'order_items' THEN
+    SELECT o.establishment_id INTO est FROM public.orders o WHERE o.id = r.order_id;
+  ELSIF TG_TABLE_NAME = 'product_recipes' THEN
+    SELECT p.establishment_id INTO est FROM public.products p WHERE p.id = r.product_id;
+  ELSE
+    est := r.establishment_id;
+  END IF;
   payload := jsonb_build_object('table', TG_TABLE_NAME, 'op', TG_OP, 'id', r.id, 'est', est);
   IF TG_TABLE_NAME = 'waiter_calls' AND TG_OP = 'INSERT' THEN
     payload := payload || jsonb_build_object('new', to_jsonb(NEW));
