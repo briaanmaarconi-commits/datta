@@ -24,8 +24,9 @@ const schema = z.object({
   AI_PROVIDER: z.enum(["auto", "anthropic", "gemini"]).default("auto"),
   ANTHROPIC_API_KEY: z.string().default(""),
   GEMINI_API_KEY: z.string().default(""),
-  // Modelo para todo cuando el proveedor es Gemini (gemini-flash-latest = Flash vigente, con cuota gratuita)
-  GEMINI_MODEL: z.string().default("gemini-flash-latest"),
+  // Modelos Gemini en orden de preferencia, separados por coma. La capa gratuita da una cuota diaria chica POR MODELO
+  // (p. ej. 20 pedidos/día), así que si uno se agota o no está disponible se pasa automáticamente al siguiente.
+  GEMINI_MODEL: z.string().default("gemini-3.5-flash,gemini-3.1-flash-lite,gemini-3.6-flash,gemini-3-flash-preview,gemini-flash-latest,gemini-flash-lite-latest"),
   AI_MODEL_CHAT: z.string().default("claude-sonnet-5-5"),
   AI_MODEL_PARSE: z.string().default("claude-sonnet-5-5"),
   AI_MODEL_ANALYSIS: z.string().default("claude-haiku-4-5-20251001"),

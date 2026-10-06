@@ -3,7 +3,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 process.env.AI_PROVIDER = "gemini";
 process.env.GEMINI_API_KEY = "test-key";
 process.env.ANTHROPIC_API_KEY = "";
-process.env.GEMINI_MODEL = "gemini-test";
+process.env.GEMINI_MODEL = "gemini-test,gemini-test2";
 
 const ai = await import("../src/ai.js");
 
@@ -69,7 +69,7 @@ describe("generateText / generateFromDocument (Gemini)", () => {
     expect(calls[0].body.generationConfig.responseMimeType).toBe("application/json");
   });
   it("429 se traduce a un mensaje de cuota", async () => {
-    mockGemini([{ __status: 429, text: "Quota exceeded: GenerateRequestsPerDay" }]);
+    mockGemini([{ __status: 429, text: "Quota exceeded: GenerateRequestsPerDay" }, { __status: 429, text: "Quota exceeded: GenerateRequestsPerDay" }]);
     const e = await ai.generateText({ kind: "analysis", system: "s", prompt: "p", maxTokens: 10 }).catch((x) => x);
     const m = ai.aiErrorMessage(e, "fallback");
     expect(m.status).toBe(429);
@@ -126,5 +126,21 @@ describe("reintentos", () => {
     expect(await p).toBe("ok");
     expect(calls).toHaveLength(2);
     vi.useRealTimers();
+  });
+});
+
+describe("cadena de modelos", () => {
+  it("si el primer modelo agotó la cuota (429) pasa al siguiente y lo recuerda", async () => {
+    mockGemini([{ __status: 429, text: "quota" }, { candidates: [{ content: { parts: [{ text: "desde el 2" }] } }] }, { candidates: [{ content: { parts: [{ text: "otra vez el 2" }] } }] }]);
+    expect(await ai.generateText({ kind: "analysis", system: "s", prompt: "p", maxTokens: 10 })).toBe("desde el 2");
+    expect(calls[0].url).toContain("/models/gemini-test:");
+    expect(calls[1].url).toContain("/models/gemini-test2:");
+    // la siguiente consulta empieza directo por el que funcionó
+    expect(await ai.generateText({ kind: "analysis", system: "s", prompt: "p", maxTokens: 10 })).toBe("otra vez el 2");
+    expect(calls[2].url).toContain("/models/gemini-test2:");
+  });
+  it("un modelo retirado (404) también pasa al siguiente", async () => {
+    mockGemini([{ __status: 404, text: "not found" }, { candidates: [{ content: { parts: [{ text: "ok" }] } }] }]);
+    expect(await ai.generateText({ kind: "analysis", system: "s", prompt: "p", maxTokens: 10 })).toBe("ok");
   });
 });

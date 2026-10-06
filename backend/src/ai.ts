@@ -73,9 +73,32 @@ export function toGeminiSchema(s: any): any {
   return out;
 }
 
-async function geminiCall(model: string, body: unknown): Promise<any> {
+const geminiModels = () => env.GEMINI_MODEL.split(",").map((m) => m.trim()).filter(Boolean);
+let preferred = 0; // último modelo que respondió bien: se empieza por ahí la próxima vez
+
+/** Llama a Gemini probando los modelos configurados en orden; devuelve la respuesta del primero que funcione. */
+async function geminiCall(body: unknown): Promise<any> {
+  const models = geminiModels();
+  let lastError: unknown;
+  for (let n = 0; n < models.length; n++) {
+    const idx = (preferred + n) % models.length;
+    try {
+      const out = await geminiCallModel(models[idx], body);
+      preferred = idx;
+      return out;
+    } catch (e) {
+      lastError = e;
+      const st = (e as AiHttpError).status;
+      // cuota agotada (429), modelo retirado (404), no soportado (400) o caído (5xx): probar el siguiente
+      if (![429, 404, 400, 500, 503].includes(st)) throw e;
+    }
+  }
+  throw lastError;
+}
+
+async function geminiCallModel(model: string, body: unknown): Promise<any> {
   // La capa gratuita responde 503 (alta demanda) o 429 (cuota por minuto) de forma transitoria: se reintenta con espera.
-  const waits = [1500, 4000, 9000];
+  const waits = [1500, 4000];
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(`${GEMINI_BASE}/${encodeURIComponent(model)}:generateContent`, {
       method: "POST",
@@ -84,7 +107,7 @@ async function geminiCall(model: string, body: unknown): Promise<any> {
     });
     if (res.ok) return res.json();
     const detail = (await res.text()).slice(0, 400);
-    const retryable = res.status === 503 || res.status === 500 || (res.status === 429 && !/per day|PerDay/i.test(detail));
+    const retryable = res.status === 503 || res.status === 500;
     if (!retryable || attempt >= waits.length) throw new AiHttpError(res.status, `Gemini ${res.status}: ${detail}`);
     await new Promise((r) => setTimeout(r, waits[attempt]));
   }
@@ -110,7 +133,7 @@ export async function generateText(o: { kind: Kind; system: string; prompt: stri
     const r = await claude().messages.create({ model, max_tokens: o.maxTokens, system: o.system, messages: [{ role: "user", content: o.prompt }] });
     return textOfClaude(r);
   }
-  const r = await geminiCall(model, {
+  const r = await geminiCall({
     systemInstruction: { parts: [{ text: o.system }] },
     contents: [{ role: "user", parts: [{ text: o.prompt }] }],
     generationConfig: { maxOutputTokens: o.maxTokens + THINKING_HEADROOM },
@@ -134,7 +157,7 @@ export async function generateFromDocument(o: { kind: Kind; system: string; prom
     const r = await claude().messages.create({ model, max_tokens: o.maxTokens, system: o.system, messages: [{ role: "user", content }] });
     return textOfClaude(r);
   }
-  const r = await geminiCall(model, {
+  const r = await geminiCall({
     systemInstruction: { parts: [{ text: o.system }] },
     contents: [{ role: "user", parts: [{ inlineData: { mimeType: o.mime, data: o.base64 } }, { text: o.prompt }] }],
     generationConfig: { maxOutputTokens: o.maxTokens + THINKING_HEADROOM, responseMimeType: "application/json" },
@@ -162,7 +185,7 @@ export async function runToolChat(o: {
 }): Promise<string> {
   const p = provider();
   if (!p) throw new AiNotConfigured();
-  const model = modelFor(p, "chat");
+  const model = modelFor(p, "chat"); // (Gemini ignora este valor: usa su lista de modelos)
   let lastText = "";
 
   if (p === "anthropic") {
@@ -193,7 +216,7 @@ export async function runToolChat(o: {
     return { name: t.name, description: t.description, ...(hasProps ? { parameters: params } : {}) };
   });
   for (let round = 0; round < o.maxRounds; round++) {
-    const res = await geminiCall(model, {
+    const res = await geminiCall({
       systemInstruction: { parts: [{ text: o.system }] },
       contents,
       tools: [{ functionDeclarations }],
