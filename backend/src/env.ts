@@ -21,7 +21,11 @@ const schema = z.object({
   SECRETS_KEY: z.string().default(""),
   INTERNAL_CRON_SECRET: z.string().default(""),
 
+  AI_PROVIDER: z.enum(["auto", "anthropic", "gemini"]).default("auto"),
   ANTHROPIC_API_KEY: z.string().default(""),
+  GEMINI_API_KEY: z.string().default(""),
+  // Modelo para todo cuando el proveedor es Gemini (gemini-2.5-flash tiene cuota gratuita)
+  GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
   AI_MODEL_CHAT: z.string().default("claude-sonnet-5-5"),
   AI_MODEL_PARSE: z.string().default("claude-sonnet-5-5"),
   AI_MODEL_ANALYSIS: z.string().default("claude-haiku-4-5-20251001"),

@@ -1,7 +1,7 @@
 // Análisis diario con IA: por establecimiento compara ayer vs el mismo día de la semana pasada, detecta
 // anomalías y escribe filas en ai_insights. Port de la edge function ai-daily-analysis (los días se
 // calculan en horario de Argentina, no en UTC).
-import { ai, aiEnabled, textOf } from "../ai.js";
+import { aiEnabled, generateText } from "../ai.js";
 import { SERVICE, withDb } from "../db/pool.js";
 import { env } from "../env.js";
 import { artDayRange, addDays } from "../lib/time.js";
@@ -175,13 +175,12 @@ export async function analyzeEstablishment(establishmentId: string): Promise<Rec
           orders_yesterday: yCount, orders_prev: pCount,
           avg_ticket_yesterday: Math.round(yTicket), avg_ticket_prev: Math.round(pTicket),
         };
-        const res = await ai().messages.create({
-          model: env.AI_MODEL_ANALYSIS,
-          max_tokens: 200,
+        const text = await generateText({
+          kind: "analysis",
+          maxTokens: 400,
           system: "Sos un consultor de restaurantes en Argentina. Respondé en español rioplatense, máximo 2 oraciones, claro y accionable. No uses markdown ni listas.",
-          messages: [{ role: "user", content: `Datos de ayer vs misma fecha de la semana pasada: ${JSON.stringify(summary)}. Dame una recomendación concreta para el dueño.` }],
+          prompt: `Datos de ayer vs misma fecha de la semana pasada: ${JSON.stringify(summary)}. Dame una recomendación concreta para el dueño.`,
         });
-        const text = textOf(res);
         if (text) insights.push({ kind: "recommendation", severity: "info", category: "health", title: "Sugerencia de la IA", body: text, payload: summary });
       } catch (e) {
         console.error("AI recommendation failed", e);

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { ai, aiErrorMessage, aiEnabled, textOf } from "../ai.js";
+import { aiErrorMessage, aiEnabled, generateFromDocument } from "../ai.js";
 import { env } from "../env.js";
 import { runDailyAnalysis } from "../jobs/dailyAnalysis.js";
 import { runDailyReports } from "../jobs/dailyReport.js";
@@ -75,19 +75,14 @@ export async function registerAiFunctions(app: FastifyInstance) {
     const base64 = fileData.startsWith("data:") ? fileData.slice(fileData.indexOf(",") + 1) : fileData;
 
     try {
-      const content: any[] = [
-        isPdf
-          ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } }
-          : { type: "image", source: { type: "base64", media_type: mimeType, data: base64 } },
-        { type: "text", text: "Leé esta factura de compra y devolvé el JSON." },
-      ];
-      const res = await ai().messages.create({
-        model: env.AI_MODEL_PARSE,
-        max_tokens: 4096,
+      const raw = await generateFromDocument({
+        kind: "parse",
         system: SYSTEM_PARSE,
-        messages: [{ role: "user", content }],
+        prompt: "Leé esta factura de compra y devolvé el JSON.",
+        mime: mimeType,
+        base64,
+        maxTokens: 4096,
       });
-      const raw = textOf(res);
       const match = raw.match(/\{[\s\S]*\}/);
       if (!match) return fail(reply, 422, "No se pudo interpretar el comprobante. Cargalo a mano.");
       let parsed: any;

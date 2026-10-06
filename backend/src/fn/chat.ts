@@ -1,7 +1,6 @@
 import type { FastifyInstance } from "fastify";
-import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { ai, aiEnabled, aiErrorMessage } from "../ai.js";
+import { aiEnabled, aiErrorMessage, runToolChat, type NeutralTool } from "../ai.js";
 import { withDb, type DbContext } from "../db/pool.js";
 import { runQuery, type Filter, type QuerySpec } from "../db/queryEngine.js";
 import { env } from "../env.js";
@@ -14,11 +13,11 @@ import { fail, loadRoles, requireSession } from "./common.js";
 
 const nullable = (type: string, description: string) => ({ type: [type, "null"], description });
 
-const TOOLS: Anthropic.Tool[] = [
+const TOOLS: NeutralTool[] = [
   {
     name: "update_product",
     description: "Update one or more fields of a product (price, cost, tax, promo, availability, name, description). Use product name to find it first from context.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         product_id: { type: "string", description: "UUID of the product" },
@@ -43,7 +42,7 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "update_category",
     description: "Update a menu category (name, is_active, sort_order).",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         category_id: { type: "string", description: "UUID of the category" },
@@ -59,7 +58,7 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "bulk_update_prices",
     description: "Increase or decrease prices for all products in a category by a percentage.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         category_id: { type: "string", description: "UUID of the category (use 'all' for all products)" },
@@ -71,7 +70,7 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "toggle_product_availability",
     description: "Mark one or multiple products as available or unavailable.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         product_ids: { type: "array", items: { type: "string" }, description: "Array of product UUIDs" },
@@ -83,7 +82,7 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "update_table_status",
     description: "Change a table's status (free, occupied, billing).",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: { table_id: { type: "string", description: "UUID of the table" }, status: { type: "string", enum: ["free", "occupied", "billing"] } },
       required: ["table_id", "status"],
@@ -92,7 +91,7 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "create_product",
     description: "Create a new product in the menu.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         name: { type: "string" },
@@ -108,12 +107,12 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "create_category",
     description: "Create a new menu category.",
-    input_schema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] },
+    parameters: { type: "object", properties: { name: { type: "string" } }, required: ["name"] },
   },
   {
     name: "create_finance_transaction",
     description: "Registrar un movimiento financiero (ingreso o egreso): alquiler, sueldos, impuestos, servicios, marketing, invitaciones, otros ingresos, etc. Usá list_finance_categories o el contexto para obtener el category_id correcto. Si no existe la categoría, creala con create_finance_category.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         type: { type: "string", enum: ["income", "expense"], description: "income = ingreso, expense = egreso" },
@@ -128,7 +127,7 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "update_finance_transaction",
     description: "Modificar un movimiento financiero existente (cambiar monto, descripción, categoría, fecha o tipo).",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         transaction_id: { type: "string", description: "UUID de la transacción" },
@@ -150,12 +149,12 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "delete_finance_transaction",
     description: "Eliminar un movimiento financiero por ID.",
-    input_schema: { type: "object", properties: { transaction_id: { type: "string" } }, required: ["transaction_id"] },
+    parameters: { type: "object", properties: { transaction_id: { type: "string" } }, required: ["transaction_id"] },
   },
   {
     name: "create_finance_category",
     description: "Crear una nueva categoría financiera (de ingreso o egreso). Usar solo si no existe ya una categoría adecuada.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: { name: { type: "string" }, type: { type: "string", enum: ["income", "expense"] } },
       required: ["name", "type"],
@@ -164,7 +163,7 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "list_finance_categories",
     description: "Listar todas las categorías financieras disponibles con sus IDs y tipos.",
-    input_schema: { type: "object", properties: {} },
+    parameters: { type: "object", properties: {} },
   },
 ];
 
@@ -442,31 +441,20 @@ export async function registerChat(app: FastifyInstance) {
 
     try {
       const context = await exec((run) => buildContext(run, est));
-      const messages: Anthropic.MessageParam[] = parsed.data.messages.map((m) => ({ role: m.role, content: m.content }));
+      const messages = parsed.data.messages.map((m) => ({ role: m.role, content: m.content }));
       if (messages[0].role !== "user") messages.shift();
 
-      const MAX_ROUNDS = 5;
-      let lastText = "";
-      for (let round = 0; round < MAX_ROUNDS; round++) {
-        const res = await ai().messages.create({ model: env.AI_MODEL_CHAT, max_tokens: 4096, system: SYSTEM(context), tools: TOOLS, messages });
-        lastText = res.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("").trim() || lastText;
-
-        const toolUses = res.content.filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
-        if (res.stop_reason !== "tool_use" || !toolUses.length) {
-          return reply.type("text/event-stream").send(sse(lastText || "No pude generar una respuesta."));
-        }
-
-        messages.push({ role: "assistant", content: res.content });
-        const results: Anthropic.ToolResultBlockParam[] = [];
-        for (const tu of toolUses) {
-          // cada herramienta en su propia transacción: si una falla no arrastra a las demás
-          const out = await exec((run) => executeTool(run, est, tu.name, (tu.input ?? {}) as Record<string, any>));
-          req.log.info({ tool: tu.name, out: out.slice(0, 200) }, "restaurant-chat tool");
-          results.push({ type: "tool_result", tool_use_id: tu.id, content: out });
-        }
-        messages.push({ role: "user", content: results });
-      }
-      return reply.type("text/event-stream").send(sse(lastText || "Se completaron las acciones solicitadas."));
+      const answer = await runToolChat({
+        system: SYSTEM(context),
+        messages,
+        tools: TOOLS,
+        maxRounds: 5,
+        maxTokens: 4096,
+        // cada herramienta en su propia transacción: si una falla no arrastra a las demás
+        runTool: (name, args) => exec((run) => executeTool(run, est, name, args)),
+        onToolCall: (name, out) => req.log.info({ tool: name, out: out.slice(0, 200) }, "restaurant-chat tool"),
+      });
+      return reply.type("text/event-stream").send(sse(answer || "No pude generar una respuesta."));
     } catch (e) {
       req.log.error({ err: e }, "restaurant-chat");
       const { status, message } = aiErrorMessage(e, "Error del asistente");

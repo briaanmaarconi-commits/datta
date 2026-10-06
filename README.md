@@ -46,7 +46,7 @@ Una imagen (`Dockerfile` en la raíz: compila frontend + backend) y una base Pos
 
 ## Funciones programadas y IA
 - `CRON_ENABLED=true`: análisis diario con IA a las 04:00 (hora Argentina) y reporte por mail según la hora configurada por cada establecimiento.
-- Sin `ANTHROPIC_API_KEY` el asistente, la lectura de facturas y las sugerencias de IA responden 503 con un mensaje claro; el resto de la app funciona igual.
+- La IA funciona con **Anthropic (Claude)** o **Google Gemini** (`GEMINI_API_KEY`, hay cuota gratuita; `AI_PROVIDER=auto` usa la que tenga clave). Sin ninguna de las dos el asistente, la lectura de facturas y las sugerencias de IA responden 503 con un mensaje claro; el resto de la app funciona igual.
 - Webhook de delivery (Rappi/PedidosYa): `POST /api/delivery-webhook?token=…` (también `/functions/v1/delivery-webhook` por compatibilidad).
 
 ## Migrar datos desde otra base
