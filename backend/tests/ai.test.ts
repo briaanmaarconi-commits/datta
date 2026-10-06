@@ -69,7 +69,7 @@ describe("generateText / generateFromDocument (Gemini)", () => {
     expect(calls[0].body.generationConfig.responseMimeType).toBe("application/json");
   });
   it("429 se traduce a un mensaje de cuota", async () => {
-    mockGemini([{ __status: 429, text: "quota" }]);
+    mockGemini([{ __status: 429, text: "Quota exceeded: GenerateRequestsPerDay" }]);
     const e = await ai.generateText({ kind: "analysis", system: "s", prompt: "p", maxTokens: 10 }).catch((x) => x);
     const m = ai.aiErrorMessage(e, "fallback");
     expect(m.status).toBe(429);
@@ -114,5 +114,17 @@ describe("runToolChat (Gemini)", () => {
     let n = 0;
     await ai.runToolChat({ system: "s", messages: [{ role: "user", content: "x" }], tools, maxRounds: 2, maxTokens: 10, runTool: async () => (++n, "r") });
     expect(n).toBe(2);
+  });
+});
+
+describe("reintentos", () => {
+  it("ante un 503 transitorio reintenta y termina bien", async () => {
+    vi.useFakeTimers();
+    mockGemini([{ __status: 503, text: "high demand" }, { candidates: [{ content: { parts: [{ text: "ok" }] } }] }]);
+    const p = ai.generateText({ kind: "analysis", system: "s", prompt: "p", maxTokens: 10 });
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(await p).toBe("ok");
+    expect(calls).toHaveLength(2);
+    vi.useRealTimers();
   });
 });
