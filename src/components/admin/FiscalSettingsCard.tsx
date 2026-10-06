@@ -111,32 +111,12 @@ export default function FiscalSettingsCard() {
       }
 
 
-      // Upsert certificate (usamos el estado ya consultado por RPC)
-      const existing = certRow;
-
-      if (existing) {
-        if (!keyText && !existing.hasKey) {
-          throw new Error('Falta la clave privada');
-        }
-        const payload: any = { certificate_pem: certText };
-        if (keyText) payload.private_key_pem = keyText;
-        const { error } = await db
-          .from('afip_certificates')
-          .update(payload)
-          .eq('id', existing.id);
-        if (error) throw error;
-      } else {
-        if (!keyText) throw new Error('Falta la clave privada (.key)');
-        const { error } = await db
-          .from('afip_certificates')
-          .insert({
-            establishment_id: establishmentId!,
-            certificate_pem: certText,
-            private_key_pem: keyText,
-          } as any);
-        if (error) throw error;
-      }
-
+      // El backend valida el certificado, comprueba que coincida con la clave y la guarda cifrada.
+      if (!keyText && !certRow?.hasKey) throw new Error('Falta la clave privada (.key)');
+      const { error } = await db.functions.invoke('afip-certificate', {
+        body: { establishment_id: establishmentId!, certificate_pem: certText, private_key_pem: keyText },
+      });
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['afip-certificate'] });

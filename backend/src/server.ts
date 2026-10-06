@@ -11,6 +11,11 @@ import { loadCatalog } from "./db/catalog.js";
 import { registerRealtime } from "./realtime/sse.js";
 import { specSchema } from "./db/specSchema.js";
 import { registerPublicRoutes } from "./routes/public.js";
+import { registerStorage } from "./storage.js";
+import { registerCreateUser } from "./fn/createUser.js";
+import { registerDelivery } from "./fn/delivery.js";
+import { registerAfipCsr } from "./fn/afipCsr.js";
+import { registerAfipInvoice } from "./fn/afipInvoice.js";
 
 export async function buildApp() {
   const app = Fastify({ logger: true, bodyLimit: 25 * 1024 * 1024, trustProxy: true });
@@ -47,6 +52,11 @@ export async function buildApp() {
   });
 
   await registerPublicRoutes(app);
+  await registerStorage(app);
+  await registerCreateUser(app);
+  await registerDelivery(app);
+  await registerAfipCsr(app);
+  await registerAfipInvoice(app);
   await registerRealtime(app);
 
   await loadCatalog();
