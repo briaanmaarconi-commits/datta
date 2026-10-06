@@ -149,8 +149,9 @@ export default function KitchenOrders() {
     firstPrintPassRef.current = true;
   }, [establishmentId, autoKey, printedKey]);
 
+  // Se guardan ids de pedidos y de ítems: así se detectan productos agregados a un pedido ya impreso
   const persistPrinted = () => {
-    const ids = [...printedRef.current].slice(-300);
+    const ids = [...printedRef.current].slice(-1000);
     printedRef.current = new Set(ids);
     localStorage.setItem(printedKey, JSON.stringify(ids));
   };
@@ -193,11 +194,16 @@ export default function KitchenOrders() {
   }, [printJob]);
 
 
-  const buildTicket = (order: any, reprint = false): KitchenTicketData => {
+  /** `onlyItems`: productos agregados a un pedido que ya se imprimió (comanda "AGREGADO" solo con lo nuevo). */
+  const buildTicket = (order: any, reprint = false, onlyItems?: any[]): KitchenTicketData => {
     const isDelivery = order.channel === 'delivery';
-    const isAddition = !isDelivery && !!order.table_id && orders.some(
+    const isAddition = !!onlyItems || (!isDelivery && !!order.table_id && orders.some(
       (o: any) => o.table_id === order.table_id && new Date(o.created_at) < new Date(order.created_at)
-    );
+    ));
+    const items = onlyItems ?? order.order_items ?? [];
+    const createdAt = onlyItems
+      ? onlyItems.map((i: any) => i.created_at).filter(Boolean).sort().at(-1) ?? new Date().toISOString()
+      : order.created_at;
     return {
       establishmentName: establishment?.name,
       tableNumber: isDelivery ? null : order.tables?.number,
@@ -205,10 +211,10 @@ export default function KitchenOrders() {
       platform: isDelivery ? (order.external_platform ?? null) : null,
       customerName: isDelivery ? (order.customer_name ?? null) : null,
       sectorName: isDelivery ? null : (order.tables?.sectors?.name ?? null),
-      createdAt: order.created_at,
+      createdAt,
       isAddition,
       reprint,
-      items: (order.order_items ?? []).map((i: any) => ({
+      items: items.map((i: any) => ({
         id: i.id,
         quantity: i.quantity,
         name: i.products?.name ?? 'Producto',
@@ -244,21 +250,36 @@ export default function KitchenOrders() {
     if (firstPrintPassRef.current) {
       // No reimprimir pedidos que ya estaban en pantalla al abrir/refrescar
       firstPrintPassRef.current = false;
-      orders.forEach((o: any) => printedRef.current.add(o.id));
+      orders.forEach((o: any) => {
+        printedRef.current.add(o.id);
+        (o.order_items ?? []).forEach((i: any) => printedRef.current.add(i.id));
+      });
       persistPrinted();
       return;
     }
 
-    // Sólo pedidos nuevos que ya tengan ítems cargados (evita comandas vacías por carrera)
-    const unprinted = orders.filter(
-      (o: any) => !printedRef.current.has(o.id) && (o.order_items?.length ?? 0) > 0
-    );
-    if (unprinted.length === 0) return;
+    const tickets: KitchenTicketData[] = [];
+    for (const o of orders as any[]) {
+      const items: any[] = o.order_items ?? [];
+      if (items.length === 0) continue; // evita comandas vacías por carrera
+      if (!printedRef.current.has(o.id)) {
+        // pedido nuevo: comanda completa
+        printedRef.current.add(o.id);
+        items.forEach((i) => printedRef.current.add(i.id));
+        tickets.push(buildTicket(o));
+      } else {
+        // pedido ya impreso al que le agregaron productos: comanda "AGREGADO" solo con lo nuevo
+        const added = items.filter((i) => !printedRef.current.has(i.id));
+        if (added.length === 0) continue;
+        added.forEach((i) => printedRef.current.add(i.id));
+        tickets.push(buildTicket(o, false, added));
+      }
+    }
+    if (tickets.length === 0) return;
 
-    unprinted.forEach((o: any) => printedRef.current.add(o.id));
     persistPrinted();
     if (!autoPrint) return;
-    unprinted.forEach((o: any) => enqueue(buildTicket(o)));
+    tickets.forEach(enqueue);
   }, [orders, ordersLoaded, autoPrint, establishmentId]);
 
 
