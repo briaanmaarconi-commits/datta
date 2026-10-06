@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import FloatingCalculator from '@/components/cashier/FloatingCalculator';
+import ChatBot from '@/components/admin/ChatBot';
 import { useDeliverySettings } from '@/hooks/useDeliverySettings';
 import { Bike } from 'lucide-react';
 import SectionHelp from '@/components/shared/SectionHelp';
@@ -95,6 +96,8 @@ export default function CashierLayout({ children }: { children: React.ReactNode 
           <main className="workspace-main">{children}</main>
         </div>
       </div>
+      {/* el asistente queda arriba de la calculadora para no taparse */}
+      <ChatBot bottomClass="bottom-24" />
       <FloatingCalculator />
     </SidebarProvider>
   );

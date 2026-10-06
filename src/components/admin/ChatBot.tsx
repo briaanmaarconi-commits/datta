@@ -11,7 +11,7 @@ type Msg = { role: 'user' | 'assistant'; content: string };
 
 const CHAT_URL = '/api/fn/restaurant-chat';
 
-export default function ChatBot() {
+export default function ChatBot({ bottomClass = 'bottom-6' }: { bottomClass?: string }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
@@ -134,7 +134,7 @@ export default function ChatBot() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-transform hover:scale-105"
+          className={`fixed ${bottomClass} right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-transform hover:scale-105`}
         >
           <MessageCircle className="h-6 w-6" />
         </button>
@@ -142,7 +142,7 @@ export default function ChatBot() {
 
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-6 right-6 z-50 flex w-[380px] flex-col rounded-2xl border bg-card shadow-2xl overflow-hidden" style={{ height: '520px' }}>
+        <div className={`fixed ${bottomClass} right-6 z-50 flex w-[380px] flex-col rounded-2xl border bg-card shadow-2xl overflow-hidden`} style={{ height: '520px' }}>
           {/* Header */}
           <div className="flex items-center justify-between border-b bg-primary px-4 py-3">
             <div className="flex items-center gap-2 text-primary-foreground">
