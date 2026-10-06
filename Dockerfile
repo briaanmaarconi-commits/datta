@@ -1,6 +1,6 @@
 # Imagen única de Datta: API (Fastify) + frontend (Vite) servido por el mismo proceso.
 # 1) frontend
-FROM node:20-alpine AS web
+FROM node:22-alpine AS web
 WORKDIR /web
 COPY package.json package-lock.json* ./
 RUN npm ci
@@ -8,7 +8,7 @@ COPY . .
 RUN npm run build
 
 # 2) backend (TypeScript -> JS)
-FROM node:20-alpine AS api
+FROM node:22-alpine AS api
 WORKDIR /api
 COPY backend/package.json backend/package-lock.json* ./
 RUN npm ci
@@ -16,7 +16,7 @@ COPY backend/ .
 RUN npm run build
 
 # 3) runtime
-FROM node:20-alpine AS runtime
+FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
     PORT=8081 \
