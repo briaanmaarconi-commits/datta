@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import StarRating from './StarRating';
-import { db } from '@/lib/db';
+import { publicPost } from '@/lib/db';
 import { toast } from 'sonner';
 
 interface WaiterReviewDialogProps {
@@ -26,15 +26,15 @@ export default function WaiterReviewDialog({ open, onOpenChange, establishmentId
     if (rating === 0) { toast.error('Seleccioná una calificación'); return; }
     if (!waiterName.trim()) { toast.error('Ingresá el nombre del mozo'); return; }
     setLoading(true);
-    const { error } = await db.from('waiter_reviews' as any).insert({
-      establishment_id: establishmentId,
-      waiter_name: waiterName.trim(),
+    const res = await publicPost('/api/public/waiter-reviews', {
+      establishmentId,
+      waiterName: waiterName.trim(),
       rating,
       comment: comment || null,
-      reviewer_name: reviewerName || null,
+      reviewerName: reviewerName || null,
     });
     setLoading(false);
-    if (error) { toast.error('Error al enviar calificación'); return; }
+    if (!res.ok) { toast.error('Error al enviar calificación'); return; }
     toast.success('¡Gracias por calificar al mozo!');
     setRating(0); setWaiterName(''); setComment(''); setReviewerName('');
     onOpenChange(false);

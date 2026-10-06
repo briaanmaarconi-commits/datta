@@ -8,7 +8,7 @@ export const pool = new pg.Pool({
   max: 20,
 });
 
-export type DbRole = "authenticated" | "service_role";
+export type DbRole = "anon" | "authenticated" | "service_role";
 
 export interface DbContext {
   role: DbRole;

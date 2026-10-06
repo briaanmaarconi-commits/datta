@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import StarRating from './StarRating';
-import { db } from '@/lib/db';
+import { publicPost } from '@/lib/db';
 import { toast } from 'sonner';
 
 interface ReviewDialogProps {
@@ -26,15 +26,14 @@ export default function ReviewDialog({ open, onOpenChange, productId, productNam
   const submit = async () => {
     if (rating === 0) { toast.error('Seleccioná una calificación'); return; }
     setLoading(true);
-    const { error } = await db.from('product_reviews' as any).insert({
-      product_id: productId,
-      establishment_id: establishmentId,
+    const res = await publicPost('/api/public/product-reviews', {
+      productId,
       rating,
       comment: comment || null,
-      reviewer_name: name || null,
+      reviewerName: name || null,
     });
     setLoading(false);
-    if (error) { toast.error('Error al enviar reseña'); return; }
+    if (!res.ok) { toast.error('Error al enviar reseña'); return; }
     toast.success('¡Gracias por tu reseña!');
     setRating(0); setComment(''); setName('');
     onOpenChange(false);

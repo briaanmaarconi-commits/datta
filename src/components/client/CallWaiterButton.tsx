@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/db';
+import { publicPost } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 import { Bell } from 'lucide-react';
 import { toast } from 'sonner';
@@ -26,13 +26,8 @@ export default function CallWaiterButton({ tableId, establishmentId, sectorId }:
     if (cooldown > 0 || sending) return;
     setSending(true);
     try {
-      const { error } = await db.from('waiter_calls' as any).insert({
-        table_id: tableId,
-        establishment_id: establishmentId,
-        sector_id: sectorId || null,
-        status: 'pending',
-      });
-      if (error) throw error;
+      const res = await publicPost('/api/public/waiter-calls', { tableId });
+      if (!res.ok) throw new Error(res.message);
       setCooldown(Math.floor(COOLDOWN_MS / 1000));
       toast.success('¡Mozo notificado! Ya viene a atenderte.');
     } catch {

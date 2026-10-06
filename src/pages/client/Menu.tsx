@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { db } from '@/lib/db';
+import { dbPublic, publicPost } from '@/lib/db';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,7 +29,7 @@ export default function ClientMenu() {
   const { data: table } = useQuery({
     queryKey: ['client-table', tableId],
     queryFn: async () => {
-      const { data, error } = await db.from("tables").select("id, number, establishment_id, sector_id, capacity").eq('id', tableId!).single();
+      const { data, error } = await dbPublic.from("tables").select("id, number, establishment_id, sector_id, capacity").eq('id', tableId!).single();
       if (error) throw error;
       return data;
     },
@@ -39,7 +39,7 @@ export default function ClientMenu() {
   const { data: establishment } = useQuery({
     queryKey: ['client-establishment', table?.establishment_id],
     queryFn: async () => {
-      const { data, error } = await db.from('public_establishments' as any).select('id, name').eq('id', table!.establishment_id).maybeSingle();
+      const { data, error } = await dbPublic.from('public_establishments' as any).select('id, name').eq('id', table!.establishment_id).maybeSingle();
       if (error) throw error;
       return data as any;
     },
@@ -50,7 +50,7 @@ export default function ClientMenu() {
   const { data: categories = [] } = useQuery({
     queryKey: ['client-categories', table?.establishment_id],
     queryFn: async () => {
-      const { data, error } = await db.from('categories').select('id, name, sort_order, image_url').eq('establishment_id', table!.establishment_id).eq('is_active', true).order('sort_order');
+      const { data, error } = await dbPublic.from('categories').select('id, name, sort_order, image_url').eq('establishment_id', table!.establishment_id).eq('is_active', true).order('sort_order');
       if (error) throw error;
       return data;
     },
@@ -60,7 +60,7 @@ export default function ClientMenu() {
   const { data: products = [] } = useQuery({
     queryKey: ['client-products', table?.establishment_id],
     queryFn: async () => {
-      const { data, error } = await db.from('products').select('id, name, description, price, image_url, category_id, is_available, promo_active, promo_price, is_daily_special').eq('establishment_id', table!.establishment_id).eq('is_available', true).order('name');
+      const { data, error } = await dbPublic.from('products').select('id, name, description, price, image_url, category_id, is_available, promo_active, promo_price, is_daily_special').eq('establishment_id', table!.establishment_id).eq('is_available', true).order('name');
       if (error) throw error;
       return data;
     },
@@ -71,7 +71,7 @@ export default function ClientMenu() {
   const { data: combos = [] } = useQuery({
     queryKey: ['client-combos', table?.establishment_id],
     queryFn: async () => {
-      const { data, error } = await db
+      const { data, error } = await dbPublic
         .from('menu_combos')
         .select('id, name, description, image_url, price, is_active, menu_combo_items(id, product_id, item_group, sort_order, products(name, price))')
         .eq('establishment_id', table!.establishment_id)
@@ -86,25 +86,11 @@ export default function ClientMenu() {
   const placeOrder = useMutation({
     mutationFn: async () => {
       const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
-      const { data: order, error } = await db.from('orders').insert({
-        table_id: tableId!,
-        establishment_id: table!.establishment_id,
-        total,
-        created_by: null,
-      }).select().single();
-      if (error) throw error;
-
-      const items = cart.map(i => ({
-        order_id: order.id,
-        product_id: i.product_id,
-        quantity: i.quantity,
-        notes: i.notes || null,
-        unit_price: i.price,
-      }));
-      const { error: itemsError } = await db.from('order_items').insert(items);
-      if (itemsError) throw itemsError;
-
-      await db.from('tables').update({ status: 'occupied' as any }).eq('id', tableId!);
+      const res = await publicPost('/api/public/orders', {
+        tableId: tableId!,
+        items: cart.map(i => ({ productId: i.product_id, quantity: i.quantity, notes: i.notes || null })),
+      });
+      if (!res.ok) throw new Error(res.message);
     },
     onSuccess: () => {
       toast.success('¡Pedido enviado!');

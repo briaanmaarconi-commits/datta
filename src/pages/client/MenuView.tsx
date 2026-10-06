@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { db } from '@/lib/db';
+import { dbPublic } from '@/lib/db';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,7 +25,7 @@ export default function MenuView() {
   const { data: establishment, isLoading: loadingEst, error: estError } = useQuery({
     queryKey: ['establishment-view', establishmentId],
     queryFn: async () => {
-      const { data, error } = await db
+      const { data, error } = await dbPublic
         .from('public_establishments' as any)
         .select('id, name, logo_url')
         .eq('id', establishmentId!)
@@ -39,7 +39,7 @@ export default function MenuView() {
   const { data: categories = [], error: categoriesError } = useQuery({
     queryKey: ['view-categories', establishmentId],
     queryFn: async () => {
-      const { data, error } = await db
+      const { data, error } = await dbPublic
         .from('categories')
         .select('id, name, sort_order, image_url')
         .eq('establishment_id', establishmentId!)
@@ -54,7 +54,7 @@ export default function MenuView() {
   const { data: products = [], isLoading: loadingProducts, error: productsError } = useQuery({
     queryKey: ['view-products', establishmentId],
     queryFn: async () => {
-      const { data, error } = await db.from('products').select('id, name, description, price, image_url, category_id, is_available, promo_active, promo_price, is_daily_special').eq('establishment_id', establishmentId!).eq('is_available', true).order('name');
+      const { data, error } = await dbPublic.from('products').select('id, name, description, price, image_url, category_id, is_available, promo_active, promo_price, is_daily_special').eq('establishment_id', establishmentId!).eq('is_available', true).order('name');
       if (error) throw error;
       return data;
     },
@@ -65,7 +65,7 @@ export default function MenuView() {
   const { data: combos = [] } = useQuery({
     queryKey: ['view-combos', establishmentId],
     queryFn: async () => {
-      const { data, error } = await db
+      const { data, error } = await dbPublic
         .from('menu_combos')
         .select('id, name, description, image_url, price, is_active, menu_combo_items(id, product_id, item_group, sort_order, products(name, price))')
         .eq('establishment_id', establishmentId!)
@@ -80,7 +80,7 @@ export default function MenuView() {
   const { data: reviews = [] } = useQuery({
     queryKey: ['product-reviews', establishmentId],
     queryFn: async () => {
-      const { data, error } = await db.from('product_reviews' as any).select('*').eq('establishment_id', establishmentId!).order('created_at', { ascending: false });
+      const { data, error } = await dbPublic.from('product_reviews' as any).select('*').eq('establishment_id', establishmentId!).order('created_at', { ascending: false });
       if (error) throw error;
       return data as any[];
     },

@@ -9,6 +9,8 @@ import { runQuery, type QuerySpec } from "./db/queryEngine.js";
 import { runRpc } from "./db/rpc.js";
 import { loadCatalog } from "./db/catalog.js";
 import { registerRealtime } from "./realtime/sse.js";
+import { specSchema } from "./db/specSchema.js";
+import { registerPublicRoutes } from "./routes/public.js";
 
 export async function buildApp() {
   const app = Fastify({ logger: true, bodyLimit: 25 * 1024 * 1024, trustProxy: true });
@@ -22,25 +24,6 @@ export async function buildApp() {
   app.get("/api/health", async () => ({ ok: true }));
 
   await registerAuthRoutes(app);
-
-  const filterSchema = z.object({
-    col: z.string().max(100),
-    op: z.enum(["eq", "neq", "gt", "gte", "lt", "lte", "like", "ilike", "in", "is"]),
-    value: z.unknown(),
-    negate: z.boolean().optional(),
-  });
-  const specSchema = z.object({
-    table: z.string().regex(/^[a-z_][a-z0-9_]*$/),
-    op: z.enum(["select", "insert", "update", "delete"]),
-    select: z.string().max(2000).optional(),
-    filters: z.array(filterSchema).max(50).optional(),
-    order: z.array(z.object({ col: z.string().max(200), ascending: z.boolean().optional(), nullsFirst: z.boolean().optional() })).max(10).optional(),
-    limit: z.number().int().min(0).max(100000).optional(),
-    single: z.enum(["single", "maybe"]).optional(),
-    count: z.literal("exact").optional(),
-    head: z.boolean().optional(),
-    values: z.union([z.record(z.unknown()), z.array(z.record(z.unknown())).max(5000)]).optional(),
-  });
 
   // Reemplazo de PostgREST: la seguridad la aplican las policies RLS de Postgres
   // con el rol "authenticated" y auth.uid() del usuario de la sesión.
@@ -63,6 +46,7 @@ export async function buildApp() {
     return runRpc(user, body.data.fn, body.data.args ?? {});
   });
 
+  await registerPublicRoutes(app);
   await registerRealtime(app);
 
   await loadCatalog();

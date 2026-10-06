@@ -39,7 +39,7 @@ type FilterOp = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 
 class QueryBuilder implements PromiseLike<DbResult> {
   private spec: any;
 
-  constructor(table: string) {
+  constructor(table: string, private endpoint = '/api/db/query') {
     this.spec = { table, op: 'select', filters: [], order: [] };
   }
 
@@ -100,7 +100,7 @@ class QueryBuilder implements PromiseLike<DbResult> {
 
   private async execute(): Promise<DbResult> {
     try {
-      const { status, json } = await post('/api/db/query', this.spec);
+      const { status, json } = await post(this.endpoint, this.spec);
       if (status === 401) return { data: null, count: null, error: { message: 'No autenticado', code: '401' } };
       if (!json) return { data: null, count: null, error: { message: `Error del servidor (${status})`, code: String(status) } };
       return { data: json.data ?? null, error: json.error ?? null, count: json.count ?? null };
@@ -170,6 +170,22 @@ const storage = {
       },
     };
   },
+};
+
+/** Escrituras anónimas del QR (pedido, llamado de mozo, reseñas): el backend valida y deriva el establecimiento. */
+export async function publicPost(path: string, body: unknown): Promise<{ ok: boolean; data: any; message?: string }> {
+  try {
+    const { status, json } = await post(path, body);
+    if (status >= 200 && status < 300) return { ok: true, data: json };
+    return { ok: false, data: null, message: json?.error?.message ?? `Error ${status}` };
+  } catch (e: any) {
+    return { ok: false, data: null, message: e?.message ?? 'Sin conexión con el servidor' };
+  }
+}
+
+/** Lecturas sin login (carta del cliente): solo SELECT, con el rol anon del backend. */
+export const dbPublic = {
+  from: (table: string) => new QueryBuilder(table, '/api/public/query'),
 };
 
 export const db = {
