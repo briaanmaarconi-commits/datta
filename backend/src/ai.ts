@@ -48,6 +48,8 @@ const textOfClaude = (msg: Anthropic.Message) =>
 
 // ------------------------------------------------------------------ Gemini (REST)
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+// Los modelos Gemini "piensan" y esos tokens cuentan dentro de maxOutputTokens: se deja margen para que la respuesta no salga cortada.
+const THINKING_HEADROOM = 3000;
 
 /** Gemini acepta un subconjunto de JSON Schema: sin additionalProperties, nullable en vez de ["x","null"], tipos en mayúsculas. */
 export function toGeminiSchema(s: any): any {
@@ -72,16 +74,20 @@ export function toGeminiSchema(s: any): any {
 }
 
 async function geminiCall(model: string, body: unknown): Promise<any> {
-  const res = await fetch(`${GEMINI_BASE}/${encodeURIComponent(model)}:generateContent`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
+  // La capa gratuita responde 503 (alta demanda) o 429 (cuota por minuto) de forma transitoria: se reintenta con espera.
+  const waits = [1500, 4000, 9000];
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(`${GEMINI_BASE}/${encodeURIComponent(model)}:generateContent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) return res.json();
     const detail = (await res.text()).slice(0, 400);
-    throw new AiHttpError(res.status, `Gemini ${res.status}: ${detail}`);
+    const retryable = res.status === 503 || res.status === 500 || (res.status === 429 && !/per day|PerDay/i.test(detail));
+    if (!retryable || attempt >= waits.length) throw new AiHttpError(res.status, `Gemini ${res.status}: ${detail}`);
+    await new Promise((r) => setTimeout(r, waits[attempt]));
   }
-  return res.json();
 }
 
 const geminiText = (resp: any): string =>
@@ -107,7 +113,7 @@ export async function generateText(o: { kind: Kind; system: string; prompt: stri
   const r = await geminiCall(model, {
     systemInstruction: { parts: [{ text: o.system }] },
     contents: [{ role: "user", parts: [{ text: o.prompt }] }],
-    generationConfig: { maxOutputTokens: o.maxTokens },
+    generationConfig: { maxOutputTokens: o.maxTokens + THINKING_HEADROOM },
   });
   return geminiText(r);
 }
@@ -131,7 +137,7 @@ export async function generateFromDocument(o: { kind: Kind; system: string; prom
   const r = await geminiCall(model, {
     systemInstruction: { parts: [{ text: o.system }] },
     contents: [{ role: "user", parts: [{ inlineData: { mimeType: o.mime, data: o.base64 } }, { text: o.prompt }] }],
-    generationConfig: { maxOutputTokens: o.maxTokens, responseMimeType: "application/json" },
+    generationConfig: { maxOutputTokens: o.maxTokens + THINKING_HEADROOM, responseMimeType: "application/json" },
   });
   return geminiText(r);
 }
@@ -191,7 +197,7 @@ export async function runToolChat(o: {
       systemInstruction: { parts: [{ text: o.system }] },
       contents,
       tools: [{ functionDeclarations }],
-      generationConfig: { maxOutputTokens: o.maxTokens },
+      generationConfig: { maxOutputTokens: o.maxTokens + THINKING_HEADROOM },
     });
     const content = res?.candidates?.[0]?.content;
     lastText = geminiText(res) || lastText;
