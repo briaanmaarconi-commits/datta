@@ -18,7 +18,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell, Legend,
 } from 'recharts';
-import { DollarSign, TrendingUp, TrendingDown, ShoppingCart, Clock, Users, CreditCard, Banknote, ArrowRightLeft, BarChart3, GitCompareArrows, CalendarIcon, X, Download, FileText, FileSpreadsheet, Wallet, Bike } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, ShoppingCart, Clock, Users, CreditCard, Banknote, ArrowRightLeft, BarChart3, GitCompareArrows, CalendarIcon, X, Download, FileText, FileSpreadsheet, Wallet, Bike, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import AnalyticsComparison from '@/components/admin/AnalyticsComparison';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { exportAnalyticsPDF, exportAnalyticsExcel } from '@/lib/exportAnalytics';
@@ -54,10 +54,25 @@ const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const PIE_COLORS = ['#22c55e', '#6366f1', '#f59e0b', '#ec4899', '#8b5cf6'];
 const CATEGORY_COLORS = ['#f97316', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#eab308', '#06b6d4', '#ef4444'];
 
+const MONTH_NAMES_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
 export default function AdminAnalytics() {
   const { establishmentId } = useAuth();
   const [waiterPeriod, setWaiterPeriod] = useState('day');
+  const [selectedHelpCategory, setSelectedHelpCategory] = useState<string | null>(null);
+  const [categoryRankOrder, setCategoryRankOrder] = useState<'top' | 'bottom'>('top');
+  const [elasticShowAll, setElasticShowAll] = useState(false);
+  const [waitersShowAll, setWaitersShowAll] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
+
+  // Mes/año seleccionado (por defecto, mes en curso en horario argentino)
+  const currentMonth = useMemo(() => {
+    const [y, m] = toArgDate().split('-').map(Number);
+    return { year: y, month: m }; // month: 1-12
+  }, []);
+  const [selectedMonth, setSelectedMonth] = useState<{ year: number; month: number }>(currentMonth);
+  const [pickerYear, setPickerYear] = useState(currentMonth.year);
 
   const { enabled: deliveryEnabled } = useDeliverySettings();
 
@@ -67,14 +82,16 @@ export default function AdminAnalytics() {
       const { from, to } = argDayRange(dateStr);
       return { fromDate: dateStr, toDate: dateStr, fromISO: from, toISO: to };
     }
-    const nowDate = toArgDate();
-    const fromD = new Date();
-    fromD.setDate(fromD.getDate() - 29);
-    const fromDate = toArgDate(fromD);
+    const mm = String(selectedMonth.month).padStart(2, '0');
+    const fromDate = `${selectedMonth.year}-${mm}-01`;
+    // Si es el mes en curso, hasta hoy; si es un mes anterior, hasta su último día
+    const isCurrent = selectedMonth.year === currentMonth.year && selectedMonth.month === currentMonth.month;
+    const lastDay = new Date(selectedMonth.year, selectedMonth.month, 0).getDate();
+    const toDate = isCurrent ? toArgDate() : `${selectedMonth.year}-${mm}-${String(lastDay).padStart(2, '0')}`;
     const { from: fromISO } = argDayRange(fromDate);
-    const { to: toISO } = argDayRange(nowDate);
-    return { fromDate, toDate: nowDate, fromISO, toISO };
-  }, [selectedDate]);
+    const { to: toISO } = argDayRange(toDate);
+    return { fromDate, toDate, fromISO, toISO };
+  }, [selectedDate, selectedMonth, currentMonth]);
 
   // ─── Finance data (income + expenses) ───
   const { data: financeData } = useQuery({
@@ -209,6 +226,20 @@ export default function AdminAnalytics() {
       });
       const categoryRevenue = Object.entries(catMap).map(([name, revenue]) => ({ name, revenue })).sort((a, b) => b.revenue - a.revenue);
 
+      const catProdMap: Record<string, Record<string, { name: string; qty: number; revenue: number }>> = {};
+      items.forEach(item => {
+        const cat = item.products?.categories?.name || 'Sin categoría';
+        const name = item.products?.name || 'Desconocido';
+        if (!catProdMap[cat]) catProdMap[cat] = {};
+        if (!catProdMap[cat][name]) catProdMap[cat][name] = { name, qty: 0, revenue: 0 };
+        catProdMap[cat][name].qty += item.quantity;
+        catProdMap[cat][name].revenue += item.quantity * Number(item.unit_price);
+      });
+      const categoryProductRanking = Object.entries(catProdMap).map(([category, prods]) => {
+        const products = Object.values(prods).sort(byQty);
+        return { category, totalQty: products.reduce((s, p) => s + p.qty, 0), products };
+      }).sort((a, b) => b.totalQty - a.totalQty);
+
       const paymentMap: Record<string, number> = {};
       orders.forEach(o => {
         const pm = (o.payment_method || '').toLowerCase();
@@ -288,7 +319,7 @@ export default function AdminAnalytics() {
 
       return {
         totalSales, totalOrders, avgTicket, avgPrepTime,
-        productRanking, dishRanking, drinkRanking, categoryRevenue, salesByDay, paymentBreakdown,
+        productRanking, dishRanking, drinkRanking, categoryRevenue, categoryProductRanking, salesByDay, paymentBreakdown,
         elasticity, waiterPerformance, heatmap, uniqueTables,
       };
     },
@@ -334,7 +365,7 @@ export default function AdminAnalytics() {
 
   const periodLabel = selectedDate
     ? format(selectedDate, "d 'de' MMMM yyyy", { locale: es })
-    : `${range.fromDate} a ${range.toDate}`;
+    : format(new Date(selectedMonth.year, selectedMonth.month - 1, 1), "MMMM yyyy", { locale: es }).replace(/^./, c => c.toUpperCase());
 
   const handleExport = (type: 'pdf' | 'excel') => {
     const exportData = {
@@ -376,32 +407,71 @@ export default function AdminAnalytics() {
 
       {/* Date filter */}
       <div className="flex items-center gap-3 flex-wrap">
-        <Popover>
+        <Popover open={monthPickerOpen} onOpenChange={(open) => { setMonthPickerOpen(open); if (open) setPickerYear(selectedMonth.year); }}>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
-              className={cn(
-                "w-[220px] justify-start text-left font-normal",
-                !selectedDate && "text-muted-foreground"
-              )}
+              className="w-[220px] justify-start text-left font-normal"
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {selectedDate ? format(selectedDate, "d 'de' MMMM yyyy", { locale: es }) : "Últimos 30 días"}
+              {selectedDate
+                ? format(selectedDate, "d 'de' MMMM yyyy", { locale: es })
+                : format(new Date(selectedMonth.year, selectedMonth.month - 1, 1), "MMMM yyyy", { locale: es }).replace(/^./, c => c.toUpperCase())}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={setSelectedDate}
-              disabled={(date) => date > new Date()}
-              initialFocus
-              className={cn("p-3 pointer-events-auto")}
-            />
+          <PopoverContent className="w-auto p-3 pointer-events-auto" align="start">
+            {/* Selector de mes/año */}
+            <div className="flex items-center justify-between mb-2">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPickerYear(y => y - 1)}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm font-semibold">{pickerYear}</span>
+              <Button
+                variant="ghost" size="icon" className="h-7 w-7"
+                disabled={pickerYear >= currentMonth.year}
+                onClick={() => setPickerYear(y => y + 1)}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="grid grid-cols-4 gap-1.5">
+              {MONTH_NAMES_SHORT.map((name, idx) => {
+                const m = idx + 1;
+                const isFuture = pickerYear === currentMonth.year && m > currentMonth.month;
+                const isActive = !selectedDate && pickerYear === selectedMonth.year && m === selectedMonth.month;
+                return (
+                  <Button
+                    key={name}
+                    variant={isActive ? 'default' : 'outline'}
+                    size="sm"
+                    disabled={isFuture}
+                    className="text-xs"
+                    onClick={() => {
+                      setSelectedMonth({ year: pickerYear, month: m });
+                      setSelectedDate(undefined);
+                      setMonthPickerOpen(false);
+                    }}
+                  >
+                    {name}
+                  </Button>
+                );
+              })}
+            </div>
+            {/* Día específico (opcional) */}
+            <div className="mt-3 pt-3 border-t">
+              <p className="text-xs text-muted-foreground mb-1">O elegí un día puntual:</p>
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(d) => { setSelectedDate(d); if (d) setMonthPickerOpen(false); }}
+                disabled={(date) => date > new Date()}
+                className={cn("p-0 pointer-events-auto")}
+              />
+            </div>
           </PopoverContent>
         </Popover>
-        {selectedDate && (
-          <Button variant="ghost" size="sm" onClick={() => setSelectedDate(undefined)} className="gap-1 text-muted-foreground">
+        {(selectedDate || selectedMonth.year !== currentMonth.year || selectedMonth.month !== currentMonth.month) && (
+          <Button variant="ghost" size="sm" onClick={() => { setSelectedDate(undefined); setSelectedMonth(currentMonth); }} className="gap-1 text-muted-foreground">
             <X className="h-3.5 w-3.5" /> Limpiar filtro
           </Button>
         )}
@@ -446,7 +516,7 @@ export default function AdminAnalytics() {
         </Card>
       </div>
 
-      {/* Row 1: Pedidos por día */}
+      {/* Fila de 4: Pedidos e Ingresos por día + Gastos por día y categoría */}
       <div className="grid gap-6 lg:grid-cols-2">
         <ExpandableChartCard title={<><div className="w-3 h-3 rounded-full bg-blue-500" />Pedidos por día</>}>
           {(h) => (
@@ -461,10 +531,7 @@ export default function AdminAnalytics() {
             </ResponsiveContainer>
           )}
         </ExpandableChartCard>
-      </div>
 
-      {/* Row: Ingresos por día + Gastos por día */}
-      <div className="grid gap-6 lg:grid-cols-2">
         <ExpandableChartCard title={<><TrendingUp className="h-4 w-4 text-emerald-500" />Ingresos por día</>}>
           {(h) => financeData?.incomeByDay && financeData.incomeByDay.length > 0 ? (
             <ResponsiveContainer width="100%" height={h}>
@@ -487,7 +554,7 @@ export default function AdminAnalytics() {
           )}
         </ExpandableChartCard>
 
-        <ExpandableChartCard title={<><TrendingDown className="h-4 w-4 text-red-500" />Gastos por día</>}>
+        <ExpandableChartCard title={<><TrendingDown className="h-4 w-4 text-red-500" />Gastos por día</>} normalHeight={250}>
           {(h) => financeData?.expensesByDay && financeData.expensesByDay.length > 0 ? (
             <ResponsiveContainer width="100%" height={h}>
               <BarChart data={financeData.expensesByDay}>
@@ -502,10 +569,7 @@ export default function AdminAnalytics() {
             <p className="text-sm text-muted-foreground py-8 text-center">Sin gastos registrados en este período</p>
           )}
         </ExpandableChartCard>
-      </div>
 
-      {/* Gastos por categoría + Métodos de pago */}
-      <div className="grid gap-6 lg:grid-cols-2">
         <ExpandableChartCard
           title={<><DollarSign className="h-4 w-4 text-red-500" />Gastos por categoría</>}
           normalHeight={250}
@@ -528,7 +592,10 @@ export default function AdminAnalytics() {
             <p className="text-sm text-muted-foreground py-8 text-center">Sin gastos registrados</p>
           )}
         </ExpandableChartCard>
+      </div>
 
+      {/* Métodos de pago + Ingresos por categoría */}
+      <div className="grid gap-6 lg:grid-cols-2">
         <ExpandableChartCard title={<><Banknote className="h-4 w-4 text-emerald-500" />Métodos de pago</>} normalHeight={250}>
           {(h) => ordersData?.paymentBreakdown && ordersData.paymentBreakdown.length > 0 ? (
             <div className="flex items-center gap-4">
@@ -566,11 +633,8 @@ export default function AdminAnalytics() {
             <p className="text-sm text-muted-foreground py-8 text-center">Sin datos de pago</p>
           )}
         </ExpandableChartCard>
-      </div>
 
-      {/* Ingresos por categoría + Top productos */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <ExpandableChartCard title={<><ArrowRightLeft className="h-4 w-4 text-violet-500" />Ingresos por categoría</>} normalHeight={300}>
+        <ExpandableChartCard title={<><ArrowRightLeft className="h-4 w-4 text-violet-500" />Ingresos por categoría</>} normalHeight={250}>
           {(h) => ordersData?.categoryRevenue && ordersData.categoryRevenue.length > 0 ? (
             <ResponsiveContainer width="100%" height={h}>
               <BarChart data={ordersData.categoryRevenue.slice(0, 8)} layout="vertical">
@@ -587,10 +651,13 @@ export default function AdminAnalytics() {
             <p className="text-sm text-muted-foreground py-8 text-center">Sin datos</p>
           )}
         </ExpandableChartCard>
+      </div>
 
+      {/* Top 10 platos + Top 10 bebidas */}
+      <div className="grid gap-6 lg:grid-cols-2">
         <ExpandableChartCard
           title={<><TrendingUp className="h-4 w-4 text-emerald-500" />Top 10 platos más pedidos</>}
-          subtitle="Solo cocina, sin bebidas"
+          subtitle="Toda la cocina: platos, guarniciones y postres"
           normalHeight={300}
           expandedHeight={600}
         >
@@ -666,7 +733,7 @@ export default function AdminAnalytics() {
       {/* Menos pedidos — full width, 2 columns */}
       <ExpandableChartCard
         title={<><TrendingDown className="h-4 w-4 text-red-500" />Top 10 platos menos pedidos</>}
-        subtitle="Solo cocina, sin bebidas"
+        subtitle="Toda la cocina: platos, guarniciones y postres"
         normalHeight={200}
         expandedHeight={400}
       >
@@ -694,6 +761,74 @@ export default function AdminAnalytics() {
           );
         }}
       </ExpandableChartCard>
+
+      {/* Más pedidos por categoría */}
+      <ExpandableChartCard
+        title={<><BarChart3 className="h-4 w-4 text-orange-500" />Más pedidos por categoría</>}
+        subtitle="Elegí una categoría de la carta para ver qué se pide más (o menos) dentro de ella"
+        normalHeight={340}
+        expandedHeight={640}
+      >
+        {() => {
+          const cats = ordersData?.categoryProductRanking || [];
+          if (cats.length === 0) return <p className="text-sm text-muted-foreground py-8 text-center">Sin datos</p>;
+          const active = cats.find(c => c.category === selectedHelpCategory) || cats[0];
+          const list = categoryRankOrder === 'top'
+            ? active.products.slice(0, 10)
+            : active.products.slice(-10).reverse();
+          const maxQty = active.products[0]?.qty || 1;
+          return (
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {cats.map((c) => (
+                  <Button
+                    key={c.category}
+                    size="sm"
+                    variant={c.category === active.category ? 'default' : 'outline'}
+                    className="h-8"
+                    onClick={() => setSelectedHelpCategory(c.category)}
+                  >
+                    {c.category}
+                    <span className="ml-1.5 text-[10px] opacity-70">{c.totalQty}</span>
+                  </Button>
+                ))}
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">{active.products.length} productos con ventas</span>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setCategoryRankOrder(o => o === 'top' ? 'bottom' : 'top')}>
+                  {categoryRankOrder === 'top'
+                    ? <><TrendingUp className="h-3.5 w-3.5 mr-1 text-emerald-500" />Más pedidos</>
+                    : <><TrendingDown className="h-3.5 w-3.5 mr-1 text-red-500" />Menos pedidos</>}
+                </Button>
+              </div>
+              <div className="space-y-1.5">
+                {list.map((p, i) => {
+                  const pct = Math.max((p.qty / maxQty) * 100, 3);
+                  return (
+                    <div key={p.name} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-muted-foreground w-5 text-right">{categoryRankOrder === 'top' ? i + 1 : ''}</span>
+                          <span className="font-medium truncate max-w-[200px]">{p.name}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className="font-semibold">{p.qty} uds</span>
+                          <span className="text-muted-foreground">${p.revenue.toFixed(0)}</span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-1.5">
+                        <div className={cn('h-1.5 rounded-full transition-all', categoryRankOrder === 'top' ? 'bg-orange-500' : 'bg-red-400')} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }}
+      </ExpandableChartCard>
+
+
 
 
       {/* Heatmap */}
@@ -770,7 +905,7 @@ export default function AdminAnalytics() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {ordersData?.elasticity?.slice(0, 15).map(p => (
+                {ordersData?.elasticity?.slice(0, elasticShowAll ? (ordersData?.elasticity?.length ?? 0) : 8).map(p => (
                   <TableRow key={p.name}>
                     <TableCell className="font-medium">{p.name}</TableCell>
                     <TableCell className="text-right">${p.avgPrice.toFixed(2)}</TableCell>
@@ -787,6 +922,15 @@ export default function AdminAnalytics() {
                 ))}
               </TableBody>
             </Table>
+            {ordersData?.elasticity && ordersData.elasticity.length > 8 && (
+              <div className="flex justify-center mt-3">
+                <Button variant="outline" size="sm" onClick={() => setElasticShowAll(v => !v)} className="gap-1">
+                  {elasticShowAll
+                    ? <>Ver menos <ChevronUp className="h-3.5 w-3.5" /></>
+                    : <>Ver más ({ordersData.elasticity.length - 8}) <ChevronDown className="h-3.5 w-3.5" /></>}
+                </Button>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -825,7 +969,7 @@ export default function AdminAnalytics() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {waiterTableData.map(w => (
+                  {waiterTableData.slice(0, waitersShowAll ? undefined : 6).map(w => (
                     <TableRow key={w.name}>
                       <TableCell className="font-medium">{w.name}</TableCell>
                       <TableCell className="text-right font-semibold">{w.totalTables}</TableCell>
@@ -842,6 +986,15 @@ export default function AdminAnalytics() {
                   ))}
                 </TableBody>
               </Table>
+              {waiterTableData.length > 6 && (
+                <div className="flex justify-center mt-3">
+                  <Button variant="outline" size="sm" onClick={() => setWaitersShowAll(v => !v)} className="gap-1">
+                    {waitersShowAll
+                      ? <>Ver menos <ChevronUp className="h-3.5 w-3.5" /></>
+                      : <>Ver más ({waiterTableData.length - 6}) <ChevronDown className="h-3.5 w-3.5" /></>}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

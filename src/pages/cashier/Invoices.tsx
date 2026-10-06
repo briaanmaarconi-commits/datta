@@ -27,6 +27,7 @@ import CreditNoteDialog from '@/components/cashier/CreditNoteDialog';
 import FiscalTicketDialog from '@/components/cashier/FiscalTicketDialog';
 import type { FacturaTicketData } from '@/components/cashier/FacturaTicket80mm';
 import { printTicketPortal } from '@/lib/print';
+import { useShowMore, ShowMoreButton } from '@/components/ui/show-more';
 
 const STATUS_COLORS: Record<string, string> = {
   free: 'bg-green-500/20 border-green-500 text-green-700',
@@ -182,6 +183,8 @@ export default function CashierInvoices() {
   const filteredInvoices = searchTable
     ? invoices.filter((inv: any) => String(inv.table_number).includes(searchTable))
     : invoices;
+
+  const invoicesList = useShowMore<any>(filteredInvoices, 15);
 
   // Close & invoice mutation
   const closeAndInvoice = useMutation({
@@ -388,7 +391,7 @@ export default function CashierInvoices() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredInvoices.map((inv: any) => {
+                  {invoicesList.visible.map((inv: any) => {
                     const fiscal = fiscalInvoices.find((fi: any) => fi.invoice_id === inv.id && !fi.is_credit_note);
                     const hasNC = fiscalInvoices.some((fi: any) => fi.invoice_id === inv.id && fi.is_credit_note);
                     return (
@@ -495,6 +498,7 @@ export default function CashierInvoices() {
                 </TableBody>
               </Table>
             )}
+            <ShowMoreButton hiddenCount={invoicesList.hiddenCount} expanded={invoicesList.expanded} onToggle={() => invoicesList.setExpanded(!invoicesList.expanded)} />
           </div>
         </TabsContent>
       </Tabs>

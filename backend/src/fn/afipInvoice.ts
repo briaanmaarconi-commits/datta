@@ -328,7 +328,7 @@ export async function registerAfipInvoice(app: FastifyInstance) {
       const allowed = roles.some(
         (r) => r.role === "superadmin" || ((r.role === "admin" || r.role === "cashier") && r.establishment_id === establishment_id),
       );
-      if (!allowed) throw new HttpError(403, "Forbidden");
+      if (!allowed) throw new HttpError(403, "Tu usuario no tiene permiso para facturar en este local. Pedile al administrador que revise tu rol.");
 
       const { est, cert } = await withDb(SERVICE, async (c) => {
         const e = (

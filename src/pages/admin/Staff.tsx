@@ -1,3 +1,4 @@
+import { edgeErrorMessage } from '@/lib/invokeError';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { db } from '@/lib/db';
@@ -10,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useShowMore, ShowMoreButton } from '@/components/ui/show-more';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import type { Database } from '@/lib/dbTypes';
@@ -57,12 +59,14 @@ export default function AdminStaff() {
     staleTime: 5 * 60_000,
   });
 
+  const staffList = useShowMore<any>(staff, 10);
+
   const createStaff = useMutation({
     mutationFn: async () => {
       const res = await db.functions.invoke('create-user', {
         body: { email, password, fullName, role, establishmentId },
       });
-      if (res.error) throw new Error(res.error.message);
+      if (res.error) throw new Error(await edgeErrorMessage(res.error));
       if (res.data?.error) throw new Error(res.data.error);
     },
     onSuccess: () => {
@@ -81,7 +85,7 @@ export default function AdminStaff() {
       const res = await db.functions.invoke('create-user', {
         body: { action: 'update_role', roleId: editRoleId, role: editRole, establishmentId },
       });
-      if (res.error) throw new Error(res.error.message);
+      if (res.error) throw new Error(await edgeErrorMessage(res.error));
       if (res.data?.error) throw new Error(res.data.error);
     },
     onSuccess: () => {
@@ -97,7 +101,7 @@ export default function AdminStaff() {
       const res = await db.functions.invoke('create-user', {
         body: { action: 'reset_password', userId },
       });
-      if (res.error) throw new Error(res.error.message);
+      if (res.error) throw new Error(await edgeErrorMessage(res.error));
       if (res.data?.error) throw new Error(res.data.error);
       return res.data?.tempPassword as string | undefined;
     },
@@ -116,7 +120,7 @@ export default function AdminStaff() {
       const res = await db.functions.invoke('create-user', {
         body: { action: 'delete_role', roleId: id },
       });
-      if (res.error) throw new Error(res.error.message);
+      if (res.error) throw new Error(await edgeErrorMessage(res.error));
       if (res.data?.error) throw new Error(res.data.error);
     },
     onSuccess: () => {
@@ -201,7 +205,7 @@ export default function AdminStaff() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {staff.map((s: any) => {
+              {staffList.visible.map((s: any) => {
                 const canManage = !isCashierCaller || s.role === 'waiter' || s.role === 'kitchen';
                 return (
                 <TableRow key={s.id}>
@@ -230,6 +234,7 @@ export default function AdminStaff() {
               })}
             </TableBody>
           </Table>
+          <ShowMoreButton hiddenCount={staffList.hiddenCount} expanded={staffList.expanded} onToggle={() => staffList.setExpanded(!staffList.expanded)} />
         </CardContent>
       </Card>
     </div>

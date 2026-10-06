@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import MenuCombosTab, { ComboLine } from '@/components/menu/MenuCombosTab';
 import { groupFromCategoryName } from '@/lib/menuGroups';
 import { parseAmount } from '@/lib/parseAmount';
+import MarginPreview from '@/components/shared/MarginPreview';
 
 
 async function uploadImage(file: File, path: string): Promise<string> {
@@ -40,6 +41,8 @@ export default function CashierMenu() {
   const [prodName, setProdName] = useState('');
   const [prodDesc, setProdDesc] = useState('');
   const [prodPrice, setProdPrice] = useState('');
+  const [prodCost, setProdCost] = useState('');
+  const [prodTax, setProdTax] = useState('21');
   const [prodCatId, setProdCatId] = useState('');
   const [prodAvailable, setProdAvailable] = useState(true);
   const [prodDailySpecial, setProdDailySpecial] = useState(false);
@@ -93,6 +96,8 @@ export default function CashierMenu() {
     setProdName('');
     setProdDesc('');
     setProdPrice('');
+    setProdCost('');
+    setProdTax('21');
     setProdCatId('');
     setProdAvailable(true);
     setProdDailySpecial(false);
@@ -162,6 +167,8 @@ export default function CashierMenu() {
         name: prodName,
         description: prodDesc || null,
         price: parseAmount(prodPrice),
+        cost: parseAmount(prodCost),
+        tax_percentage: parseAmount(prodTax) || 0,
         category_id: prodCatId,
         establishment_id: establishmentId!,
         is_available: prodAvailable,
@@ -239,6 +246,8 @@ export default function CashierMenu() {
     setProdName(p.name);
     setProdDesc(p.description || '');
     setProdPrice(String(p.price));
+    setProdCost(p.cost != null && Number(p.cost) > 0 ? String(p.cost) : '');
+    setProdTax(String(p.tax_percentage ?? 21));
     setProdCatId(p.category_id);
     setProdAvailable(p.is_available);
     setProdDailySpecial(p.is_daily_special || false);
@@ -280,6 +289,15 @@ export default function CashierMenu() {
                 <div className="space-y-2">
                   <Label>Precio</Label>
                   <Input inputMode="decimal" value={prodPrice} onChange={e => setProdPrice(e.target.value)} required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Costo (opcional)</Label>
+                  <Input inputMode="decimal" value={prodCost} onChange={e => setProdCost(e.target.value)} placeholder="0,00" />
+                </div>
+                <div className="space-y-2">
+                  <Label>IVA (%)</Label>
+                  <Input inputMode="decimal" value={prodTax} onChange={e => setProdTax(e.target.value)} placeholder="21" />
+                  <MarginPreview price={prodPrice} cost={prodCost} taxPct={prodTax} />
                 </div>
                 <div className="space-y-2">
                   <Label>Categoría</Label>

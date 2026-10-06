@@ -14,11 +14,13 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useShowMore, ShowMoreButton } from '@/components/ui/show-more';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { CheckCircle, Circle, Plus, Trash2, DollarSign, TrendingDown, TrendingUp, CalendarIcon, Eye } from 'lucide-react';
 import ShiftDetailDialog from '@/components/admin/ShiftDetailDialog';
+import { getShiftDisplayDate, formatShiftDate, formatShiftRange } from '@/lib/shiftScope';
 
 import FiscalSettingsCard from '@/components/admin/FiscalSettingsCard';
 import CourtesyAccountsTab from '@/components/admin/CourtesyAccountsTab';
@@ -78,24 +80,24 @@ function ShiftControlTab({ establishmentId, userId }: { establishmentId: string 
         .order('created_at', { ascending: false });
       if (error) throw error;
 
-      // For each shift, get orders in that range
       const results = await Promise.all((data || []).map(async (shift: any) => {
-        let query = db
-          .from('orders')
+        // Misma fuente que el detalle: comprobantes por momento de COBRO dentro del turno.
+        const from = shift.opened_at ?? `${shift.shift_date}T00:00:00.000Z`;
+        const to = shift.closed_at ?? new Date().toISOString();
+        const { data: invs } = await db
+          .from('invoices')
           .select('id, total, payment_method')
           .eq('establishment_id', establishmentId!)
-          .eq('status', 'closed');
-
-        if (shift.opened_at) query = query.gte('created_at', shift.opened_at);
-        if (shift.closed_at) query = query.lte('created_at', shift.closed_at);
-
-        const { data: orders } = await query;
-        const cash = (orders || []).filter(o => o.payment_method === 'cash').reduce((s, o) => s + Number(o.total), 0);
-        const card = (orders || []).filter(o => o.payment_method === 'card').reduce((s, o) => s + Number(o.total), 0);
-        const transfer = (orders || []).filter(o => o.payment_method === 'transfer').reduce((s, o) => s + Number(o.total), 0);
+          .gte('created_at', from)
+          .lte('created_at', to);
+        const rows = invs || [];
+        const sum = (m: string) => rows.filter((o: any) => o.payment_method === m).reduce((s: number, o: any) => s + Number(o.total), 0);
+        const cash = sum('cash');
+        const card = sum('card');
+        const transfer = sum('transfer');
         const total = cash + card + transfer;
 
-        return { ...shift, cash, card, transfer, total, count: (orders || []).length };
+        return { ...shift, cash, card, transfer, total, count: rows.length };
       }));
 
       return results;
@@ -129,12 +131,16 @@ function ShiftControlTab({ establishmentId, userId }: { establishmentId: string 
   });
 
   // Dates that have shifts (for highlighting in calendar)
-  const shiftDates = shifts.map((s: any) => s.shift_date);
+  const shiftDates = shifts
+    .map((s: any) => getShiftDisplayDate(s))
+    .filter(Boolean) as string[];
 
-  // Filter shifts by selected date
+  // Filter shifts by selected date (fecha de apertura del turno)
   const filteredShifts = selectedDate
-    ? shifts.filter((s: any) => s.shift_date === format(selectedDate, 'yyyy-MM-dd'))
+    ? shifts.filter((s: any) => getShiftDisplayDate(s) === format(selectedDate, 'yyyy-MM-dd'))
     : shifts;
+
+  const shiftsList = useShowMore<any>(filteredShifts, 15);
 
   // Highlight days with shifts
   const modifiers = {
@@ -184,8 +190,7 @@ function ShiftControlTab({ establishmentId, userId }: { establishmentId: string 
                 <TableHeader>
                   <TableRow>
                     <TableHead>Fecha</TableHead>
-                    <TableHead>Apertura</TableHead>
-                    <TableHead>Cierre</TableHead>
+                    <TableHead>Horario</TableHead>
                     <TableHead>Pedidos</TableHead>
                     <TableHead>Efectivo</TableHead>
                     <TableHead>Tarjeta</TableHead>
@@ -196,14 +201,13 @@ function ShiftControlTab({ establishmentId, userId }: { establishmentId: string 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredShifts.map((s: any) => {
+                  {shiftsList.visible.map((s: any) => {
                     const isClosed = !!s.closed_at;
                     const isControlled = s.is_controlled;
                     return (
                       <TableRow key={s.id}>
-                        <TableCell className="font-medium">{new Date(s.shift_date + 'T12:00:00').toLocaleDateString('es')}</TableCell>
-                        <TableCell>{s.opened_at ? new Date(s.opened_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : '-'}</TableCell>
-                        <TableCell>{s.closed_at ? new Date(s.closed_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : '-'}</TableCell>
+                        <TableCell className="font-medium">{formatShiftDate(s)}</TableCell>
+                        <TableCell className="whitespace-nowrap">{formatShiftRange(s)}</TableCell>
                         <TableCell>{s.count}</TableCell>
                         <TableCell>${s.cash.toFixed(2)}</TableCell>
                         <TableCell>${s.card.toFixed(2)}</TableCell>
@@ -253,6 +257,7 @@ function ShiftControlTab({ establishmentId, userId }: { establishmentId: string 
                   )}
                 </TableBody>
               </Table>
+              <ShowMoreButton hiddenCount={shiftsList.hiddenCount} expanded={shiftsList.expanded} onToggle={() => shiftsList.setExpanded(!shiftsList.expanded)} />
             </div>
           </CardContent>
         </Card>
@@ -458,6 +463,8 @@ function FinanceTab({ establishmentId, userId }: { establishmentId: string | nul
     return result;
   }, [transactions, filterType, dateFrom, dateTo]);
 
+  const txList = useShowMore<any>(filteredTx, 15);
+
   // Tips are neutral (income + mirror expense): excluded from totals.
   const countableTx = filteredTx.filter((t: any) => !isTipTx({ type: t.type, amount: t.amount, categoryName: t.finance_categories?.name }));
   const totalIncome = countableTx.filter((t: any) => t.type === 'income').reduce((s: number, t: any) => s + Number(t.amount), 0);
@@ -578,7 +585,7 @@ function FinanceTab({ establishmentId, userId }: { establishmentId: string | nul
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredTx.map((t: any) => (
+              {txList.visible.map((t: any) => (
                 <TableRow key={t.id}>
                   <TableCell>{new Date(t.date + 'T12:00:00').toLocaleDateString('es')}</TableCell>
                   <TableCell>
@@ -618,6 +625,7 @@ function FinanceTab({ establishmentId, userId }: { establishmentId: string | nul
               )}
             </TableBody>
           </Table>
+          <ShowMoreButton hiddenCount={txList.hiddenCount} expanded={txList.expanded} onToggle={() => txList.setExpanded(!txList.expanded)} />
         </CardContent>
       </Card>
 

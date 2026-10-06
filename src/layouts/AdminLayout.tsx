@@ -15,6 +15,8 @@ import {
 import { Button } from '@/components/ui/button';
 import ChatBot from '@/components/admin/ChatBot';
 import InsightsBell from '@/components/admin/InsightsBell';
+import SectionHelp from '@/components/shared/SectionHelp';
+import { usePrivateTheme } from '@/hooks/usePrivateTheme';
 
 const items = [
   { title: 'Dashboard', url: '/admin', icon: LayoutDashboard },
@@ -26,7 +28,7 @@ const items = [
   { title: 'Analíticas', url: '/admin/analytics', icon: BarChart3 },
   { title: 'Caja', url: '/admin/cash', icon: Wallet },
   { title: 'Facturación', url: '/admin/billing', icon: Receipt },
-  { title: 'Costos', url: '/admin/costs', icon: Calculator },
+  { title: 'Precios y márgenes', url: '/admin/costs', icon: Calculator },
   { title: 'Stock', url: '/admin/stock', icon: Package },
   { title: 'Historial', url: '/admin/audit', icon: ClipboardList },
 ];
@@ -44,10 +46,8 @@ function SidebarNav() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="p-4">
-        {!collapsed && (
-          <h1 className="text-2xl font-bold tracking-tight text-sidebar-primary">datta</h1>
-        )}
+      <SidebarHeader className="border-b border-sidebar-border p-5">
+        {collapsed ? <span className="font-display text-xl font-bold text-sidebar-primary">d</span> : <h1 className="workspace-brand">datta</h1>}
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -80,6 +80,7 @@ function SidebarNav() {
 }
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  usePrivateTheme();
   const { establishmentId } = useAuth();
   const queryClient = useQueryClient();
 
@@ -148,17 +149,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="workspace-shell flex min-h-screen w-full">
         <SidebarNav />
         <div className="flex-1 flex flex-col">
-          <header className="h-14 flex items-center border-b px-4 bg-card">
+          <header className="workspace-header">
             <SidebarTrigger />
             <span className="ml-3 text-sm font-medium text-muted-foreground">Admin</span>
+            <span className="ml-2 flex items-center"><SectionHelp /></span>
             <div className="ml-auto flex items-center gap-2">
               <InsightsBell />
             </div>
           </header>
-          <main className="flex-1 p-6">{children}</main>
+          <main className="workspace-main">{children}</main>
         </div>
       </div>
       <ChatBot />

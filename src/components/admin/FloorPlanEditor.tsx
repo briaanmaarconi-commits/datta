@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { getTableVisualState } from '@/lib/tableStatus';
+import TableStatusLegend from '@/components/shared/TableStatusLegend';
 import {
   Save, RotateCcw, Trash2, RotateCw,
   Move, UtensilsCrossed, Bath, DoorOpen, Wine, Armchair,
@@ -131,6 +133,22 @@ export default function FloorPlanEditor() {
       return data;
     },
     enabled: !!establishmentId,
+    refetchInterval: 5000,
+  });
+
+  const { data: planActiveOrders = [] } = useQuery({
+    queryKey: ['floor-plan-active-orders', establishmentId],
+    queryFn: async () => {
+      const { data, error } = await db
+        .from('orders')
+        .select('id, table_id, status')
+        .eq('establishment_id', establishmentId!)
+        .in('status', ['new', 'preparing', 'ready', 'delivered']);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!establishmentId,
+    refetchInterval: 5000,
   });
 
   const { data: floorPlan } = useQuery({
@@ -501,6 +519,8 @@ export default function FloorPlanEditor() {
         </Button>
       </div>
 
+      <TableStatusLegend />
+
       <div className="flex gap-4 flex-col lg:flex-row">
         {/* Sidebar */}
         <div className="w-full lg:w-56 space-y-3 shrink-0">
@@ -662,7 +682,12 @@ export default function FloorPlanEditor() {
               const isDoor = el.type === 'door-entry' || el.type === 'door-exit';
               const isWindow = el.type === 'window';
               const isSelected = selectedElement === el.id;
-              const color = isTable ? '#F59E0B' : getElementColor(el.type);
+              const elTable = isTable && el.tableId ? tables.find(t => t.id === el.tableId) : undefined;
+              const color = isTable
+                ? (elTable
+                    ? getTableVisualState(elTable, planActiveOrders.filter(o => o.table_id === elTable.id)).color
+                    : '#9CA3AF')
+                : getElementColor(el.type);
               const isRound = isTable && (el.shape ?? 'round') === 'round';
               const chairs = el.chairs || 0;
 

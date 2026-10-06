@@ -6,6 +6,9 @@ import { db } from '@/lib/db';
  * `db.functions.invoke` descarta el body cuando la respuesta no es 2xx y sólo deja
  * "Edge Function returned a non-2xx status code". Acá leemos el body de `error.context`
  * para poder mostrar el rechazo concreto de ARCA (código + descripción).
+ *
+ * La sesión viaja en una cookie httpOnly, así que no hace falta manejar tokens en el navegador:
+ * si venció, el backend responde 401 y la app vuelve al login.
  */
 export async function invokeAfip<T = any>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await db.functions.invoke('afip-invoice', { body });
@@ -29,6 +32,9 @@ export async function invokeAfip<T = any>(body: Record<string, unknown>): Promis
           /* sin body legible */
         }
       }
+    }
+    if (res?.status === 401) {
+      message = 'Tu sesión expiró. Cerrá sesión y volvé a entrar para poder facturar.';
     }
     throw new Error(message);
   }

@@ -8,6 +8,8 @@ import {
   SidebarTrigger, SidebarHeader, SidebarFooter, useSidebar,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
+import SectionHelp from '@/components/shared/SectionHelp';
+import { usePrivateTheme } from '@/hooks/usePrivateTheme';
 
 const items = [
   { title: 'Mis Mesas', url: '/waiter', icon: Grid3X3 },
@@ -23,10 +25,8 @@ function SidebarNav() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="p-4">
-        {!collapsed && (
-          <h1 className="text-2xl font-bold tracking-tight text-sidebar-primary">datta</h1>
-        )}
+      <SidebarHeader className="border-b border-sidebar-border p-5">
+        {collapsed ? <span className="font-display text-xl font-bold text-sidebar-primary">d</span> : <h1 className="workspace-brand">datta</h1>}
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -58,16 +58,18 @@ function SidebarNav() {
 }
 
 export default function WaiterLayout({ children }: { children: React.ReactNode }) {
+  usePrivateTheme();
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="workspace-shell flex min-h-screen w-full">
         <SidebarNav />
         <div className="flex-1 flex flex-col">
-          <header className="h-14 flex items-center border-b px-4 bg-card">
+          <header className="workspace-header">
             <SidebarTrigger />
             <span className="ml-3 text-sm font-medium text-muted-foreground">Mesero</span>
+            <span className="ml-2 flex items-center"><SectionHelp /></span>
           </header>
-          <main className="flex-1 p-6">{children}</main>
+          <main className="workspace-main">{children}</main>
         </div>
       </div>
     </SidebarProvider>

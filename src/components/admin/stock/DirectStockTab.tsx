@@ -101,7 +101,7 @@ export default function DirectStockTab() {
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground flex items-center gap-2"><Package className="h-4 w-4" />Sin costo cargado</CardTitle></CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{summary.noCost}</div>
-            <p className="text-xs text-muted-foreground mt-1">Cargalos en Costos y Promociones</p>
+            <p className="text-xs text-muted-foreground mt-1">Cargalos en Precios y márgenes</p>
           </CardContent>
         </Card>
       </div>

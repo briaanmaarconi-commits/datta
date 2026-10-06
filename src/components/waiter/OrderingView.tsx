@@ -62,8 +62,9 @@ export default function OrderingView({
   const addToCart = (product: any) => {
     try { navigator.vibrate?.(30); } catch {}
     setCart(prev => {
-      const existing = prev.find(i => i.product_id === product.id);
-      if (existing) return prev.map(i => i.product_id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+      // Sólo agrupamos con líneas sueltas: las líneas de combo (line_id) tienen precio propio
+      const existing = prev.find(i => !i.line_id && i.product_id === product.id);
+      if (existing) return prev.map(i => (!i.line_id && i.product_id === product.id) ? { ...i, quantity: i.quantity + 1 } : i);
       return [...prev, { product_id: product.id, name: product.name, price: Number(product.price), quantity: 1, notes: '' }];
     });
   };

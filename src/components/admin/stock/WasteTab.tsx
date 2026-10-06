@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Trash2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useShowMore, ShowMoreButton } from '@/components/ui/show-more';
 
 const REASONS = ['Vencimiento', 'Se quemó', 'Se cayó / derramó', 'Mala calidad', 'Sobrante del día', 'Otro'];
 
@@ -37,6 +38,8 @@ export default function WasteTab() {
     },
     enabled: !!establishmentId,
   });
+
+  const wastesList = useShowMore<any>(recentWastes, 8);
 
   const wasteMutation = useMutation({
     mutationFn: async () => {
@@ -105,7 +108,7 @@ export default function WasteTab() {
         <Card>
           <CardContent className="pt-6 space-y-2">
             <h3 className="font-medium mb-3">Mermas recientes</h3>
-            {recentWastes.map((w: any) => (
+            {wastesList.visible.map((w: any) => (
               <div key={w.id} className="flex items-center justify-between p-2 rounded border">
                 <div>
                   <span className="font-medium">{(w as any).ingredients?.name}</span>
@@ -117,6 +120,7 @@ export default function WasteTab() {
                 </div>
               </div>
             ))}
+            <ShowMoreButton hiddenCount={wastesList.hiddenCount} expanded={wastesList.expanded} onToggle={() => wastesList.setExpanded(!wastesList.expanded)} />
           </CardContent>
         </Card>
       )}

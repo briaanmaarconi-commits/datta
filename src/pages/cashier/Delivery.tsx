@@ -17,6 +17,7 @@ import { Bike, Plus, Minus, Trash2, Check, ChefHat, PackageCheck, X, Search, Inf
 import { toast } from 'sonner';
 import { argDayRange, toArgDate } from '@/lib/utils';
 import { parseAmount } from '@/lib/parseAmount';
+import { useShowMore, ShowMoreButton } from '@/components/ui/show-more';
 
 const PLATFORMS: DeliveryPlatform[] = ['rappi', 'pedidosya', 'propio'];
 
@@ -91,6 +92,9 @@ export default function CashierDelivery() {
     enabled: !!establishmentId,
     refetchInterval: 30000,
   });
+
+  const activeList = useShowMore<any>(activeOrders, 6);
+  const closedList = useShowMore<any>(todayClosed, 8);
 
   useEffect(() => {
     if (!establishmentId) return;
@@ -273,7 +277,7 @@ export default function CashierDelivery() {
           {activeOrders.length === 0 && (
             <p className="text-sm text-muted-foreground py-6 text-center">No hay pedidos de delivery en curso.</p>
           )}
-          {activeOrders.map(o => {
+          {activeList.visible.map(o => {
             const plat = (o.external_platform || 'propio') as DeliveryPlatform;
             return (
               <div key={o.id} className="rounded-lg border p-4 space-y-3">
@@ -335,6 +339,7 @@ export default function CashierDelivery() {
               </div>
             );
           })}
+          <ShowMoreButton hiddenCount={activeList.hiddenCount} expanded={activeList.expanded} onToggle={() => activeList.setExpanded(!activeList.expanded)} />
         </CardContent>
       </Card>
 
@@ -347,7 +352,7 @@ export default function CashierDelivery() {
             <p className="text-sm text-muted-foreground py-4 text-center">Todavía no cerraste pedidos de delivery hoy.</p>
           ) : (
             <div className="space-y-2">
-              {todayClosed.map(o => {
+              {closedList.visible.map(o => {
                 const plat = (o.external_platform || 'propio') as DeliveryPlatform;
                 return (
                   <div key={o.id} className="flex items-center justify-between gap-3 text-sm border-b pb-2 last:border-0">
@@ -364,6 +369,7 @@ export default function CashierDelivery() {
                   </div>
                 );
               })}
+              <ShowMoreButton hiddenCount={closedList.hiddenCount} expanded={closedList.expanded} onToggle={() => closedList.setExpanded(!closedList.expanded)} />
             </div>
           )}
         </CardContent>

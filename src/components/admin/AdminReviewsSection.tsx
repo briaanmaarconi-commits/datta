@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { useShowMore, ShowMoreButton } from '@/components/ui/show-more';
 
 function Stars({ rating }: { rating: number }) {
   return (
@@ -48,6 +49,9 @@ export default function AdminReviewsSection({ establishmentId }: { establishment
     enabled: !!establishmentId,
   });
 
+  const productList = useShowMore<any>(productReviews, 8);
+  const waiterList = useShowMore<any>(waiterReviews, 8);
+
   const deleteProductReview = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await db.from('product_reviews').delete().eq('id', id);
@@ -83,7 +87,7 @@ export default function AdminReviewsSection({ establishmentId }: { establishment
         {productReviews.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-8">No hay reseñas de platos</p>
         )}
-        {productReviews.map((r: any) => (
+        {productList.visible.map((r: any) => (
           <Card key={r.id}>
             <CardContent className="py-3 flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0 space-y-1">
@@ -106,13 +110,14 @@ export default function AdminReviewsSection({ establishmentId }: { establishment
             </CardContent>
           </Card>
         ))}
+        <ShowMoreButton hiddenCount={productList.hiddenCount} expanded={productList.expanded} onToggle={() => productList.setExpanded(!productList.expanded)} />
       </TabsContent>
 
       <TabsContent value="waiters" className="space-y-3 mt-4">
         {waiterReviews.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-8">No hay reseñas de mozos</p>
         )}
-        {waiterReviews.map((r: any) => (
+        {waiterList.visible.map((r: any) => (
           <Card key={r.id}>
             <CardContent className="py-3 flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0 space-y-1">
@@ -135,6 +140,7 @@ export default function AdminReviewsSection({ establishmentId }: { establishment
             </CardContent>
           </Card>
         ))}
+        <ShowMoreButton hiddenCount={waiterList.hiddenCount} expanded={waiterList.expanded} onToggle={() => waiterList.setExpanded(!waiterList.expanded)} />
       </TabsContent>
     </Tabs>
   );

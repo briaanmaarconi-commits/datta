@@ -11,7 +11,8 @@ import {
 import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ZAxis, Cell,
 } from 'recharts';
-import { Star, Cog, HelpCircle, AlertTriangle, Sparkles } from 'lucide-react';
+import { Star, Cog, HelpCircle, AlertTriangle, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { argDayRange, toArgDate } from '@/lib/utils';
 
 type Quadrant = 'star' | 'cow' | 'dilemma' | 'dog';
@@ -39,6 +40,7 @@ export default function ProductMatrixTab() {
   const { establishmentId } = useAuth();
   const [days, setDays] = useState('30');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [showAllProducts, setShowAllProducts] = useState(false);
 
   const range = useMemo(() => {
     const n = parseInt(days, 10);
@@ -143,6 +145,9 @@ export default function ProductMatrixTab() {
   }, [filtered]);
 
   const scatterData = filtered.map((r) => ({ ...r, z: Math.max(r.revenue, 1) }));
+
+  const sortedProducts = [...filtered].sort((a, b) => b.totalMargin - a.totalMargin);
+  const visibleProducts = showAllProducts ? sortedProducts : sortedProducts.slice(0, 10);
 
   return (
     <div className="space-y-6">
@@ -261,11 +266,9 @@ export default function ProductMatrixTab() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {[...filtered]
-                  .sort((a, b) => b.totalMargin - a.totalMargin)
-                  .map((r) => {
-                    const meta = QUADRANT_META[r.quadrant];
-                    return (
+                {visibleProducts.map((r) => {
+                  const meta = QUADRANT_META[r.quadrant];
+                  return (
                       <TableRow key={r.id}>
                         <TableCell className="font-medium">{r.name}</TableCell>
                         <TableCell className="text-muted-foreground">{r.category ?? '—'}</TableCell>
@@ -285,6 +288,15 @@ export default function ProductMatrixTab() {
               </TableBody>
             </Table>
           </div>
+          {sortedProducts.length > 10 && (
+            <div className="flex justify-center mt-4">
+              <Button variant="outline" size="sm" onClick={() => setShowAllProducts(v => !v)} className="gap-1">
+                {showAllProducts
+                  ? <>Ver menos <ChevronUp className="h-4 w-4" /></>
+                  : <>Ver más ({sortedProducts.length - 10}) <ChevronDown className="h-4 w-4" /></>}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

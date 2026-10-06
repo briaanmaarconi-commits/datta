@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { useShowMore, ShowMoreButton } from '@/components/ui/show-more';
 
 const ACTION_LABELS: Record<string, string> = {
   open_shift: 'Abrió turno',
@@ -55,6 +55,8 @@ export default function AuditLog() {
     retry: false,
   });
 
+  const logsList = useShowMore<any>(logs, 15);
+
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight">Historial de acciones</h1>
@@ -63,7 +65,7 @@ export default function AuditLog() {
           <CardTitle className="text-base">Últimas 100 acciones</CardTitle>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[600px]">
+          <div>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -75,7 +77,7 @@ export default function AuditLog() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {logs.map((log: any) => (
+                {logsList.visible.map((log: any) => (
                   <TableRow key={log.id}>
                     <TableCell className="text-xs whitespace-nowrap">
                       {new Date(log.created_at).toLocaleString('es')}
@@ -105,7 +107,8 @@ export default function AuditLog() {
                 )}
               </TableBody>
             </Table>
-          </ScrollArea>
+            <ShowMoreButton hiddenCount={logsList.hiddenCount} expanded={logsList.expanded} onToggle={() => logsList.setExpanded(!logsList.expanded)} />
+          </div>
         </CardContent>
       </Card>
     </div>

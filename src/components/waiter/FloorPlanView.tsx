@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useState, useEffect, useRef } from 'react';
+import { getTableVisualState } from '@/lib/tableStatus';
 
 interface FloorElement {
   id: string;
@@ -26,17 +27,6 @@ interface FloorPlanData {
   height: number;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  free: '#22C55E',
-  occupied: '#EF4444',
-  billing: '#F59E0B',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  free: 'Libre',
-  occupied: 'Ocupada',
-  billing: 'En preparación',
-};
 
 const ELEMENT_COLORS: Record<string, string> = {
   bar: '#8B4513',
@@ -130,14 +120,7 @@ export default function FloorPlanView({ onTableClick, tables, activeOrders }: Fl
             ))}
           </SelectContent>
         </Select>
-        <div className="flex gap-2 ml-auto">
-          {Object.entries(STATUS_LABELS).map(([key, label]) => (
-            <div key={key} className="flex items-center gap-1 text-xs">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: STATUS_COLORS[key] }} />
-              {label}
-            </div>
-          ))}
-        </div>
+
       </div>
 
       {!hasFloorPlan ? (
@@ -196,7 +179,7 @@ export default function FloorPlanView({ onTableClick, tables, activeOrders }: Fl
               const table = isTable ? tables.find(t => t.id === el.tableId) : null;
               const tableOrders = isTable ? activeOrders.filter(o => o.table_id === el.tableId) : [];
               const color = isTable
-                ? (table ? STATUS_COLORS[table.status] : '#9CA3AF')
+                ? (table ? getTableVisualState(table, tableOrders).color : '#9CA3AF')
                 : ELEMENT_COLORS[el.type] || '#6B7280';
               const isRound = isTable && (el.shape ?? 'round') === 'round';
               const chairs = el.chairs || 0;

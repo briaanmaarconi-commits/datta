@@ -93,6 +93,8 @@ export default function SimplePurchasesTab() {
   const [period, setPeriod] = useState('month');
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  /** Gasto espejo generado automáticamente por esta compra (no es un duplicado). */
+  const [editingTxId, setEditingTxId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [supplier, setSupplier] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
@@ -115,7 +117,7 @@ export default function SimplePurchasesTab() {
     queryFn: async () => {
       let q = db
         .from('purchase_invoices')
-        .select('id, supplier, invoice_date, total, notes, payment_method, purchase_invoice_items(id, item_name, quantity, unit, unit_price, ingredients(name, unit))')
+        .select('id, supplier, invoice_date, total, notes, payment_method, finance_transaction_id, purchase_invoice_items(id, item_name, quantity, unit, unit_price, ingredients(name, unit))')
         .eq('establishment_id', establishmentId!)
         .order('invoice_date', { ascending: false })
         .limit(200);
@@ -174,6 +176,7 @@ export default function SimplePurchasesTab() {
 
   const resetForm = () => {
     setEditingId(null);
+    setEditingTxId(null);
     setSupplier('');
     setInvoiceDate(new Date().toISOString().split('T')[0]);
     setNotes('');
@@ -207,6 +210,7 @@ export default function SimplePurchasesTab() {
 
   const openEdit = (inv: any) => {
     setEditingId(inv.id);
+    setEditingTxId(inv.finance_transaction_id ?? null);
     setSupplier(inv.supplier || '');
     setInvoiceDate(inv.invoice_date);
     setNotes(inv.notes || '');
@@ -239,6 +243,7 @@ export default function SimplePurchasesTab() {
           date: invoiceDate,
           amount: total,
           excludePurchaseId: editingId,
+          excludeTransactionId: editingTxId,
         });
         if (matches.length > 0) {
           setDupMatches(matches);

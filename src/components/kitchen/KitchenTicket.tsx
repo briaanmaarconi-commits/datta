@@ -9,7 +9,10 @@ export interface KitchenTicketItem {
 
 export interface KitchenTicketData {
   establishmentName?: string;
-  tableNumber?: number | string;
+  tableNumber?: number | string | null;
+  isDelivery?: boolean;
+  platform?: string | null;
+  customerName?: string | null;
   sectorName?: string | null;
   createdAt: string;
   isAddition?: boolean;
@@ -24,11 +27,21 @@ export function KitchenTicketBody({ data }: { data: KitchenTicketData }) {
       <div className="text-center mb-2">
         <p className="font-bold text-base">{data.establishmentName || 'Cocina'}</p>
         <p className="font-bold text-base border-y border-dashed border-foreground py-0.5 my-1">
-          {data.isAddition ? 'COMANDA - AGREGADO' : 'COMANDA'}
+          {data.isDelivery ? 'COMANDA - DELIVERY' : data.isAddition ? 'COMANDA - AGREGADO' : 'COMANDA'}
         </p>
         {data.reprint && <p className="text-xs font-bold">*** REIMPRESIÓN ***</p>}
-        <p className="text-2xl font-bold leading-tight">MESA {data.tableNumber ?? '-'}</p>
-        {data.sectorName && <p className="text-xs">Sector: {data.sectorName}</p>}
+        {data.isDelivery ? (
+          <>
+            <p className="text-2xl font-bold leading-tight">DELIVERY</p>
+            {data.platform && <p className="text-sm font-bold">{data.platform}</p>}
+            {data.customerName && <p className="text-xs">Cliente: {data.customerName}</p>}
+          </>
+        ) : (
+          <>
+            <p className="text-2xl font-bold leading-tight">MESA {data.tableNumber ?? '-'}</p>
+            {data.sectorName && <p className="text-xs">Sector: {data.sectorName}</p>}
+          </>
+        )}
         <p className="text-xs">
           {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </p>

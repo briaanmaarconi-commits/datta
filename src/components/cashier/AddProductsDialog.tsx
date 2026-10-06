@@ -93,9 +93,10 @@ export default function AddProductsDialog({
 
   const addProduct = (p: any) => {
     setCart(prev => {
-      const existing = prev.find(l => l.product_id === p.id);
+      // Sólo agrupamos con líneas sueltas: las de combo (line_id) van con precio del combo
+      const existing = prev.find(l => !l.line_id && l.product_id === p.id);
       if (existing) {
-        return prev.map(l => (l.product_id === p.id ? { ...l, quantity: l.quantity + 1 } : l));
+        return prev.map(l => (!l.line_id && l.product_id === p.id ? { ...l, quantity: l.quantity + 1 } : l));
       }
       return [...prev, { product_id: p.id, name: p.name, price: effectivePrice(p), quantity: 1 }];
     });

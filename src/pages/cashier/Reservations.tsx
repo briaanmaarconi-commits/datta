@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useShowMore, ShowMoreButton } from '@/components/ui/show-more';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 
@@ -90,6 +91,8 @@ export default function Reservations() {
     if (statusFilter === 'active') return reservations.filter((reservation: any) => reservation.status === 'confirmed');
     return reservations.filter((reservation: any) => reservation.status === statusFilter);
   }, [reservations, statusFilter]);
+
+  const reservationsList = useShowMore<any>(filteredReservations, 10);
 
   const resetForm = () => {
     setTableId('');
@@ -236,7 +239,7 @@ export default function Reservations() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredReservations.map((reservation: any) => {
+              {reservationsList.visible.map((reservation: any) => {
                 const table = tableById.get(reservation.table_id) as any;
                 return (
                   <TableRow key={reservation.id}>
@@ -267,6 +270,7 @@ export default function Reservations() {
               )}
             </TableBody>
           </Table>
+          <ShowMoreButton hiddenCount={reservationsList.hiddenCount} expanded={reservationsList.expanded} onToggle={() => reservationsList.setExpanded(!reservationsList.expanded)} />
         </CardContent>
       </Card>
     </div>

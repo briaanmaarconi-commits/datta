@@ -44,6 +44,8 @@ export default function InsightsFeed() {
   const [filter, setFilter] = useState<'all' | 'alert' | 'recommendation'>('all');
   const [running, setRunning] = useState(false);
   const [openSettings, setOpenSettings] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const VISIBLE_COUNT = 4;
 
   const { data: insights = [] } = useQuery({
     queryKey: ['ai-insights-feed', establishmentId],
@@ -63,6 +65,8 @@ export default function InsightsFeed() {
   });
 
   const filtered = filter === 'all' ? insights : insights.filter((i) => i.kind === filter);
+  const visible = showAll ? filtered : filtered.slice(0, VISIBLE_COUNT);
+  const hiddenCount = filtered.length - visible.length;
 
   async function dismiss(id: string) {
     await db.from('ai_insights').update({ status: 'dismissed' }).eq('id', id);
@@ -113,17 +117,17 @@ export default function InsightsFeed() {
         </div>
         <div className="flex items-center gap-1">
           <Button size="sm" variant="ghost" onClick={runNow} disabled={running}>
-            <Sparkles className="h-3.5 w-3.5 mr-1" /> Analizar ahora
+            <Sparkles className="h-3.5 w-3.5 mr-1 text-[#EA580C]" /> Analizar ahora
           </Button>
           <Button size="icon" variant="ghost" onClick={() => setOpenSettings(true)} title="Configurar">
-            <Settings className="h-4 w-4" />
+            <Settings className="h-4 w-4 text-[#EA580C]" />
           </Button>
         </div>
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-1 mb-3">
           {(['all', 'alert', 'recommendation'] as const).map((f) => (
-            <Button key={f} size="sm" variant={filter === f ? 'secondary' : 'ghost'} className="h-7 text-xs" onClick={() => setFilter(f)}>
+            <Button key={f} size="sm" variant={filter === f ? 'secondary' : 'ghost'} className="h-7 text-xs" onClick={() => { setFilter(f); setShowAll(false); }}>
               {f === 'all' ? `Todas (${insights.length})` : f === 'alert' ? `Alertas (${insights.filter((i) => i.kind === 'alert').length})` : `Sugerencias (${insights.filter((i) => i.kind === 'recommendation').length})`}
             </Button>
           ))}
@@ -131,13 +135,13 @@ export default function InsightsFeed() {
 
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-center">
-            <Inbox className="h-8 w-8 text-muted-foreground mb-2" />
+            <Inbox className="h-8 w-8 text-[#EA580C] mb-2" />
             <p className="text-sm text-muted-foreground">Sin novedades por ahora.</p>
             <Button size="sm" variant="link" onClick={runNow} disabled={running}>Generar análisis</Button>
           </div>
         ) : (
           <div className="divide-y rounded-md border">
-            {filtered.map((i) => (
+            {visible.map((i) => (
               <div key={i.id} className={`flex gap-3 p-3 border-l-4 ${severityRing[i.severity]} ${i.status === 'new' ? 'bg-accent/20' : ''}`}>
                 <div className="shrink-0 pt-0.5">
                   {i.kind === 'alert' ? <AlertTriangle className="h-4 w-4 text-yellow-500" /> : <Lightbulb className="h-4 w-4 text-primary" />}
@@ -155,7 +159,7 @@ export default function InsightsFeed() {
                       <button onClick={() => markRead(i.id)} className="text-[10px] text-primary hover:underline">Marcar leída</button>
                     )}
                     <button onClick={() => silenceCategory(i.category)} className="text-[10px] text-muted-foreground hover:underline flex items-center gap-1">
-                      <BellOff className="h-3 w-3" /> Silenciar {categoryLabel[i.category] ?? i.category}
+                      <BellOff className="h-3 w-3 text-[#EA580C]" /> Silenciar {categoryLabel[i.category] ?? i.category}
                     </button>
                     <button onClick={() => dismiss(i.id)} className="text-[10px] text-muted-foreground hover:underline">Descartar</button>
                   </div>
@@ -163,6 +167,16 @@ export default function InsightsFeed() {
               </div>
             ))}
           </div>
+        )}
+        {filtered.length > VISIBLE_COUNT && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="mt-3 w-full text-[#EA580C] hover:text-[#EA580C]"
+            onClick={() => setShowAll((v) => !v)}
+          >
+            {showAll ? 'Ver menos' : `Ver más recomendaciones (${hiddenCount})`}
+          </Button>
         )}
       </CardContent>
       <InsightsSettingsDialog open={openSettings} onOpenChange={setOpenSettings} />

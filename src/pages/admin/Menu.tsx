@@ -20,6 +20,7 @@ import { useAuditLog } from '@/hooks/useAuditLog';
 import MenuCombosTab, { ComboLine } from '@/components/menu/MenuCombosTab';
 import { groupFromCategoryName } from '@/lib/menuGroups';
 import { parseAmount } from '@/lib/parseAmount';
+import MarginPreview from '@/components/shared/MarginPreview';
 
 
 
@@ -47,6 +48,8 @@ export default function AdminMenu() {
   const [prodName, setProdName] = useState('');
   const [prodDesc, setProdDesc] = useState('');
   const [prodPrice, setProdPrice] = useState('');
+  const [prodCost, setProdCost] = useState('');
+  const [prodTax, setProdTax] = useState('21');
   const [prodCatId, setProdCatId] = useState('');
   const [prodAvailable, setProdAvailable] = useState(true);
   const [prodImageFile, setProdImageFile] = useState<File | null>(null);
@@ -157,7 +160,9 @@ export default function AdminMenu() {
       const payload: any = {
         name: prodName,
         description: prodDesc || null,
-        price: parseFloat(prodPrice),
+        price: parseAmount(prodPrice),
+        cost: parseAmount(prodCost),
+        tax_percentage: parseAmount(prodTax) || 0,
         category_id: prodCatId,
         establishment_id: establishmentId!,
         is_available: prodAvailable,
@@ -248,6 +253,8 @@ export default function AdminMenu() {
     setProdName('');
     setProdDesc('');
     setProdPrice('');
+    setProdCost('');
+    setProdTax('21');
     setProdCatId('');
     setProdAvailable(true);
     setProdDailySpecial(false);
@@ -264,6 +271,8 @@ export default function AdminMenu() {
     setProdName(p.name);
     setProdDesc(p.description || '');
     setProdPrice(String(p.price));
+    setProdCost(p.cost != null && Number(p.cost) > 0 ? String(p.cost) : '');
+    setProdTax(String(p.tax_percentage ?? 21));
     setProdCatId(p.category_id);
     setProdAvailable(p.is_available);
     setProdDailySpecial(p.is_daily_special || false);
@@ -345,22 +354,25 @@ export default function AdminMenu() {
 
           <div className="grid gap-3">
             {categories.map(cat => (
-              <Card key={cat.id} className={!(cat as any).is_active ? 'opacity-50' : ''}>
-                <CardContent className="flex items-center justify-between py-4">
+              <Card key={cat.id} className={`group relative overflow-hidden rounded-2xl border-border/70 shadow-sm hover:border-primary/40 hover:shadow-lg transition-all ${!(cat as any).is_active ? 'opacity-50' : ''}`}>
+                <span className="absolute left-0 top-0 h-full w-1 bg-primary/70 group-hover:bg-primary transition-colors" />
+                <CardContent className="flex items-center justify-between py-4 pl-6 pr-5">
                   <div className="flex items-center gap-3">
-                    <GripVertical className="h-4 w-4 text-muted-foreground" />
-                    {(cat as any).image_url && (
-                      <img src={(cat as any).image_url} alt={cat.name} className="w-10 h-10 rounded object-cover" />
+                    <GripVertical className="h-5 w-5 text-muted-foreground/40 cursor-grab active:cursor-grabbing transition-colors group-hover:text-primary" />
+                    {(cat as any).image_url ? (
+                      <img src={(cat as any).image_url} alt={cat.name} className="w-12 h-12 rounded-xl object-cover ring-1 ring-border" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-display text-lg font-bold">{cat.name?.charAt(0)?.toUpperCase()}</div>
                     )}
-                    <span className="font-medium">{cat.name}</span>
+                    <span className="font-display font-semibold text-lg">{cat.name}</span>
                     {!cat.is_active && <Badge variant="secondary">Inactiva</Badge>}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
                     <Switch checked={cat.is_active} onCheckedChange={() => toggleCategory.mutate({ id: cat.id, is_active: cat.is_active })} />
-                    <Button variant="ghost" size="icon" onClick={() => { setEditCatId(cat.id); setCatName(cat.name); setCatImagePreview((cat as any).image_url || null); setCatOpen(true); }}>
+                    <Button variant="ghost" size="icon" className="rounded-lg text-muted-foreground hover:text-primary transition-colors" onClick={() => { setEditCatId(cat.id); setCatName(cat.name); setCatImagePreview((cat as any).image_url || null); setCatOpen(true); }}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => {
+                    <Button variant="ghost" size="icon" className="rounded-lg transition-colors hover:bg-destructive/10" onClick={() => {
                       toast('¿Eliminar esta categoría?', {
                         description: `"${cat.name}" y todo su contenido se perderán.`,
                         action: { label: 'Sí, eliminar', onClick: () => deleteCategory.mutate(cat.id) },
@@ -395,6 +407,15 @@ export default function AdminMenu() {
                 <div className="space-y-2">
                   <Label>Precio</Label>
                   <Input type="number" step="0.01" min="0" value={prodPrice} onChange={e => setProdPrice(e.target.value)} required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Costo (opcional)</Label>
+                  <Input inputMode="decimal" value={prodCost} onChange={e => setProdCost(e.target.value)} placeholder="0,00" />
+                </div>
+                <div className="space-y-2">
+                  <Label>IVA (%)</Label>
+                  <Input inputMode="decimal" value={prodTax} onChange={e => setProdTax(e.target.value)} placeholder="21" />
+                  <MarginPreview price={prodPrice} cost={prodCost} taxPct={prodTax} />
                 </div>
                 <div className="space-y-2">
                   <Label>Categoría</Label>
@@ -460,33 +481,40 @@ export default function AdminMenu() {
 
           <div className="grid gap-3 md:grid-cols-2">
             {products.map((p: any) => (
-              <Card key={p.id} className={!p.is_available ? 'opacity-50' : ''}>
-                <CardContent className="py-4">
+              <Card key={p.id} className={`group relative overflow-hidden rounded-2xl border-border/70 bg-card shadow-sm hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5 transition-all ${!p.is_available ? 'opacity-50' : ''}`}>
+                <span className="absolute left-0 top-0 h-full w-1 bg-primary/70 group-hover:bg-primary transition-colors" />
+                <CardContent className="py-4 pl-6 pr-5">
                   <div className="flex items-start justify-between gap-3">
-                    {p.image_url && (
-                      <img src={p.image_url} alt={p.name} className="w-16 h-16 rounded object-cover flex-shrink-0" loading="lazy" />
+                    {p.image_url ? (
+                      <img src={p.image_url} alt={p.name} className="w-16 h-16 rounded-xl object-cover flex-shrink-0 ring-1 ring-border" loading="lazy" />
+                    ) : (
+                      <div className="w-16 h-16 rounded-xl flex-shrink-0 bg-primary/10 text-primary flex items-center justify-center font-display text-xl font-bold">
+                        {p.name?.charAt(0)?.toUpperCase()}
+                      </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold">{p.name}</h3>
-                      <p className="text-sm text-muted-foreground truncate">{p.description}</p>
-                      <div className="flex gap-2 mt-1 flex-wrap">
+                      <h3 className="font-display font-semibold text-base leading-tight">{p.name}</h3>
+                      {p.description && <p className="text-sm text-muted-foreground truncate mt-0.5">{p.description}</p>}
+                      <div className="flex items-baseline gap-2 mt-2">
                         {p.promo_active && p.promo_price != null ? (
                           <>
-                            <Badge className="bg-amber-500 hover:bg-amber-600">${Number(p.promo_price).toFixed(2)}</Badge>
-                            <Badge variant="outline" className="line-through text-muted-foreground">${Number(p.price).toFixed(2)}</Badge>
+                            <span className="font-display text-lg font-bold text-primary">${Number(p.promo_price).toLocaleString('es-AR')}</span>
+                            <span className="text-sm line-through text-muted-foreground">${Number(p.price).toLocaleString('es-AR')}</span>
                           </>
                         ) : (
-                          <Badge>${Number(p.price).toFixed(2)}</Badge>
+                          <span className="font-display text-lg font-bold text-foreground">${Number(p.price).toLocaleString('es-AR')}</span>
                         )}
-                        <Badge variant="outline">{p.categories?.name}</Badge>
-                        {p.is_daily_special && <Badge className="bg-amber-500 hover:bg-amber-600">⭐ Menú del día</Badge>}
-                        {!p.is_available && <Badge variant="secondary">No disponible</Badge>}
+                      </div>
+                      <div className="flex gap-1.5 mt-2 flex-wrap">
+                        {p.categories?.name && <Badge variant="outline" className="rounded-full font-normal text-xs">{p.categories.name}</Badge>}
+                        {p.is_daily_special && <Badge className="rounded-full text-xs bg-primary/10 text-primary hover:bg-primary/15 border-0">⭐ Menú del día</Badge>}
+                        {!p.is_available && <Badge variant="secondary" className="rounded-full text-xs">No disponible</Badge>}
                       </div>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex items-center gap-1">
                       <Switch checked={p.is_available} onCheckedChange={() => toggleProduct.mutate({ id: p.id, is_available: p.is_available })} />
-                      <Button variant="ghost" size="icon" onClick={() => startEditProd(p)}><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => {
+                      <Button variant="ghost" size="icon" className="rounded-lg text-muted-foreground hover:text-primary transition-colors" onClick={() => startEditProd(p)}><Pencil className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="rounded-lg transition-colors hover:bg-destructive/10" onClick={() => {
                         toast('¿Eliminar este producto?', {
                           description: `"${p.name}" se eliminará permanentemente.`,
                           action: { label: 'Sí, eliminar', onClick: () => deleteProduct.mutate(p.id) },

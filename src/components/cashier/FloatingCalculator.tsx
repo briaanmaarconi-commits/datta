@@ -154,6 +154,12 @@ export default function FloatingCalculator() {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
+      // No interferir cuando la persona está escribiendo en un campo de la pantalla
+      const t = (e.target as HTMLElement | null) ?? null;
+      const active = (document.activeElement as HTMLElement | null) ?? null;
+      const isTyping = (el: HTMLElement | null) =>
+        !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
+      if (isTyping(t) || isTyping(active)) return;
       const k = e.key;
       // Dígitos
       if (/^[0-9]$/.test(k)) { pressDigit(k); return; }
