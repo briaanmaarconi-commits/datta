@@ -1,0 +1,117 @@
+.datta-presentation {
+  --presentation-ink: 240 6% 5%;
+  --presentation-surface: 240 5% 9%;
+  --presentation-elevated: 240 4% 13%;
+  --presentation-line: 240 4% 22%;
+  --presentation-copy: 240 5% 96%;
+  --presentation-muted: 240 5% 67%;
+  --presentation-orange: 25 95% 53%;
+  background: hsl(var(--presentation-ink));
+  color: hsl(var(--presentation-copy));
+  scroll-behavior: smooth;
+}
+
+.datta-presentation section { scroll-margin-top: 64px; }
+
+.datta-nav {
+  background: hsl(var(--presentation-ink) / 0.86);
+  border-color: hsl(var(--presentation-line) / 0.75);
+  backdrop-filter: blur(18px);
+}
+
+.datta-nav nav a { color: hsl(var(--presentation-muted)); transition: color 180ms ease; }
+.datta-nav nav a:hover { color: hsl(var(--presentation-copy)); }
+
+.datta-logo { position: relative; color: hsl(var(--presentation-copy)); padding-bottom: 7px; }
+.datta-logo-line {
+  position: absolute;
+  left: 0;
+  bottom: 2px;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, hsl(var(--presentation-orange)), hsl(var(--presentation-orange) / 0));
+}
+
+.datta-progress {
+  height: 2px;
+  width: 100%;
+  background: hsl(var(--presentation-orange));
+  transform-origin: left center;
+  transition: transform 100ms linear;
+}
+
+.datta-hero {
+  background:
+    linear-gradient(115deg, hsl(var(--presentation-orange) / 0.11), transparent 34%),
+    radial-gradient(circle at 78% 38%, hsl(var(--presentation-elevated)), transparent 36%),
+    hsl(var(--presentation-ink));
+}
+
+.datta-section { padding: clamp(6rem, 11vw, 10rem) 0; }
+.datta-section-raised { background: hsl(var(--presentation-surface)); }
+
+.datta-screen {
+  background: hsl(var(--presentation-elevated));
+  border: 1px solid hsl(var(--presentation-line));
+  box-shadow: 0 32px 100px hsl(var(--presentation-ink) / 0.72);
+}
+
+.datta-browserbar { border-color: hsl(var(--presentation-line)); }
+.datta-browser-dot { width: 8px; height: 8px; border-radius: 999px; background: hsl(var(--presentation-copy) / 0.18); }
+.datta-browser-dot-primary, .datta-bullet { background: hsl(var(--presentation-orange)); }
+.datta-browser-address { color: hsl(var(--presentation-muted) / 0.62); }
+.datta-bullet { width: 6px; height: 6px; border-radius: 999px; flex: 0 0 auto; }
+
+.datta-accent-line { background: linear-gradient(90deg, hsl(var(--presentation-orange)), transparent); }
+.datta-kicker { color: hsl(var(--presentation-orange)); letter-spacing: 0.16em; }
+.datta-problems-title { font-size: clamp(3rem, 7vw, 6.5rem); max-width: 12ch; }
+.datta-muted { color: hsl(var(--presentation-muted)); }
+.datta-panel { background: hsl(var(--presentation-elevated) / 0.72); border-color: hsl(var(--presentation-line)); }
+.datta-orange-soft { background: hsl(var(--presentation-orange) / 0.13); color: hsl(var(--presentation-orange)); }
+.datta-presentation .datta-outline {
+  border-color: hsl(var(--presentation-orange));
+  background: hsl(var(--presentation-ink));
+  color: hsl(var(--presentation-copy));
+}
+.datta-presentation .datta-outline:hover { background: hsl(var(--presentation-orange)); color: hsl(var(--presentation-ink)); }
+.datta-proof { color: hsl(var(--presentation-muted)); }
+
+.datta-contact {
+  border-color: hsl(var(--presentation-line));
+  background: linear-gradient(145deg, hsl(var(--presentation-surface)), hsl(var(--presentation-ink)) 62%);
+}
+
+.datta-contact-link {
+  background: hsl(var(--presentation-surface) / 0.88);
+  border-color: hsl(var(--presentation-line));
+  transition: border-color 180ms ease, transform 180ms ease, background 180ms ease;
+}
+.datta-contact-link:hover { border-color: hsl(var(--presentation-orange)); background: hsl(var(--presentation-elevated)); transform: translateY(-2px); }
+
+.datta-reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 720ms cubic-bezier(.2,.8,.2,1), transform 720ms cubic-bezier(.2,.8,.2,1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.datta-reveal.is-visible { opacity: 1; transform: translateY(0); }
+
+@media (max-width: 767px) {
+  .datta-section { padding: 5.5rem 0; }
+  .datta-screen { box-shadow: 0 22px 60px hsl(var(--presentation-ink) / 0.65); }
+  .datta-browserbar { height: 30px; }
+  .datta-hero { background: linear-gradient(145deg, hsl(var(--presentation-orange) / 0.1), transparent 32%), hsl(var(--presentation-ink)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .datta-presentation { scroll-behavior: auto; }
+  .datta-presentation *, .datta-presentation *::before, .datta-presentation *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+  .datta-reveal { opacity: 1; transform: none; }
+}
+.datta-cover-logo { position: relative; display: inline-block; padding-bottom: 20px; font-size: 112px; }
+.datta-cover-logo .datta-logo-line { height: 4px; }
+.datta-review-stars { color: hsl(var(--presentation-orange)); }
+.datta-review-example { border-color: hsl(var(--presentation-line)); }
+.datta-equilibrium-scale { background: linear-gradient(90deg, hsl(var(--presentation-muted) / 0.3) 50%, hsl(var(--presentation-orange) / 0.65) 50%); }
+.datta-equilibrium-marker { background: hsl(var(--presentation-copy)); }
+@media (max-width: 767px) { .datta-cover-logo { font-size: 80px; } }

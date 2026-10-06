@@ -50,6 +50,7 @@ import CashierMenu from "./pages/cashier/Menu";
 import CashierDelivery from "./pages/cashier/Delivery";
 import ClientMenu from "./pages/client/Menu";
 import MenuView from "./pages/client/MenuView";
+import Presentation from "./pages/Presentation";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -73,6 +74,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/presentacion" element={<Presentation />} />
 
           {/* Super Admin / Datta */}
           <Route path="/superadmin" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminDashboard /></SuperAdminLayout></ProtectedRoute>} />
