@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { SERVICE, withDb } from "../db/pool.js";
+import { isServiceable } from "../lib/billing.js";
 import { fail, hasEstablishmentRole, requireSession } from "./common.js";
 
 const PLATFORMS = ["rappi", "peya"] as const;
@@ -153,6 +154,7 @@ export async function registerDelivery(app: FastifyInstance) {
       const integ = (await c.query(`SELECT id, establishment_id, platform FROM public.delivery_integrations WHERE webhook_token = $1`, [token])).rows[0];
       if (!integ) return fail(reply, 401, "Token inválido");
       const est = integ.establishment_id as string;
+      if (!(await isServiceable(c, est))) return fail(reply, 403, "Servicio suspendido");
       const platform = integ.platform as Platform;
 
       const externalOrderId = String(payload.external_order_id ?? payload.id ?? "").trim();

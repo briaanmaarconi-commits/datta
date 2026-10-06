@@ -45,3 +45,8 @@ export function argDayOfWeek(input?: Date | string): number {
   const map: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
   return map[dayStr] ?? 0;
 }
+
+/** Días enteros de a hasta b (YYYY-MM-DD); positivo si b es posterior. */
+export function daysBetweenDates(a: string, b: string): number {
+  return Math.round((Date.parse(`${b.slice(0, 10)}T00:00:00Z`) - Date.parse(`${a.slice(0, 10)}T00:00:00Z`)) / 86_400_000);
+}

@@ -18,6 +18,7 @@ import { registerAfipCsr } from "./fn/afipCsr.js";
 import { registerAfipInvoice } from "./fn/afipInvoice.js";
 import { registerAiFunctions } from "./fn/ai.js";
 import { registerChat } from "./fn/chat.js";
+import { registerBilling } from "./fn/billing.js";
 import { startCron } from "./cron.js";
 import { registerWeb } from "./web.js";
 
@@ -28,6 +29,7 @@ export async function buildApp() {
   await app.register(rateLimit, { max: 600, timeWindow: "1 minute" });
 
   app.decorateRequest("user", null);
+  app.decorateRequest("blocked", null);
   app.addHook("onRequest", attachUser);
 
   app.get("/api/health", async () => ({ ok: true }));
@@ -63,6 +65,7 @@ export async function buildApp() {
   await registerAfipInvoice(app);
   await registerAiFunctions(app);
   await registerChat(app);
+  await registerBilling(app);
   await registerRealtime(app);
 
   await registerWeb(app);

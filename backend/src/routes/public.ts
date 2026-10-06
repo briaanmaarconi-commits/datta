@@ -3,6 +3,7 @@ import { z } from "zod";
 import { SERVICE, withDb } from "../db/pool.js";
 import { runQuery, type QuerySpec } from "../db/queryEngine.js";
 import { specSchema } from "../db/specSchema.js";
+import { isServiceable } from "../lib/billing.js";
 
 const uuid = z.string().uuid();
 const limit = (max: number, windowStr = "1 minute") => ({ config: { rateLimit: { max, timeWindow: windowStr } } });
@@ -38,6 +39,7 @@ export async function registerPublicRoutes(app: FastifyInstance) {
       const t = await c.query(`SELECT id, establishment_id, status FROM public.tables WHERE id = $1`, [tableId]);
       if (!t.rows.length) return reply.code(404).send({ error: { message: "Mesa inexistente" } });
       const est = t.rows[0].establishment_id as string;
+      if (!(await isServiceable(c, est))) return reply.code(403).send({ error: { message: "Este local no está disponible en este momento." } });
 
       const ids = [...new Set(items.map((i) => i.productId))];
       const p = await c.query(
@@ -74,6 +76,7 @@ export async function registerPublicRoutes(app: FastifyInstance) {
         `SELECT 1 FROM public.waiter_calls WHERE table_id = $1 AND status = 'pending' AND created_at > now() - interval '60 seconds' LIMIT 1`,
         [body.data.tableId],
       );
+      if (!(await isServiceable(c, t.rows[0].establishment_id))) return reply.code(403).send({ error: { message: "Este local no está disponible en este momento." } });
       if (!recent.rows.length) {
         await c.query(
           `INSERT INTO public.waiter_calls (table_id, establishment_id, sector_id, status) VALUES ($1, $2, $3, 'pending')`,
@@ -95,6 +98,7 @@ export async function registerPublicRoutes(app: FastifyInstance) {
     return withDb(SERVICE, async (c) => {
       const p = await c.query(`SELECT establishment_id FROM public.products WHERE id = $1`, [b.productId]);
       if (!p.rows.length) return reply.code(404).send({ error: { message: "Producto inexistente" } });
+      if (!(await isServiceable(c, p.rows[0].establishment_id))) return reply.code(403).send({ error: { message: "Este local no está disponible en este momento." } });
       await c.query(
         `INSERT INTO public.product_reviews (product_id, establishment_id, rating, comment, reviewer_name) VALUES ($1, $2, $3, $4, $5)`,
         [b.productId, p.rows[0].establishment_id, b.rating, b.comment || null, b.reviewerName || null],
@@ -116,7 +120,7 @@ export async function registerPublicRoutes(app: FastifyInstance) {
     if (!body.success) return reply.code(400).send({ error: { message: "Datos inválidos" } });
     const b = body.data;
     return withDb(SERVICE, async (c) => {
-      const e = await c.query(`SELECT 1 FROM public.establishments WHERE id = $1 AND is_active`, [b.establishmentId]);
+      const e = await c.query(`SELECT 1 FROM public.establishments WHERE id = $1 AND public.establishment_serviceable(id)`, [b.establishmentId]);
       if (!e.rows.length) return reply.code(404).send({ error: { message: "Establecimiento inexistente" } });
       await c.query(
         `INSERT INTO public.waiter_reviews (establishment_id, waiter_name, rating, comment, reviewer_name) VALUES ($1, $2, $3, $4, $5)`,

@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import type { FastifyInstance } from "fastify";
 import { env } from "./env.js";
+import { runBillingSweep } from "./jobs/billingSweep.js";
 import { runDailyAnalysis } from "./jobs/dailyAnalysis.js";
 import { runDailyReports } from "./jobs/dailyReport.js";
 import { artHour } from "./lib/time.js";
@@ -15,6 +16,11 @@ export function startCron(app: FastifyInstance) {
     return;
   }
   const tz = "America/Argentina/Buenos_Aires";
+
+  // Cobranzas: concilia con Mercado Pago, marca vencidos y suspende a los que superan los días de gracia.
+  cron.schedule("0 3 * * *", () => {
+    runBillingSweep().then((r) => app.log.info({ r }, "barrido de cobranzas terminado")).catch((e) => app.log.error({ err: e }, "barrido de cobranzas falló"));
+  }, { timezone: tz });
 
   cron.schedule("0 4 * * *", () => {
     runDailyAnalysis().then((r) => app.log.info({ r }, "análisis diario terminado")).catch((e) => app.log.error({ err: e }, "análisis diario falló"));

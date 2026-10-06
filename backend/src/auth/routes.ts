@@ -3,11 +3,13 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { SERVICE, withDb } from "../db/pool.js";
 import { env } from "../env.js";
-import { SESSION_COOKIE, createSession, destroySession, getSessionUser, type SessionUser } from "./session.js";
+import { BLOCK_MESSAGE, SESSION_COOKIE, createSession, destroySession, lookupSession, type BlockReason, type SessionUser } from "./session.js";
 
 declare module "fastify" {
   interface FastifyRequest {
     user: SessionUser | null;
+    /** Sesión válida pero el local está suspendido/cancelado/inactivo. */
+    blocked: BlockReason | null;
   }
 }
 
@@ -27,8 +29,14 @@ export function setSessionCookie(reply: FastifyReply, token: string, expires: Da
 /** Hook global: adjunta req.user si hay cookie de sesión válida. */
 export async function attachUser(req: FastifyRequest) {
   req.user = null;
+  req.blocked = null;
   const token = req.cookies?.[SESSION_COOKIE];
-  if (token) req.user = await getSessionUser(token);
+  if (!token) return;
+  const s = await lookupSession(token);
+  if (!s) return;
+  // Si el servicio del local está suspendido, la sesión deja de valer para todo (API, tiempo real, archivos).
+  if (s.blocked) req.blocked = s.blocked;
+  else req.user = s.user;
 }
 
 export function requireUser(req: FastifyRequest, reply: FastifyReply): SessionUser | null {
@@ -64,8 +72,13 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     const { token, expires } = await createSession(row.id, req.ip, req.headers["user-agent"]);
     await withDb(SERVICE, (c) => c.query(`UPDATE auth.users SET last_sign_in_at = now() WHERE id = $1`, [row.id]));
     setSessionCookie(reply, token, expires);
-    const user = await getSessionUser(token);
-    return { user };
+    const s = await lookupSession(token);
+    if (s?.blocked) {
+      await destroySession(token);
+      reply.clearCookie(SESSION_COOKIE, { path: "/" });
+      return reply.code(403).send({ error: { message: BLOCK_MESSAGE[s.blocked], code: "SERVICE_SUSPENDED", reason: s.blocked } });
+    }
+    return { user: s?.user ?? null };
   });
 
   app.post("/api/auth/logout", async (req, reply) => {
@@ -75,5 +88,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  app.get("/api/auth/me", async (req) => ({ user: req.user }));
+  app.get("/api/auth/me", async (req) => ({
+    user: req.user,
+    blocked: req.blocked ? { reason: req.blocked, message: BLOCK_MESSAGE[req.blocked] } : null,
+  }));
 }

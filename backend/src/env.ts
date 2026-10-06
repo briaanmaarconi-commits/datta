@@ -30,6 +30,9 @@ const schema = z.object({
   AI_MODEL_CHAT: z.string().default("claude-sonnet-5-5"),
   AI_MODEL_PARSE: z.string().default("claude-sonnet-5-5"),
   AI_MODEL_ANALYSIS: z.string().default("claude-haiku-4-5-20251001"),
+  // Cobro de suscripciones (Mercado Pago). El secreto firma los webhooks (opcional pero recomendado).
+  MERCADOPAGO_ACCESS_TOKEN: z.string().default(""),
+  MERCADOPAGO_WEBHOOK_SECRET: z.string().default(""),
   RESEND_API_KEY: z.string().default(""),
   REPORT_FROM_EMAIL: z.string().default("Datta <onboarding@resend.dev>"),
   CRON_ENABLED: bool.default("true"),
