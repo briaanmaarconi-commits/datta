@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -20,7 +20,7 @@ export default function StockHistoryTab() {
   const { data: movements = [] } = useQuery({
     queryKey: ['stock_movements', establishmentId, filterType],
     queryFn: async () => {
-      let q = supabase.from('stock_movements').select('*, ingredients(name, unit)')
+      let q = db.from('stock_movements').select('*, ingredients(name, unit)')
         .eq('establishment_id', establishmentId!)
         .order('created_at', { ascending: false }).limit(100);
       if (filterType !== 'all') q = q.eq('type', filterType as any);

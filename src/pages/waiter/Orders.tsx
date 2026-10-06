@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -75,7 +75,7 @@ export default function WaiterOrders() {
   const { data: orders = [] } = useQuery({
     queryKey: ['waiter-orders', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('orders')
         .select('*, tables(number), order_items(*, products(name))')
         .eq('establishment_id', establishmentId!)
@@ -91,7 +91,7 @@ export default function WaiterOrders() {
 
   const markDelivered = useMutation({
     mutationFn: async (orderId: string) => {
-      const { error } = await supabase
+      const { error } = await db
         .from('orders')
         .update({ status: 'delivered' as any, delivered_at: new Date().toISOString() })
         .eq('id', orderId);
@@ -105,7 +105,7 @@ export default function WaiterOrders() {
 
   const cancelOrder = useMutation({
     mutationFn: async (orderId: string) => {
-      const { error } = await supabase
+      const { error } = await db
         .from('orders')
         .update({ status: 'cancelled' as any })
         .eq('id', orderId);
@@ -122,7 +122,7 @@ export default function WaiterOrders() {
   const readyOrders = orders.filter((o: any) => o.status === 'ready');
 
   useEffect(() => {
-    const currentReadyIds = new Set(readyOrders.map((o: any) => o.id));
+    const currentReadyIds = new Set<string>(readyOrders.map((o: any) => o.id));
     if (initialLoadRef.current) {
       initialLoadRef.current = false;
       prevReadyIdsRef.current = currentReadyIds;

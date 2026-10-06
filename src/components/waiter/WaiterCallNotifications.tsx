@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Bell, BellOff } from 'lucide-react';
@@ -56,7 +56,7 @@ export default function WaiterCallNotifications({ establishmentId, tables }: Use
   useEffect(() => {
     if (!establishmentId) return;
 
-    const channel = supabase
+    const channel = db
       .channel('waiter-calls-realtime')
       .on(
         'postgres_changes',
@@ -79,7 +79,7 @@ export default function WaiterCallNotifications({ establishmentId, tables }: Use
             action: {
               label: 'Atender',
               onClick: () => {
-                supabase
+                db
                   .from('waiter_calls' as any)
                   .update({ status: 'acknowledged', acknowledged_at: new Date().toISOString() })
                   .eq('id', call.id)
@@ -92,7 +92,7 @@ export default function WaiterCallNotifications({ establishmentId, tables }: Use
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      db.removeChannel(channel);
     };
   }, [establishmentId, tables, playCallSound]);
 

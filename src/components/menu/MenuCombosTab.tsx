@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,9 +36,9 @@ interface MenuCombosTabProps {
 async function uploadImage(file: File, path: string): Promise<string> {
   const ext = file.name.split('.').pop();
   const fileName = `${path}/${Date.now()}.${ext}`;
-  const { error } = await supabase.storage.from('product-images').upload(fileName, file);
+  const { error } = await db.storage.from('product-images').upload(fileName, file);
   if (error) throw error;
-  const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
+  const { data } = db.storage.from('product-images').getPublicUrl(fileName);
   return data.publicUrl;
 }
 
@@ -60,7 +60,7 @@ export default function MenuCombosTab({ establishmentId, products, initialLines,
   const { data: combos = [] } = useQuery({
     queryKey: ['menu-combos', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('menu_combos')
         .select('*, menu_combo_items(id, product_id, item_group, sort_order, products(name, price))')
         .eq('establishment_id', establishmentId!)
@@ -167,9 +167,9 @@ export default function MenuCombosTab({ establishmentId, products, initialLines,
       if (editId) {
         const payload: any = { name: name.trim(), description: description || null, price: amount, is_active: isActive };
         if (imageUrl) payload.image_url = imageUrl;
-        const { error } = await supabase.from('menu_combos').update(payload).eq('id', editId);
+        const { error } = await db.from('menu_combos').update(payload).eq('id', editId);
         if (error) throw error;
-        const { error: delError } = await supabase.from('menu_combo_items').delete().eq('combo_id', editId);
+        const { error: delError } = await db.from('menu_combo_items').delete().eq('combo_id', editId);
         if (delError) throw delError;
       } else {
         const payload: any = {
@@ -181,12 +181,12 @@ export default function MenuCombosTab({ establishmentId, products, initialLines,
           sort_order: combos.length,
         };
         if (imageUrl) payload.image_url = imageUrl;
-        const { data, error } = await supabase.from('menu_combos').insert(payload).select('id').single();
+        const { data, error } = await db.from('menu_combos').insert(payload).select('id').single();
         if (error) throw error;
         comboId = data.id;
       }
 
-      const { error: itemsError } = await supabase.from('menu_combo_items').insert(
+      const { error: itemsError } = await db.from('menu_combo_items').insert(
         lines.map((l, idx) => ({
           combo_id: comboId!,
           product_id: l.product_id,
@@ -206,7 +206,7 @@ export default function MenuCombosTab({ establishmentId, products, initialLines,
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('menu_combos').delete().eq('id', id);
+      const { error } = await db.from('menu_combos').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -218,7 +218,7 @@ export default function MenuCombosTab({ establishmentId, products, initialLines,
 
   const toggle = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await supabase.from('menu_combos').update({ is_active: !is_active }).eq('id', id);
+      const { error } = await db.from('menu_combos').update({ is_active: !is_active }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['menu-combos'] }),

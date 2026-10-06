@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveShift } from '@/hooks/useActiveShift';
 import { useTipMode } from '@/hooks/useTipMode';
@@ -95,7 +95,7 @@ export default function CashierTables() {
   const { data: tables = [] } = useQuery({
     queryKey: ['tables', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('tables').select('*').eq('establishment_id', establishmentId!).order('number');
+      const { data, error } = await db.from('tables').select('*').eq('establishment_id', establishmentId!).order('number');
       if (error) throw error;
       return data;
     },
@@ -105,7 +105,7 @@ export default function CashierTables() {
   const { data: establishment } = useQuery({
     queryKey: ['establishment-name', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase.from('establishments').select('name').eq('id', establishmentId!).single();
+      const { data } = await db.from('establishments').select('name').eq('id', establishmentId!).single();
       return data;
     },
     enabled: !!establishmentId,
@@ -114,13 +114,13 @@ export default function CashierTables() {
   // Realtime subscription
   useEffect(() => {
     if (!establishmentId) return;
-    const channel = supabase
+    const channel = db
       .channel('cashier-tables-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tables', filter: `establishment_id=eq.${establishmentId}` }, () => {
         queryClient.invalidateQueries({ queryKey: ['tables', establishmentId] });
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { db.removeChannel(channel); };
   }, [establishmentId, queryClient]);
 
   // All non-closed orders of the table (any date). We split them into "current" (this shift / today)
@@ -128,7 +128,7 @@ export default function CashierTables() {
   const { data: allTableOrders = [] } = useQuery({
     queryKey: ['table-orders', selectedTable?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('orders')
         .select('*, order_items(*, products(name))')
         .eq('table_id', selectedTable!.id)
@@ -153,7 +153,7 @@ export default function CashierTables() {
     mutationFn: async () => {
       const ids = staleOrders.map((o: any) => o.id);
       if (ids.length === 0) return;
-      const { error } = await supabase
+      const { error } = await db
         .from('orders')
         .update({ status: 'cancelled' as any })
         .in('id', ids);
@@ -177,7 +177,7 @@ export default function CashierTables() {
       let orderId: string;
       if (target) {
         orderId = target.id;
-        const { error } = await supabase.from('order_items').insert(
+        const { error } = await db.from('order_items').insert(
           cart.map(l => ({
             order_id: orderId,
             product_id: l.product_id,
@@ -189,10 +189,10 @@ export default function CashierTables() {
         if (error) throw error;
         const update: any = { total: Number(target.total || 0) + addedTotal };
         if (sendToKitchen) update.status = 'new';
-        const { error: uErr } = await supabase.from('orders').update(update).eq('id', orderId);
+        const { error: uErr } = await db.from('orders').update(update).eq('id', orderId);
         if (uErr) throw uErr;
       } else {
-        const { data: order, error } = await supabase
+        const { data: order, error } = await db
           .from('orders')
           .insert({
             table_id: selectedTable.id,
@@ -205,7 +205,7 @@ export default function CashierTables() {
           .single();
         if (error) throw error;
         orderId = order.id;
-        const { error: iErr } = await supabase.from('order_items').insert(
+        const { error: iErr } = await db.from('order_items').insert(
           cart.map(l => ({
             order_id: orderId,
             product_id: l.product_id,
@@ -218,7 +218,7 @@ export default function CashierTables() {
       }
 
       if (selectedTable.status === 'free') {
-        await supabase.from('tables').update({ status: 'occupied' as any }).eq('id', selectedTable.id);
+        await db.from('tables').update({ status: 'occupied' as any }).eq('id', selectedTable.id);
       }
 
       auditLog('cashier_add_items', 'order_items', orderId, {
@@ -243,14 +243,14 @@ export default function CashierTables() {
       const order = (tableOrders as any[]).find((o: any) =>
         (o.order_items || []).some((i: any) => i.id === item.id),
       );
-      const { error } = await supabase.from('order_items').delete().eq('id', item.id);
+      const { error } = await db.from('order_items').delete().eq('id', item.id);
       if (error) throw error;
       if (order) {
         const newTotal = Math.max(
           0,
           Number(order.total || 0) - Number(item.unit_price) * Number(item.quantity),
         );
-        await supabase.from('orders').update({ total: newTotal }).eq('id', order.id);
+        await db.from('orders').update({ total: newTotal }).eq('id', order.id);
       }
       auditLog('cashier_delete_item', 'order_items', item.id, {
         table_number: selectedTable?.number,
@@ -275,7 +275,7 @@ export default function CashierTables() {
   const { data: waiters = [] } = useQuery({
     queryKey: ['waiters-list', establishmentId],
     queryFn: async () => {
-      const { data: roles, error } = await supabase
+      const { data: roles, error } = await db
         .from('user_roles')
         .select('user_id')
         .eq('establishment_id', establishmentId!)
@@ -283,13 +283,13 @@ export default function CashierTables() {
       if (error) throw error;
       const ids = (roles || []).map((r: any) => r.user_id).filter(Boolean);
       if (ids.length === 0) return [] as any[];
-      const { data: profs, error: pErr } = await supabase
+      const { data: profs, error: pErr } = await db
         .from('profiles')
         .select('id, full_name, email')
         .in('id', ids);
       if (pErr) throw pErr;
 
-      const profilesById = new Map((profs || []).map((p: any) => [p.id, p]));
+      const profilesById = new Map<string, any>((profs || []).map((p: any) => [p.id, p] as [string, any]));
       return ids.map((id: string, index: number) => {
         const profile = profilesById.get(id);
         return {
@@ -342,7 +342,7 @@ export default function CashierTables() {
           .filter((i: any) => !excludedItemIds.includes(i.id))
           .reduce((s: number, i: any) => s + Number(i.unit_price) * Number(i.quantity), 0);
         const chargedTotal = orderItemsTotal + (idx === 0 ? adjustmentsTotal : 0);
-        await supabase.from('orders').update({
+        await db.from('orders').update({
           status: 'closed' as any,
           payment_method: paymentMethod,
           total: chargedTotal,
@@ -351,10 +351,10 @@ export default function CashierTables() {
       }
 
 
-      await supabase.from('tables').update({ status: 'free' as any }).eq('id', selectedTable!.id);
+      await db.from('tables').update({ status: 'free' as any }).eq('id', selectedTable!.id);
 
       // Auto-register SALES income (separate from tips)
-      let { data: salesCat } = await supabase
+      let { data: salesCat } = await db
         .from('finance_categories')
         .select('id')
         .eq('establishment_id', establishmentId!)
@@ -363,7 +363,7 @@ export default function CashierTables() {
         .maybeSingle();
 
       if (!salesCat) {
-        const { data: newCat } = await supabase
+        const { data: newCat } = await db
           .from('finance_categories')
           .insert({ establishment_id: establishmentId!, name: 'Ventas', type: 'income' })
           .select('id')
@@ -372,7 +372,7 @@ export default function CashierTables() {
       }
 
       if (salesCat) {
-        await supabase.from('finance_transactions').insert({
+        await db.from('finance_transactions').insert({
           establishment_id: establishmentId!,
           category_id: salesCat.id,
           type: 'income',
@@ -389,8 +389,8 @@ export default function CashierTables() {
       let tipSettlementTxId: string | null = null;
       if (tipToRegister > 0) {
         const [{ data: tipIncomeCatId, error: incCatErr }, { data: tipPayoutCatId, error: payCatErr }] = await Promise.all([
-          supabase.rpc('ensure_tips_income_category', { _establishment_id: establishmentId! }),
-          supabase.rpc('ensure_tips_payout_category', { _establishment_id: establishmentId! }),
+          db.rpc('ensure_tips_income_category', { _establishment_id: establishmentId! }),
+          db.rpc('ensure_tips_payout_category', { _establishment_id: establishmentId! }),
         ]);
         if (incCatErr) throw incCatErr;
         if (payCatErr) throw payCatErr;
@@ -401,7 +401,7 @@ export default function CashierTables() {
         const today = new Date().toISOString().split('T')[0];
 
         // Income
-        await supabase.from('finance_transactions').insert({
+        await db.from('finance_transactions').insert({
           establishment_id: establishmentId!,
           category_id: tipIncomeCatId as unknown as string,
           type: 'income',
@@ -412,7 +412,7 @@ export default function CashierTables() {
         });
 
         // Mirror expense (so caja stays neutral; this represents the payout obligation)
-        const { data: expenseTx } = await supabase.from('finance_transactions').insert({
+        const { data: expenseTx } = await db.from('finance_transactions').insert({
           establishment_id: establishmentId!,
           category_id: tipPayoutCatId as unknown as string,
           type: 'expense',
@@ -457,7 +457,7 @@ export default function CashierTables() {
         ...excludedSnapshot,
       ];
 
-      const { data: invoiceRow } = await supabase.from('invoices').insert({
+      const { data: invoiceRow } = await db.from('invoices').insert({
         establishment_id: establishmentId!,
         table_number: selectedTable!.number,
         order_ids: tableOrders.map((o: any) => o.id),
@@ -476,7 +476,7 @@ export default function CashierTables() {
       // Descuenta el stock de los productos de reventa (bebidas, etc.).
       // Los platos elaborados no se tocan. Es idempotente por comprobante.
       if ((invoiceRow as any)?.id) {
-        const { error: stockErr } = await supabase.rpc('apply_sale_stock' as any, {
+        const { error: stockErr } = await db.rpc('apply_sale_stock' as any, {
           _invoice_id: (invoiceRow as any).id,
         });
         if (stockErr) console.error('apply_sale_stock', stockErr);
@@ -484,7 +484,7 @@ export default function CashierTables() {
 
 
       if (isZeroClose || excludedSnapshot.length > 0) {
-        await supabase.from('audit_logs').insert({
+        await db.from('audit_logs').insert({
           establishment_id: establishmentId!,
           user_id: session?.user?.id || null,
           action: isZeroClose ? 'close_table_zero' : 'close_table_excluded_items',

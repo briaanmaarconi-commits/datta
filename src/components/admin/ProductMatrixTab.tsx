@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -56,7 +56,7 @@ export default function ProductMatrixTab() {
     queryKey: ['product-matrix', establishmentId, range.fromISO, range.toISO],
     enabled: !!establishmentId,
     queryFn: async () => {
-      const { data: items, error } = await supabase
+      const { data: items, error } = await db
         .from('order_items')
         .select(`
           quantity, unit_price, cost_snapshot,

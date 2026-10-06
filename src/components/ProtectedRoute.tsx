@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import type { Database } from '@/integrations/supabase/types';
+import type { Database } from '@/lib/dbTypes';
 
 type AppRole = Database['public']['Enums']['app_role'];
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -90,7 +90,7 @@ export default function InvoiceItemsReviewDialog({ open, onOpenChange, invoices,
   const { data: products = [] } = useQuery({
     queryKey: ['products-for-invoice-review', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('products')
         .select('id, name, direct_stock, cost')
         .eq('establishment_id', establishmentId!)
@@ -177,7 +177,7 @@ export default function InvoiceItemsReviewDialog({ open, onOpenChange, invoices,
         if (!valid.length) continue;
         const total = Number(g.total) || groupSum(g);
 
-        const { data: inv, error } = await supabase
+        const { data: inv, error } = await db
           .from('purchase_invoices')
           .insert({
             establishment_id: establishmentId!,
@@ -195,7 +195,7 @@ export default function InvoiceItemsReviewDialog({ open, onOpenChange, invoices,
           .single();
         if (error) throw error;
 
-        const { error: itemsErr } = await supabase.from('purchase_invoice_items').insert(
+        const { error: itemsErr } = await db.from('purchase_invoice_items').insert(
           valid.map(l => ({
             invoice_id: inv.id,
             ingredient_id: null,
@@ -218,7 +218,7 @@ export default function InvoiceItemsReviewDialog({ open, onOpenChange, invoices,
           }));
 
         if (stockLines.length) {
-          const { data: res, error: rpcErr } = await supabase.rpc('apply_purchase_stock', {
+          const { data: res, error: rpcErr } = await db.rpc('apply_purchase_stock', {
             _invoice_id: inv.id,
             _lines: stockLines as any,
           });

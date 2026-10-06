@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 
 export type CourtesyType = 'invitation' | 'staff_meal' | 'internal';
 
@@ -37,7 +37,7 @@ export async function closeTableAsCourtesy(params: CloseAsCourtesyParams) {
   const typeLabel = COURTESY_TYPES.find(t => t.value === courtesyType)?.label ?? 'Consumo interno';
 
   // 1. Traer todos los items de las órdenes con productos
-  const { data: items, error: itemsErr } = await supabase
+  const { data: items, error: itemsErr } = await db
     .from('order_items')
     .select('product_id, quantity, unit_price, cost_snapshot, products(name, stock_mode, cost)')
     .in('order_id', orderIds);
@@ -60,7 +60,7 @@ export async function closeTableAsCourtesy(params: CloseAsCourtesyParams) {
     const qty = Number(item.quantity);
 
     if (stockMode === 'recipe') {
-      const { data: recipes } = await supabase
+      const { data: recipes } = await db
         .from('product_recipes')
         .select('ingredient_id, quantity')
         .eq('product_id', item.product_id);
@@ -80,34 +80,34 @@ export async function closeTableAsCourtesy(params: CloseAsCourtesyParams) {
   // 3. Costear consumo y descontar stock de ingredientes
   if (ingredientUsage.size > 0) {
     const ids = Array.from(ingredientUsage.keys());
-    const { data: ings } = await supabase.from('ingredients').select('id, name, unit, current_stock, cost_per_unit').in('id', ids);
+    const { data: ings } = await db.from('ingredients').select('id, name, unit, current_stock, cost_per_unit').in('id', ids);
     for (const ing of ings || []) {
       const used = ingredientUsage.get(ing.id) ?? 0;
       totalCost += Number(ing.cost_per_unit) * used;
       const newStock = Math.max(0, Number(ing.current_stock) - used);
-      await supabase.from('ingredients').update({ current_stock: newStock }).eq('id', ing.id);
+      await db.from('ingredients').update({ current_stock: newStock }).eq('id', ing.id);
     }
   }
 
   // 4. Descontar stock directo y costear
   for (const d of directDeductions) {
-    const { data: prod } = await supabase.from('products').select('direct_stock, cost').eq('id', d.product_id).single();
+    const { data: prod } = await db.from('products').select('direct_stock, cost').eq('id', d.product_id).single();
     if (prod) {
       totalCost += Number(prod.cost) * d.qty;
       const newStock = Math.max(0, Number(prod.direct_stock) - d.qty);
-      await supabase.from('products').update({ direct_stock: newStock }).eq('id', d.product_id);
+      await db.from('products').update({ direct_stock: newStock }).eq('id', d.product_id);
     }
   }
 
   // 5. Crear SIEMPRE el registro en Caja (aunque costo=0) para dejar trazabilidad de la cortesía
   let financeTxId: string | null = null;
-  const { data: catId, error: catErr } = await supabase.rpc('ensure_consumption_expense_category', {
+  const { data: catId, error: catErr } = await db.rpc('ensure_consumption_expense_category', {
     _establishment_id: establishmentId,
     _consumption_type: courtesyType,
   });
   if (catErr) throw catErr;
   if (catId) {
-    const { data: tx, error: txErr } = await supabase.from('finance_transactions').insert({
+    const { data: tx, error: txErr } = await db.from('finance_transactions').insert({
       establishment_id: establishmentId,
       category_id: catId as unknown as string,
       type: 'expense',
@@ -133,11 +133,11 @@ export async function closeTableAsCourtesy(params: CloseAsCourtesyParams) {
       reference_id: orderIds[0],
       created_by: userId,
     }));
-    await supabase.from('stock_movements').insert(movements as any);
+    await db.from('stock_movements').insert(movements as any);
   }
 
   // 7. Registrar el consumo en la cuenta corriente de cortesías
-  await supabase.from('courtesy_charges').insert({
+  await db.from('courtesy_charges').insert({
     establishment_id: establishmentId,
     account_id: accountId ?? null,
     table_number: tableNumber,
@@ -152,12 +152,12 @@ export async function closeTableAsCourtesy(params: CloseAsCourtesyParams) {
 
   // 8. Cerrar las órdenes y liberar la mesa
   for (const orderId of orderIds) {
-    await supabase.from('orders').update({
+    await db.from('orders').update({
       status: 'cancelled' as any,
       payment_method: 'courtesy',
     } as any).eq('id', orderId);
   }
-  await supabase.from('tables').update({ status: 'free' as any }).eq('id', tableId);
+  await db.from('tables').update({ status: 'free' as any }).eq('id', tableId);
 
   return { totalCost, saleAmount, financeTxId };
 }

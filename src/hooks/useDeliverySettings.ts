@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 
 export type DeliveryPlatform = 'rappi' | 'pedidosya' | 'propio';
@@ -27,7 +27,7 @@ export function useDeliverySettings() {
   const query = useQuery({
     queryKey: ['delivery-settings', establishmentId],
     queryFn: async (): Promise<DeliverySettings> => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('establishments')
         .select('delivery_enabled, rappi_commission, peya_commission')
         .eq('id', establishmentId!)

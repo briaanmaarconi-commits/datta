@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { toArgDate, argDayRange } from '@/lib/utils';
 import { useDeliverySettings } from '@/hooks/useDeliverySettings';
 import {
@@ -94,8 +94,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       queryKey: ['admin-stats', establishmentId],
       queryFn: async () => {
         const [ordersRes, tablesRes] = await Promise.all([
-          supabase.from('orders').select('id, total, status, created_at').eq('establishment_id', establishmentId).gte('created_at', from).lte('created_at', to),
-          supabase.from('tables').select('id, status').eq('establishment_id', establishmentId),
+          db.from('orders').select('id, total, status, created_at').eq('establishment_id', establishmentId).gte('created_at', from).lte('created_at', to),
+          db.from('tables').select('id, status').eq('establishment_id', establishmentId),
         ]);
         const orders = ordersRes.data || [];
         const tables = tablesRes.data || [];
@@ -111,7 +111,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     queryClient.prefetchQuery({
       queryKey: ['products', establishmentId],
       queryFn: async () => {
-        const { data } = await supabase.from('products').select('*, categories(name)').eq('establishment_id', establishmentId).order('name');
+        const { data } = await db.from('products').select('*, categories(name)').eq('establishment_id', establishmentId).order('name');
         return data ?? [];
       },
       staleTime: 60_000,
@@ -121,7 +121,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     queryClient.prefetchQuery({
       queryKey: ['tables', establishmentId],
       queryFn: async () => {
-        const { data } = await supabase.from('tables').select('*, sectors(name, color)').eq('establishment_id', establishmentId).order('number');
+        const { data } = await db.from('tables').select('*, sectors(name, color)').eq('establishment_id', establishmentId).order('number');
         return data ?? [];
       },
       staleTime: 60_000,
@@ -129,7 +129,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     queryClient.prefetchQuery({
       queryKey: ['sectors', establishmentId],
       queryFn: async () => {
-        const { data } = await supabase.from('sectors').select('*').eq('establishment_id', establishmentId).order('name');
+        const { data } = await db.from('sectors').select('*').eq('establishment_id', establishmentId).order('name');
         return data ?? [];
       },
       staleTime: 5 * 60_000,
@@ -139,7 +139,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     queryClient.prefetchQuery({
       queryKey: ['finance-categories', establishmentId],
       queryFn: async () => {
-        const { data } = await supabase.from('finance_categories').select('*').eq('establishment_id', establishmentId).order('name');
+        const { data } = await db.from('finance_categories').select('*').eq('establishment_id', establishmentId).order('name');
         return data ?? [];
       },
       staleTime: 5 * 60_000,

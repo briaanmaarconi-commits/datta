@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,7 +29,7 @@ export default function ProductsRecipesTab() {
   const { data: products = [] } = useQuery({
     queryKey: ['products-stock', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase.from('products')
+      const { data } = await db.from('products')
         .select('*, categories(name)')
         .eq('establishment_id', establishmentId!)
         .order('name');
@@ -173,7 +173,7 @@ function ProductEditor({ product, onClose }: { product: any; onClose: () => void
   const { data: ingredients = [] } = useQuery({
     queryKey: ['ingredients', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase.from('ingredients').select('*')
+      const { data } = await db.from('ingredients').select('*')
         .eq('establishment_id', establishmentId!).eq('is_active', true).order('name');
       return data || [];
     },
@@ -183,7 +183,7 @@ function ProductEditor({ product, onClose }: { product: any; onClose: () => void
   const { data: recipes = [] } = useQuery({
     queryKey: ['product_recipes', product.id],
     queryFn: async () => {
-      const { data } = await supabase.from('product_recipes').select('*, ingredients(name, unit)')
+      const { data } = await db.from('product_recipes').select('*, ingredients(name, unit)')
         .eq('product_id', product.id);
       return data || [];
     },
@@ -191,7 +191,7 @@ function ProductEditor({ product, onClose }: { product: any; onClose: () => void
 
   const modeMutation = useMutation({
     mutationFn: async (newMode: StockMode) => {
-      const { error } = await supabase.from('products').update({ stock_mode: newMode }).eq('id', product.id);
+      const { error } = await db.from('products').update({ stock_mode: newMode }).eq('id', product.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -274,7 +274,7 @@ function DirectStockConfig({ product }: { product: any }) {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('products').update({
+      const { error } = await db.from('products').update({
         direct_stock: Number(stock) || 0,
         direct_min_stock: Number(minStock) || 0,
       }).eq('id', product.id);
@@ -327,7 +327,7 @@ function RecipeConfig({ product, recipes, ingredients, establishmentId }: {
       // Create new ingredient if needed
       if (creatingNew) {
         if (!newIng.name.trim()) throw new Error('El nombre es requerido');
-        const { data, error } = await supabase.from('ingredients').insert({
+        const { data, error } = await db.from('ingredients').insert({
           establishment_id: establishmentId,
           name: newIng.name.trim(),
           unit: newIng.unit,
@@ -338,7 +338,7 @@ function RecipeConfig({ product, recipes, ingredients, establishmentId }: {
       if (!ingId) throw new Error('Seleccioná un ingrediente');
       if (!quantity || Number(quantity) <= 0) throw new Error('Cantidad inválida');
 
-      const { error } = await supabase.from('product_recipes').insert({
+      const { error } = await db.from('product_recipes').insert({
         product_id: product.id,
         ingredient_id: ingId,
         quantity: Number(quantity),
@@ -356,7 +356,7 @@ function RecipeConfig({ product, recipes, ingredients, establishmentId }: {
 
   const removeMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('product_recipes').delete().eq('id', id);
+      const { error } = await db.from('product_recipes').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -388,7 +388,7 @@ function RecipeConfig({ product, recipes, ingredients, establishmentId }: {
     mutationFn: async (newMode: 'manual' | 'recipe') => {
       const updates: any = { cost_mode: newMode };
       if (newMode === 'recipe') updates.cost = recipeCost;
-      const { error } = await supabase.from('products').update(updates).eq('id', product.id);
+      const { error } = await db.from('products').update(updates).eq('id', product.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -401,7 +401,7 @@ function RecipeConfig({ product, recipes, ingredients, establishmentId }: {
   // Mantener products.cost sincronizado cuando está en modo receta
   const syncRecipeCost = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('products').update({ cost: recipeCost }).eq('id', product.id);
+      const { error } = await db.from('products').update({ cost: recipeCost }).eq('id', product.id);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products'] }),

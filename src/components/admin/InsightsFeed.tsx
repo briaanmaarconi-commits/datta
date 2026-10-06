@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -50,7 +50,7 @@ export default function InsightsFeed() {
     enabled: !!establishmentId,
     refetchInterval: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('ai_insights')
         .select('*')
         .eq('establishment_id', establishmentId!)
@@ -65,21 +65,21 @@ export default function InsightsFeed() {
   const filtered = filter === 'all' ? insights : insights.filter((i) => i.kind === filter);
 
   async function dismiss(id: string) {
-    await supabase.from('ai_insights').update({ status: 'dismissed' }).eq('id', id);
+    await db.from('ai_insights').update({ status: 'dismissed' }).eq('id', id);
     queryClient.invalidateQueries({ queryKey: ['ai-insights-feed', establishmentId] });
     queryClient.invalidateQueries({ queryKey: ['ai-insights', establishmentId] });
   }
   async function markRead(id: string) {
-    await supabase.from('ai_insights').update({ status: 'read', read_at: new Date().toISOString() }).eq('id', id);
+    await db.from('ai_insights').update({ status: 'read', read_at: new Date().toISOString() }).eq('id', id);
     queryClient.invalidateQueries({ queryKey: ['ai-insights-feed', establishmentId] });
     queryClient.invalidateQueries({ queryKey: ['ai-insights', establishmentId] });
   }
   async function silenceCategory(cat: string) {
     if (!establishmentId) return;
-    const { data: prefs } = await supabase.rpc('ensure_insight_preferences', { _establishment_id: establishmentId });
+    const { data: prefs } = await db.rpc('ensure_insight_preferences', { _establishment_id: establishmentId });
     const current: string[] = (prefs as any)?.silenced_categories || [];
     if (current.includes(cat)) return;
-    await supabase
+    await db
       .from('ai_insight_preferences')
       .update({ silenced_categories: [...current, cat] })
       .eq('establishment_id', establishmentId);
@@ -90,7 +90,7 @@ export default function InsightsFeed() {
     if (!establishmentId) return;
     setRunning(true);
     try {
-      const { error } = await supabase.functions.invoke('ai-daily-analysis', { headers: { 'x-establishment-id': establishmentId } });
+      const { error } = await db.functions.invoke('ai-daily-analysis', { headers: { 'x-establishment-id': establishmentId } });
       if (error) throw error;
       toast({ title: 'Analizando…', description: 'Las nuevas alertas aparecerán en segundos.' });
       setTimeout(() => {

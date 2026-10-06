@@ -5,11 +5,11 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/restaurant-chat`;
+const CHAT_URL = '/api/fn/restaurant-chat';
 
 export default function ChatBot() {
   const [open, setOpen] = useState(false);
@@ -42,19 +42,11 @@ export default function ChatBot() {
     let assistantSoFar = '';
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const accessToken = session?.access_token;
-      if (!accessToken) {
-        toast.error('No hay sesión activa');
-        setIsLoading(false);
-        return;
-      }
-
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({ messages: newMessages }),
       });

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { useCourtesyAccounts } from '@/hooks/useCourtesyAccounts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +27,7 @@ function money(n: number) {
 }
 
 export default function CourtesyAccountsTab({ readOnly = false }: { readOnly?: boolean }) {
-  const { establishmentId } = useAuth();
+  const { establishmentId, session } = useAuth();
   const queryClient = useQueryClient();
   const { data: accounts = [] } = useCourtesyAccounts(establishmentId, false);
 
@@ -42,7 +42,7 @@ export default function CourtesyAccountsTab({ readOnly = false }: { readOnly?: b
     queryKey: ['courtesy_charges', establishmentId, from, to],
     enabled: !!establishmentId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('courtesy_charges')
         .select('*')
         .eq('establishment_id', establishmentId!)
@@ -58,10 +58,10 @@ export default function CourtesyAccountsTab({ readOnly = false }: { readOnly?: b
     mutationFn: async (payload: { id?: string; name: string }) => {
       if (!payload.name.trim()) throw new Error('El nombre es obligatorio');
       if (payload.id) {
-        const { error } = await supabase.from('courtesy_accounts').update({ name: payload.name.trim() }).eq('id', payload.id);
+        const { error } = await db.from('courtesy_accounts').update({ name: payload.name.trim() }).eq('id', payload.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('courtesy_accounts').insert({
+        const { error } = await db.from('courtesy_accounts').insert({
           establishment_id: establishmentId!,
           name: payload.name.trim(),
         });
@@ -78,7 +78,7 @@ export default function CourtesyAccountsTab({ readOnly = false }: { readOnly?: b
 
   const toggleActive = useMutation({
     mutationFn: async (a: { id: string; is_active: boolean }) => {
-      const { error } = await supabase.from('courtesy_accounts').update({ is_active: !a.is_active }).eq('id', a.id);
+      const { error } = await db.from('courtesy_accounts').update({ is_active: !a.is_active }).eq('id', a.id);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['courtesy_accounts'] }),
@@ -89,8 +89,7 @@ export default function CourtesyAccountsTab({ readOnly = false }: { readOnly?: b
     mutationFn: async (m: { accountId: string; amount: string; type: string; notes: string }) => {
       const amount = Number(String(m.amount).replace(',', '.'));
       if (!amount || amount <= 0) throw new Error('Ingresá un monto válido');
-      const { data: userRes } = await supabase.auth.getUser();
-      const { error } = await supabase.from('courtesy_charges').insert({
+      const { error } = await db.from('courtesy_charges').insert({
         establishment_id: establishmentId!,
         account_id: m.accountId === '__none__' ? null : m.accountId,
         table_number: null,
@@ -99,7 +98,7 @@ export default function CourtesyAccountsTab({ readOnly = false }: { readOnly?: b
         sale_amount: amount,
         cost_amount: 0,
         notes: m.notes.trim() || 'Carga manual',
-        created_by: userRes?.user?.id ?? null,
+        created_by: session?.user?.id ?? null,
       } as any);
       if (error) throw error;
     },

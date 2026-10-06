@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,7 +20,7 @@ export default function SuperAdminPlans() {
   const { data: plans = [] } = useQuery({
     queryKey: ['sa-all-plans'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('client_plans').select('*').order('price');
+      const { data, error } = await db.from('client_plans').select('*').order('price');
       if (error) throw error;
       return data;
     },
@@ -30,7 +30,7 @@ export default function SuperAdminPlans() {
   const { data: clientCounts = {} } = useQuery({
     queryKey: ['sa-plan-client-counts'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('establishments').select('plan_id');
+      const { data, error } = await db.from('establishments').select('plan_id');
       if (error) throw error;
       const counts: Record<string, number> = {};
       (data || []).forEach((e: any) => {
@@ -49,10 +49,10 @@ export default function SuperAdminPlans() {
         features: form.features ? form.features.split('\n').filter(Boolean) : [],
       };
       if (editId) {
-        const { error } = await supabase.from('client_plans').update(payload).eq('id', editId);
+        const { error } = await db.from('client_plans').update(payload).eq('id', editId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('client_plans').insert(payload);
+        const { error } = await db.from('client_plans').insert(payload);
         if (error) throw error;
       }
     },
@@ -66,7 +66,7 @@ export default function SuperAdminPlans() {
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await supabase.from('client_plans').update({ is_active: !is_active }).eq('id', id);
+      const { error } = await db.from('client_plans').update({ is_active: !is_active }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {

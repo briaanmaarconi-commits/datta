@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -109,7 +109,7 @@ export default function InvoiceScanDialog({ open, onOpenChange, onParsed }: Prop
 
   const parseOne = async (file: File): Promise<ParsedInvoice> => {
     const dataUrl = await toBase64(file);
-    const { data, error } = await supabase.functions.invoke('parse-invoice', {
+    const { data, error } = await db.functions.invoke('parse-invoice', {
       body: { fileData: dataUrl, mimeType: file.type, filename: file.name },
     });
 
@@ -130,7 +130,7 @@ export default function InvoiceScanDialog({ open, onOpenChange, onParsed }: Prop
     try {
       const ext = file.name.split('.').pop() || 'bin';
       const path = `${establishmentId}/${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from('purchase-receipts').upload(path, file, {
+      const { error: upErr } = await db.storage.from('purchase-receipts').upload(path, file, {
         contentType: file.type,
       });
       if (!upErr) receipt_path = path;

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { invokeAfip } from '@/lib/afipInvoke';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,7 @@ export default function FiscalSettingsCard() {
   const { data: establishment } = useQuery({
     queryKey: ['establishment-fiscal', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('establishments')
         .select('cuit, razon_social, domicilio_comercial, iibb, inicio_actividades, condicion_iva, punto_venta_afip, afip_environment')
         .eq('id', establishmentId!)
@@ -33,7 +33,7 @@ export default function FiscalSettingsCard() {
   const { data: certRow } = useQuery({
     queryKey: ['afip-certificate', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_afip_cert_status' as any, {
+      const { data, error } = await db.rpc('get_afip_cert_status' as any, {
         _establishment_id: establishmentId!,
       });
       if (error) throw error;
@@ -76,7 +76,7 @@ export default function FiscalSettingsCard() {
 
   const saveFiscalData = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
+      const { error } = await db
         .from('establishments')
         .update({
           cuit,
@@ -120,14 +120,14 @@ export default function FiscalSettingsCard() {
         }
         const payload: any = { certificate_pem: certText };
         if (keyText) payload.private_key_pem = keyText;
-        const { error } = await supabase
+        const { error } = await db
           .from('afip_certificates')
           .update(payload)
           .eq('id', existing.id);
         if (error) throw error;
       } else {
         if (!keyText) throw new Error('Falta la clave privada (.key)');
-        const { error } = await supabase
+        const { error } = await db
           .from('afip_certificates')
           .insert({
             establishment_id: establishmentId!,
@@ -167,7 +167,7 @@ export default function FiscalSettingsCard() {
 
   const generateCsr = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('afip-csr', {
+      const { data, error } = await db.functions.invoke('afip-csr', {
         body: { establishment_id: establishmentId },
       });
       if (error) throw error;
@@ -184,7 +184,7 @@ export default function FiscalSettingsCard() {
   });
   const downloadKey = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('afip-csr', {
+      const { data, error } = await db.functions.invoke('afip-csr', {
         body: { action: 'download_key', establishment_id: establishmentId },
       });
       if (error) throw error;

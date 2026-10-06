@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -40,12 +40,12 @@ export default function DirectStockCountDialog({ open, onOpenChange, products }:
     mutationFn: async () => {
       if (changed.length === 0) throw new Error('No hay diferencias para guardar');
       for (const c of changed) {
-        const { error } = await supabase
+        const { error } = await db
           .from('products')
           .update({ direct_stock: c.counted })
           .eq('id', c.product.id);
         if (error) throw error;
-        const { error: movErr } = await supabase.from('stock_movements').insert({
+        const { error: movErr } = await db.from('stock_movements').insert({
           establishment_id: establishmentId!,
           product_id: c.product.id,
           ingredient_id: null,

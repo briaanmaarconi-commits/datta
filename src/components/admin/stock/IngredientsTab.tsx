@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,7 +34,7 @@ export default function IngredientsTab() {
   const { data: ingredients = [] } = useQuery({
     queryKey: ['ingredients', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('ingredients')
         .select('*')
         .eq('establishment_id', establishmentId!)
@@ -49,13 +49,13 @@ export default function IngredientsTab() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (editing) {
-        const { error } = await supabase.from('ingredients').update({
+        const { error } = await db.from('ingredients').update({
           name: form.name, unit: form.unit, current_stock: form.current_stock,
           min_stock: form.min_stock, cost_per_unit: form.cost_per_unit, supplier: form.supplier || null,
         }).eq('id', editing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('ingredients').insert({
+        const { error } = await db.from('ingredients').insert({
           establishment_id: establishmentId!, name: form.name, unit: form.unit,
           current_stock: form.current_stock, min_stock: form.min_stock,
           cost_per_unit: form.cost_per_unit, supplier: form.supplier || null,
@@ -75,7 +75,7 @@ export default function IngredientsTab() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('ingredients').update({ is_active: false }).eq('id', id);
+      const { error } = await db.from('ingredients').update({ is_active: false }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {

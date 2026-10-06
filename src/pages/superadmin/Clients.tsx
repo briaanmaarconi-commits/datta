@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Building2, Plus, Pencil, Eye, Search, DollarSign, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,7 +35,7 @@ export default function SuperAdminClients() {
   const { data: establishments = [] } = useQuery({
     queryKey: ['sa-clients'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('establishments').select('*, client_plans(name, price)').order('created_at', { ascending: false });
+      const { data, error } = await db.from('establishments').select('*, client_plans(name, price)').order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -44,7 +44,7 @@ export default function SuperAdminClients() {
   const { data: plans = [] } = useQuery({
     queryKey: ['sa-plans'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('client_plans').select('*').eq('is_active', true).order('price');
+      const { data, error } = await db.from('client_plans').select('*').eq('is_active', true).order('price');
       if (error) throw error;
       return data;
     },
@@ -53,7 +53,7 @@ export default function SuperAdminClients() {
   const { data: allPayments = [] } = useQuery({
     queryKey: ['sa-client-payments'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('client_payments').select('*, establishments(name)').order('period_year, period_month', { ascending: false });
+      const { data, error } = await db.from('client_payments').select('*, establishments(name)').order('period_year, period_month', { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -76,10 +76,10 @@ export default function SuperAdminClients() {
         peya_commission: form.peya_commission ? Number(form.peya_commission) : 0,
       };
       if (editId) {
-        const { error } = await supabase.from('establishments').update(payload).eq('id', editId);
+        const { error } = await db.from('establishments').update(payload).eq('id', editId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('establishments').insert(payload);
+        const { error } = await db.from('establishments').insert(payload);
         if (error) throw error;
       }
     },
@@ -93,7 +93,7 @@ export default function SuperAdminClients() {
 
   const createPayment = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('client_payments').insert({
+      const { error } = await db.from('client_payments').insert({
         establishment_id: paymentEstId!,
         amount: Number(payForm.amount),
         payment_method: payForm.payment_method,

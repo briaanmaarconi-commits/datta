@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 
 /** Combos activos del establecimiento, con sus productos y grupos. */
 export function useActiveCombos(establishmentId?: string | null, enabled = true) {
   return useQuery({
     queryKey: ['active-menu-combos', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('menu_combos')
         .select('id, name, description, price, image_url, is_active, menu_combo_items(id, product_id, item_group, sort_order, products(id, name, price))')
         .eq('establishment_id', establishmentId!)

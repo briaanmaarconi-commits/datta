@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { useCallback } from 'react';
 
@@ -13,7 +13,7 @@ export function useAuditLog() {
   ) => {
     if (!establishmentId) return;
     try {
-      await supabase.from('audit_logs').insert({
+      await db.from('audit_logs').insert({
         user_id: session?.user?.id ?? null,
         establishment_id: establishmentId,
         action,

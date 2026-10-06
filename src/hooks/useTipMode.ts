@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 
 export type TipMode = 'pool' | 'individual';
 
@@ -8,7 +8,7 @@ export function useTipMode(establishmentId: string | null | undefined) {
   return useQuery({
     queryKey: ['establishment-tip-mode', establishmentId],
     queryFn: async (): Promise<TipMode> => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('establishments')
         .select('tip_mode')
         .eq('id', establishmentId!)

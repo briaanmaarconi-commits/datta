@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -81,7 +81,7 @@ export default function WaiterTables() {
   const { data: sectors = [] } = useQuery({
     queryKey: ['sectors', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('sectors').select('*').eq('establishment_id', establishmentId!).order('sort_order');
+      const { data, error } = await db.from('sectors').select('*').eq('establishment_id', establishmentId!).order('sort_order');
       if (error) throw error;
       return data;
     },
@@ -91,7 +91,7 @@ export default function WaiterTables() {
   const { data: tables = [] } = useQuery({
     queryKey: ['tables', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('tables').select('*').eq('establishment_id', establishmentId!).order('number');
+      const { data, error } = await db.from('tables').select('*').eq('establishment_id', establishmentId!).order('number');
       if (error) throw error;
       return data;
     },
@@ -102,7 +102,7 @@ export default function WaiterTables() {
   const { data: categories = [] } = useQuery({
     queryKey: ['categories', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('categories').select('*').eq('establishment_id', establishmentId!).eq('is_active', true).order('sort_order');
+      const { data, error } = await db.from('categories').select('*').eq('establishment_id', establishmentId!).eq('is_active', true).order('sort_order');
       if (error) throw error;
       return data;
     },
@@ -112,7 +112,7 @@ export default function WaiterTables() {
   const { data: products = [] } = useQuery({
     queryKey: ['products', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('products').select('*').eq('establishment_id', establishmentId!).eq('is_available', true).order('name');
+      const { data, error } = await db.from('products').select('*').eq('establishment_id', establishmentId!).eq('is_available', true).order('name');
       if (error) throw error;
       return data;
     },
@@ -122,7 +122,7 @@ export default function WaiterTables() {
   const { data: activeOrders = [] } = useQuery({
     queryKey: ['active-orders', establishmentId, ordersCutoff],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('orders')
         .select('*, order_items(*, products(name))')
         .eq('establishment_id', establishmentId!)
@@ -221,7 +221,7 @@ export default function WaiterTables() {
   }, [activeOrders, tables]);
   const updateGuestCount = useMutation({
     mutationFn: async ({ tableId, count }: { tableId: string; count: number }) => {
-      const { error } = await supabase.from('tables').update({ guest_count: count } as any).eq('id', tableId);
+      const { error } = await db.from('tables').update({ guest_count: count } as any).eq('id', tableId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -261,13 +261,13 @@ export default function WaiterTables() {
   // Realtime: refresh products when availability changes
   useEffect(() => {
     if (!establishmentId) return;
-    const channel = supabase
+    const channel = db
       .channel('products-availability')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'products', filter: `establishment_id=eq.${establishmentId}` }, () => {
         queryClient.invalidateQueries({ queryKey: ['products', establishmentId] });
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { db.removeChannel(channel); };
   }, [establishmentId, queryClient]);
 
   const { data: combos = [] } = useActiveCombos(establishmentId);
@@ -278,7 +278,7 @@ export default function WaiterTables() {
       // Save to localStorage before attempting (resilience)
       savePendingOrder(cart, ordering);
       const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
-      const { data: order, error } = await supabase.from('orders').insert({
+      const { data: order, error } = await db.from('orders').insert({
         table_id: ordering.tableId,
         establishment_id: establishmentId!,
         created_by: user?.id,
@@ -292,9 +292,9 @@ export default function WaiterTables() {
         notes: i.notes || null,
         unit_price: i.price,
       }));
-      const { error: itemsError } = await supabase.from('order_items').insert(items);
+      const { error: itemsError } = await db.from('order_items').insert(items);
       if (itemsError) throw itemsError;
-      await supabase.from('tables').update({ status: 'occupied' as any }).eq('id', ordering.tableId);
+      await db.from('tables').update({ status: 'occupied' as any }).eq('id', ordering.tableId);
     },
     onSuccess: () => {
       clearPendingOrder();
@@ -319,12 +319,12 @@ export default function WaiterTables() {
         notes: i.notes || null,
         unit_price: i.price,
       }));
-      const { error } = await supabase.from('order_items').insert(items);
+      const { error } = await db.from('order_items').insert(items);
       if (error) throw error;
       const addedTotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
       const order = activeOrders.find(o => o.id === ordering.orderId);
       if (order) {
-        await supabase.from('orders').update({ total: Number(order.total) + addedTotal, status: 'new' as any }).eq('id', ordering.orderId!);
+        await db.from('orders').update({ total: Number(order.total) + addedTotal, status: 'new' as any }).eq('id', ordering.orderId!);
       }
     },
     onSuccess: () => {
@@ -340,7 +340,7 @@ export default function WaiterTables() {
 
   const markDelivered = useMutation({
     mutationFn: async (orderId: string) => {
-      await supabase.from('orders').update({ status: 'delivered' as any, delivered_at: new Date().toISOString() }).eq('id', orderId);
+      await db.from('orders').update({ status: 'delivered' as any, delivered_at: new Date().toISOString() }).eq('id', orderId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['active-orders'] });
@@ -350,7 +350,7 @@ export default function WaiterTables() {
 
   const cancelOrder = useMutation({
     mutationFn: async (orderId: string) => {
-      await supabase.from('orders').update({ status: 'cancelled' as any }).eq('id', orderId);
+      await db.from('orders').update({ status: 'cancelled' as any }).eq('id', orderId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['active-orders'] });
@@ -362,7 +362,7 @@ export default function WaiterTables() {
 
   const changeTableStatus = useMutation({
     mutationFn: async ({ tableId, status }: { tableId: string; status: string }) => {
-      const { error } = await supabase.from('tables').update({ status: status as any }).eq('id', tableId);
+      const { error } = await db.from('tables').update({ status: status as any }).eq('id', tableId);
       if (error) throw error;
     },
     onSuccess: () => {

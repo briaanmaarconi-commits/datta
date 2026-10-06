@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveShift } from '@/hooks/useActiveShift';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -74,7 +74,7 @@ export default function CashierInvoices() {
   const { data: establishment } = useQuery({
     queryKey: ['establishment', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase.from('establishments').select('name, condicion_iva, razon_social, cuit, domicilio_comercial').eq('id', establishmentId!).single();
+      const { data } = await db.from('establishments').select('name, condicion_iva, razon_social, cuit, domicilio_comercial').eq('id', establishmentId!).single();
       return data;
     },
     enabled: !!establishmentId,
@@ -84,7 +84,7 @@ export default function CashierInvoices() {
   const { data: fiscalInvoices = [] } = useQuery({
     queryKey: ['fiscal-invoices', establishmentId, dateFilter],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await db
         .from('fiscal_invoices')
         .select('*')
         .eq('establishment_id', establishmentId!)
@@ -102,7 +102,7 @@ export default function CashierInvoices() {
   const { data: tables = [] } = useQuery({
     queryKey: ['tables', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('tables').select('*').eq('establishment_id', establishmentId!).order('number');
+      const { data, error } = await db.from('tables').select('*').eq('establishment_id', establishmentId!).order('number');
       if (error) throw error;
       return data;
     },
@@ -114,7 +114,7 @@ export default function CashierInvoices() {
   // Realtime for tables
   useEffect(() => {
     if (!establishmentId) return;
-    const channel = supabase
+    const channel = db
       .channel('invoices-tables-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tables', filter: `establishment_id=eq.${establishmentId}` }, () => {
         queryClient.invalidateQueries({ queryKey: ['tables', establishmentId] });
@@ -130,14 +130,14 @@ export default function CashierInvoices() {
       })
 
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { db.removeChannel(channel); };
   }, [establishmentId, queryClient]);
 
   // Fetch orders for selected table
   const { data: tableOrders = [] } = useQuery({
     queryKey: ['table-orders-invoice', selectedTable?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('orders')
         .select('*, order_items(*, products(name))')
         .eq('table_id', selectedTable!.id)
@@ -153,7 +153,7 @@ export default function CashierInvoices() {
   const { data: invoices = [] } = useQuery({
     queryKey: ['invoices', establishmentId, dateFilter],
     queryFn: async () => {
-      let q = supabase
+      let q = db
         .from('invoices')
         .select('*')
         .eq('establishment_id', establishmentId!)
@@ -196,7 +196,7 @@ export default function CashierInvoices() {
 
       // Close orders
       for (const order of tableOrders) {
-        await supabase.from('orders').update({
+        await db.from('orders').update({
           status: 'closed' as any,
           payment_method: paymentMethod,
           amount_paid: actualPaid,
@@ -204,10 +204,10 @@ export default function CashierInvoices() {
       }
 
       // Free table
-      await supabase.from('tables').update({ status: 'free' as any }).eq('id', selectedTable!.id);
+      await db.from('tables').update({ status: 'free' as any }).eq('id', selectedTable!.id);
 
       // Finance transaction
-      let { data: salesCat } = await supabase
+      let { data: salesCat } = await db
         .from('finance_categories')
         .select('id')
         .eq('establishment_id', establishmentId!)
@@ -216,7 +216,7 @@ export default function CashierInvoices() {
         .maybeSingle();
 
       if (!salesCat) {
-        const { data: newCat } = await supabase
+        const { data: newCat } = await db
           .from('finance_categories')
           .insert({ establishment_id: establishmentId!, name: 'Ventas', type: 'income' })
           .select('id')
@@ -225,7 +225,7 @@ export default function CashierInvoices() {
       }
 
       if (salesCat) {
-        await supabase.from('finance_transactions').insert({
+        await db.from('finance_transactions').insert({
           establishment_id: establishmentId!,
           category_id: salesCat.id,
           type: 'income',
@@ -244,7 +244,7 @@ export default function CashierInvoices() {
         subtotal: Number(item.unit_price) * item.quantity,
       }));
 
-      await supabase.from('invoices').insert({
+      await db.from('invoices').insert({
         establishment_id: establishmentId!,
         table_number: selectedTable!.number,
         order_ids: tableOrders.map((o: any) => o.id),

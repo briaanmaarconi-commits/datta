@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,7 @@ export default function SuperAdminCash() {
   const { data: categories = [] } = useQuery({
     queryKey: ['datta-finance-cats'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('datta_finance_categories').select('*').order('type, name');
+      const { data, error } = await db.from('datta_finance_categories').select('*').order('type, name');
       if (error) throw error;
       return data;
     },
@@ -33,7 +33,7 @@ export default function SuperAdminCash() {
   const { data: establishments = [] } = useQuery({
     queryKey: ['sa-est-list'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('establishments').select('id, name').order('name');
+      const { data, error } = await db.from('establishments').select('id, name').order('name');
       if (error) throw error;
       return data;
     },
@@ -42,7 +42,7 @@ export default function SuperAdminCash() {
   const { data: transactions = [] } = useQuery({
     queryKey: ['datta-transactions', dateFrom, dateTo],
     queryFn: async () => {
-      const { data, error } = await supabase.from('datta_transactions')
+      const { data, error } = await db.from('datta_transactions')
         .select('*, datta_finance_categories(name, type), establishments(name)')
         .gte('date', dateFrom)
         .lte('date', dateTo)
@@ -54,7 +54,7 @@ export default function SuperAdminCash() {
 
   const createTx = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('datta_transactions').insert({
+      const { error } = await db.from('datta_transactions').insert({
         type: form.type,
         amount: Number(form.amount),
         description: form.description || null,

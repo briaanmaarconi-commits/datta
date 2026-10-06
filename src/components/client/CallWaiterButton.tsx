@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 import { Bell } from 'lucide-react';
 import { toast } from 'sonner';
@@ -26,7 +26,7 @@ export default function CallWaiterButton({ tableId, establishmentId, sectorId }:
     if (cooldown > 0 || sending) return;
     setSending(true);
     try {
-      const { error } = await supabase.from('waiter_calls' as any).insert({
+      const { error } = await db.from('waiter_calls' as any).insert({
         table_id: tableId,
         establishment_id: establishmentId,
         sector_id: sectorId || null,

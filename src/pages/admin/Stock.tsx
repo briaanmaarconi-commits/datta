@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { BarChart3, Settings2, ArrowLeftRight, Lightbulb, ShoppingCart, Package } from 'lucide-react';
@@ -34,7 +34,7 @@ export default function AdminStock() {
   const { data: est, isLoading } = useQuery({
     queryKey: ['establishment-stock-mode', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('establishments')
         .select('id, stock_simple_mode')
         .eq('id', establishmentId!)

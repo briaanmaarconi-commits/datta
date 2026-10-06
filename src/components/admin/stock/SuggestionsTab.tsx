@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +11,7 @@ export default function SuggestionsTab() {
   const { data: ingredients = [] } = useQuery({
     queryKey: ['ingredients', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase.from('ingredients').select('*').eq('establishment_id', establishmentId!).eq('is_active', true).order('name');
+      const { data } = await db.from('ingredients').select('*').eq('establishment_id', establishmentId!).eq('is_active', true).order('name');
       return data || [];
     },
     enabled: !!establishmentId,
@@ -23,7 +23,7 @@ export default function SuggestionsTab() {
     queryFn: async () => {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const { data } = await supabase.from('stock_movements').select('ingredient_id, quantity')
+      const { data } = await db.from('stock_movements').select('ingredient_id, quantity')
         .eq('establishment_id', establishmentId!)
         .eq('type', 'sale')
         .gte('created_at', thirtyDaysAgo.toISOString());

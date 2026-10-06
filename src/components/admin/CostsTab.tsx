@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -85,7 +85,7 @@ export default function CostsTab({ products, establishmentId }: CostsTabProps) {
         updateData.cost = costVal;
       }
 
-      const { error } = await supabase.from('products').update(updateData).eq('id', editProduct.id);
+      const { error } = await db.from('products').update(updateData).eq('id', editProduct.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -115,7 +115,7 @@ export default function CostsTab({ products, establishmentId }: CostsTabProps) {
       });
 
       for (const u of updates) {
-        const { error } = await supabase.from('products').update({ price: u.price }).eq('id', u.id);
+        const { error } = await db.from('products').update({ price: u.price }).eq('id', u.id);
         if (error) throw error;
       }
     },
@@ -130,7 +130,7 @@ export default function CostsTab({ products, establishmentId }: CostsTabProps) {
 
   const togglePromo = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { error } = await supabase.from('products').update({ promo_active: !active }).eq('id', id);
+      const { error } = await db.from('products').update({ promo_active: !active }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products'] }),

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Users, Plus, Trash2, Pencil, KeyRound } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import type { Database } from '@/integrations/supabase/types';
+import type { Database } from '@/lib/dbTypes';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -45,7 +45,7 @@ export default function AdminStaff() {
   const { data: staff = [] } = useQuery({
     queryKey: ['staff', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('user_roles')
         .select('*, profiles:user_id(full_name, email)')
         .eq('establishment_id', establishmentId!)
@@ -59,10 +59,7 @@ export default function AdminStaff() {
 
   const createStaff = useMutation({
     mutationFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('No autenticado');
-
-      const res = await supabase.functions.invoke('create-user', {
+      const res = await db.functions.invoke('create-user', {
         body: { email, password, fullName, role, establishmentId },
       });
       if (res.error) throw new Error(res.error.message);
@@ -81,7 +78,7 @@ export default function AdminStaff() {
 
   const updateRole = useMutation({
     mutationFn: async () => {
-      const res = await supabase.functions.invoke('create-user', {
+      const res = await db.functions.invoke('create-user', {
         body: { action: 'update_role', roleId: editRoleId, role: editRole, establishmentId },
       });
       if (res.error) throw new Error(res.error.message);
@@ -97,7 +94,7 @@ export default function AdminStaff() {
 
   const resetPassword = useMutation({
     mutationFn: async (userId: string) => {
-      const res = await supabase.functions.invoke('create-user', {
+      const res = await db.functions.invoke('create-user', {
         body: { action: 'reset_password', userId },
       });
       if (res.error) throw new Error(res.error.message);
@@ -116,7 +113,7 @@ export default function AdminStaff() {
 
   const deleteStaff = useMutation({
     mutationFn: async (id: string) => {
-      const res = await supabase.functions.invoke('create-user', {
+      const res = await db.functions.invoke('create-user', {
         body: { action: 'delete_role', roleId: id },
       });
       if (res.error) throw new Error(res.error.message);

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarCheck, Clock, Plus, Users } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -58,7 +58,7 @@ export default function Reservations() {
   const { data: tables = [] } = useQuery({
     queryKey: ['reservation-tables', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('tables')
         .select('id, number, capacity, status')
         .eq('establishment_id', establishmentId!)
@@ -72,7 +72,7 @@ export default function Reservations() {
   const { data: reservations = [] } = useQuery({
     queryKey: ['reservations', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('reservations' as any)
         .select('*')
         .eq('establishment_id', establishmentId!)
@@ -103,7 +103,7 @@ export default function Reservations() {
   const createReservation = useMutation({
     mutationFn: async () => {
       if (!tableId) throw new Error('Seleccioná una mesa');
-      const { error } = await supabase.from('reservations' as any).insert({
+      const { error } = await db.from('reservations' as any).insert({
         establishment_id: establishmentId!,
         table_id: tableId,
         customer_name: customerName.trim(),
@@ -126,7 +126,7 @@ export default function Reservations() {
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: ReservationStatus }) => {
-      const { error } = await supabase.from('reservations' as any).update({ status }).eq('id', id);
+      const { error } = await db.from('reservations' as any).update({ status }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import StarRating from './StarRating';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { toast } from 'sonner';
 
 interface ReviewDialogProps {
@@ -26,7 +26,7 @@ export default function ReviewDialog({ open, onOpenChange, productId, productNam
   const submit = async () => {
     if (rating === 0) { toast.error('Seleccioná una calificación'); return; }
     setLoading(true);
-    const { error } = await supabase.from('product_reviews' as any).insert({
+    const { error } = await db.from('product_reviews' as any).insert({
       product_id: productId,
       establishment_id: establishmentId,
       rating,

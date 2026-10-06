@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2, DollarSign, TrendingUp, Users, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,7 @@ export default function SuperAdminDashboard() {
   const { data: establishments = [] } = useQuery({
     queryKey: ['sa-establishments'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('establishments').select('*, client_plans(name)');
+      const { data, error } = await db.from('establishments').select('*, client_plans(name)');
       if (error) throw error;
       return data;
     },
@@ -22,7 +22,7 @@ export default function SuperAdminDashboard() {
   const { data: transactions = [] } = useQuery({
     queryKey: ['sa-datta-transactions-summary'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('datta_transactions').select('type, amount');
+      const { data, error } = await db.from('datta_transactions').select('type, amount');
       if (error) throw error;
       return data;
     },
@@ -31,7 +31,7 @@ export default function SuperAdminDashboard() {
   const { data: allPayments = [] } = useQuery({
     queryKey: ['sa-dashboard-payments'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('client_payments').select('establishment_id, period_month, period_year');
+      const { data, error } = await db.from('client_payments').select('establishment_id, period_month, period_year');
       if (error) throw error;
       return data;
     },
@@ -67,7 +67,7 @@ export default function SuperAdminDashboard() {
   const { data: monthlyData = [] } = useQuery({
     queryKey: ['sa-monthly-revenue'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('datta_transactions').select('type, amount, date').order('date');
+      const { data, error } = await db.from('datta_transactions').select('type, amount, date').order('date');
       if (error) throw error;
       const monthMap: Record<string, { income: number; expense: number }> = {};
       (data || []).forEach((t: any) => {
@@ -195,7 +195,7 @@ function UsersCount() {
   const { data: count = 0 } = useQuery({
     queryKey: ['sa-users-count'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('user_roles').select('id');
+      const { data, error } = await db.from('user_roles').select('id');
       if (error) throw error;
       return data.length;
     },

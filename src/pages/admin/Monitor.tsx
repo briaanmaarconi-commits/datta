@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ export default function AdminMonitor() {
   const { data: tables = [] } = useQuery({
     queryKey: ['admin-monitor-tables', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('tables').select('*, sectors(name)').eq('establishment_id', establishmentId!).order('number');
+      const { data, error } = await db.from('tables').select('*, sectors(name)').eq('establishment_id', establishmentId!).order('number');
       if (error) throw error;
       return data;
     },
@@ -26,7 +26,7 @@ export default function AdminMonitor() {
   const { data: activeOrders = [] } = useQuery({
     queryKey: ['admin-monitor-orders', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('orders')
         .select('id, table_id, status')
         .eq('establishment_id', establishmentId!)
@@ -39,7 +39,7 @@ export default function AdminMonitor() {
 
   useEffect(() => {
     if (!establishmentId) return;
-    const channel = supabase
+    const channel = db
       .channel('admin-monitor-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tables', filter: `establishment_id=eq.${establishmentId}` }, () => {
         queryClient.invalidateQueries({ queryKey: ['admin-monitor-tables', establishmentId] });
@@ -48,7 +48,7 @@ export default function AdminMonitor() {
         queryClient.invalidateQueries({ queryKey: ['admin-monitor-orders', establishmentId] });
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { db.removeChannel(channel); };
   }, [establishmentId, queryClient]);
 
   const toggleFullscreen = () => {

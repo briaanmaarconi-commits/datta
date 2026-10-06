@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -30,27 +30,27 @@ export default function ShiftDetailDialog({ open, onOpenChange, shift, establish
       const to = shift.closed_at ?? new Date().toISOString();
 
       const [ordersRes, invoicesRes, txRes, fiscalRes] = await Promise.all([
-        supabase
+        db
           .from('orders')
           .select('id, total, table_id, created_by, created_at, payment_method, order_items(quantity, product_id, products(name))')
           .eq('establishment_id', establishmentId)
           .eq('status', 'closed')
           .gte('created_at', from)
           .lte('created_at', to),
-        supabase
+        db
           .from('invoices')
           .select('tip_amount, tip_waiter_id, tip_payment_method')
           .eq('establishment_id', establishmentId)
           .gte('created_at', from)
           .lte('created_at', to),
-        supabase
+        db
           .from('finance_transactions')
           .select('id, type, amount, description, notes, affects_cash, created_at, finance_categories(name)')
           .eq('establishment_id', establishmentId)
           .gte('created_at', from)
           .lte('created_at', to)
           .order('created_at', { ascending: true }),
-        supabase
+        db
           .from('fiscal_invoices')
           .select('id', { count: 'exact', head: true })
           .eq('establishment_id', establishmentId)
@@ -141,7 +141,7 @@ export default function ShiftDetailDialog({ open, onOpenChange, shift, establish
       [shift.closed_by, shift.controlled_by].forEach((id: any) => { if (id) ids.add(id); });
       const names: Record<string, string> = {};
       if (ids.size > 0) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await db
           .from('profiles')
           .select('id, full_name')
           .in('id', Array.from(ids));

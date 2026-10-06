@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { invokeAfip } from '@/lib/afipInvoke';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,7 +36,7 @@ export default function ShiftFiscalStep({ onComplete, onSkip, shiftOpenedAt }: S
   const { data: establishment } = useQuery({
     queryKey: ['establishment-fiscal-shift', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await db
         .from('establishments')
         .select('condicion_iva, cuit, punto_venta_afip')
         .eq('id', establishmentId!)
@@ -50,7 +50,7 @@ export default function ShiftFiscalStep({ onComplete, onSkip, shiftOpenedAt }: S
   const { data: unfiscaledInvoices = [] } = useQuery({
     queryKey: ['unfiscaled-invoices', establishmentId, shiftOpenedAt],
     queryFn: async () => {
-      const { data: invoices, error } = await supabase
+      const { data: invoices, error } = await db
         .from('invoices')
         .select('id, invoice_number, table_number, total, payment_method, created_at')
         .eq('establishment_id', establishmentId!)
@@ -59,7 +59,7 @@ export default function ShiftFiscalStep({ onComplete, onSkip, shiftOpenedAt }: S
       if (error) throw error;
 
       // Check which already have fiscal invoices
-      const { data: fiscals } = await supabase
+      const { data: fiscals } = await db
         .from('fiscal_invoices')
         .select('invoice_id')
         .eq('establishment_id', establishmentId!)

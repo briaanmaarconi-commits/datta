@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 
 export interface CourtesyAccount {
   id: string;
@@ -15,7 +15,7 @@ export function useCourtesyAccounts(establishmentId?: string | null, onlyActive 
     queryKey: ['courtesy_accounts', establishmentId, onlyActive],
     enabled: !!establishmentId,
     queryFn: async () => {
-      let q = supabase
+      let q = db
         .from('courtesy_accounts')
         .select('*')
         .eq('establishment_id', establishmentId!)

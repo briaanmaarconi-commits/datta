@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,7 +21,7 @@ export default function WasteTab() {
   const { data: ingredients = [] } = useQuery({
     queryKey: ['ingredients', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase.from('ingredients').select('*').eq('establishment_id', establishmentId!).eq('is_active', true).order('name');
+      const { data } = await db.from('ingredients').select('*').eq('establishment_id', establishmentId!).eq('is_active', true).order('name');
       return data || [];
     },
     enabled: !!establishmentId,
@@ -30,7 +30,7 @@ export default function WasteTab() {
   const { data: recentWastes = [] } = useQuery({
     queryKey: ['stock_movements', 'waste', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase.from('stock_movements').select('*, ingredients(name, unit)')
+      const { data } = await db.from('stock_movements').select('*, ingredients(name, unit)')
         .eq('establishment_id', establishmentId!).eq('type', 'waste')
         .order('created_at', { ascending: false }).limit(20);
       return data || [];
@@ -44,12 +44,12 @@ export default function WasteTab() {
       if (!ing) throw new Error('Ingrediente no encontrado');
 
       // Deduct stock
-      await supabase.from('ingredients').update({
+      await db.from('ingredients').update({
         current_stock: Math.max(0, Number(ing.current_stock) - form.quantity),
       }).eq('id', form.ingredient_id);
 
       // Log movement
-      await supabase.from('stock_movements').insert({
+      await db.from('stock_movements').insert({
         establishment_id: establishmentId!, ingredient_id: form.ingredient_id,
         type: 'waste' as any, quantity: -form.quantity, reason: form.reason,
         created_by: session?.user?.id ?? null,

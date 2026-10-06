@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,7 +29,7 @@ export default function KitchenOrders() {
   const { data: establishment } = useQuery({
     queryKey: ['kitchen-establishment', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase.from('establishments').select('name').eq('id', establishmentId!).maybeSingle();
+      const { data } = await db.from('establishments').select('name').eq('id', establishmentId!).maybeSingle();
       return data;
     },
     enabled: !!establishmentId,
@@ -39,7 +39,7 @@ export default function KitchenOrders() {
   const { data: orders = [], isSuccess: ordersLoaded } = useQuery({
     queryKey: ['kitchen-orders', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('orders')
         .select('*, tables(number, sectors(name)), order_items(*, products(name))')
         .eq('establishment_id', establishmentId!)
@@ -56,7 +56,7 @@ export default function KitchenOrders() {
   // Realtime: instant updates when orders/items change
   useEffect(() => {
     if (!establishmentId) return;
-    const channel = supabase
+    const channel = db
       .channel('kitchen-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `establishment_id=eq.${establishmentId}` }, () => {
         queryClient.invalidateQueries({ queryKey: ['kitchen-orders', establishmentId] });
@@ -65,7 +65,7 @@ export default function KitchenOrders() {
         queryClient.invalidateQueries({ queryKey: ['kitchen-orders', establishmentId] });
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { db.removeChannel(channel); };
   }, [establishmentId, queryClient]);
 
   // Persistent AudioContext for reliable sound playback
@@ -261,14 +261,14 @@ export default function KitchenOrders() {
 
   const markItemReady = useMutation({
     mutationFn: async ({ itemId, orderId }: { itemId: string; orderId: string }) => {
-      await supabase.from('order_items').update({ status: 'ready' as any }).eq('id', itemId);
+      await db.from('order_items').update({ status: 'ready' as any }).eq('id', itemId);
 
-      const { data: items } = await supabase.from('order_items').select('status').eq('order_id', orderId);
+      const { data: items } = await db.from('order_items').select('status').eq('order_id', orderId);
       const allReady = items?.every(i => i.status === 'ready');
       if (allReady) {
-        await supabase.from('orders').update({ status: 'ready' as any, prepared_at: new Date().toISOString() }).eq('id', orderId);
+        await db.from('orders').update({ status: 'ready' as any, prepared_at: new Date().toISOString() }).eq('id', orderId);
       } else {
-        await supabase.from('orders').update({ status: 'preparing' as any }).eq('id', orderId);
+        await db.from('orders').update({ status: 'preparing' as any }).eq('id', orderId);
       }
     },
     onMutate: async ({ itemId, orderId }) => {
@@ -297,8 +297,8 @@ export default function KitchenOrders() {
 
   const markOrderReady = useMutation({
     mutationFn: async (orderId: string) => {
-      await supabase.from('order_items').update({ status: 'ready' as any }).eq('order_id', orderId).neq('status', 'ready' as any);
-      await supabase.from('orders').update({ status: 'ready' as any, prepared_at: new Date().toISOString() }).eq('id', orderId);
+      await db.from('order_items').update({ status: 'ready' as any }).eq('order_id', orderId).neq('status', 'ready' as any);
+      await db.from('orders').update({ status: 'ready' as any, prepared_at: new Date().toISOString() }).eq('id', orderId);
     },
     onMutate: async (orderId: string) => {
       await queryClient.cancelQueries({ queryKey: ['kitchen-orders', establishmentId] });
@@ -323,7 +323,7 @@ export default function KitchenOrders() {
 
   const markProductUnavailable = useMutation({
     mutationFn: async (productId: string) => {
-      await supabase.from('products').update({ is_available: false }).eq('id', productId);
+      await db.from('products').update({ is_available: false }).eq('id', productId);
     },
     onSuccess: (_data, productId) => {
       auditLog('mark_unavailable', 'products', productId);

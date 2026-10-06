@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { Trash2, Star } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ export default function AdminReviewsSection({ establishmentId }: { establishment
   const { data: productReviews = [] } = useQuery({
     queryKey: ['admin-product-reviews', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('product_reviews')
         .select('*, products(name)')
         .eq('establishment_id', establishmentId)
@@ -37,7 +37,7 @@ export default function AdminReviewsSection({ establishmentId }: { establishment
   const { data: waiterReviews = [] } = useQuery({
     queryKey: ['admin-waiter-reviews', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('waiter_reviews')
         .select('*')
         .eq('establishment_id', establishmentId)
@@ -50,7 +50,7 @@ export default function AdminReviewsSection({ establishmentId }: { establishment
 
   const deleteProductReview = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('product_reviews').delete().eq('id', id);
+      const { error } = await db.from('product_reviews').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -62,7 +62,7 @@ export default function AdminReviewsSection({ establishmentId }: { establishment
 
   const deleteWaiterReview = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('waiter_reviews').delete().eq('id', id);
+      const { error } = await db.from('waiter_reviews').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {

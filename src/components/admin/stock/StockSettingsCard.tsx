@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -14,7 +14,7 @@ export default function StockSettingsCard() {
   const { data: est } = useQuery({
     queryKey: ['establishment-settings', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase.from('establishments')
+      const { data } = await db.from('establishments')
         .select('id, auto_purchase_to_expense, stock_simple_mode')
         .eq('id', establishmentId!).single();
       return data;
@@ -24,7 +24,7 @@ export default function StockSettingsCard() {
 
   const toggleMutation = useMutation({
     mutationFn: async (value: boolean) => {
-      const { error } = await supabase.from('establishments')
+      const { error } = await db.from('establishments')
         .update({ auto_purchase_to_expense: value }).eq('id', establishmentId!);
       if (error) throw error;
     },
@@ -37,7 +37,7 @@ export default function StockSettingsCard() {
 
   const simpleMutation = useMutation({
     mutationFn: async (value: boolean) => {
-      const { error } = await supabase.from('establishments')
+      const { error } = await db.from('establishments')
         .update({ stock_simple_mode: value }).eq('id', establishmentId!);
       if (error) throw error;
     },

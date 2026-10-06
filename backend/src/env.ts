@@ -4,7 +4,7 @@ import { z } from "zod";
 const bool = z.enum(["true", "false"]).transform((v) => v === "true");
 
 const schema = z.object({
-  PORT: z.coerce.number().default(8080),
+  PORT: z.coerce.number().default(8081),
   // Rol dueño del esquema: solo lo usa `npm run migrate` y los scripts de datos.
   DATABASE_URL: z.string().min(1),
   // Rol de la app (datta_app): sin privilegios directos, cambia a anon/authenticated/service_role por request.

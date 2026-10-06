@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ export default function RecipesTab() {
   const { data: products = [] } = useQuery({
     queryKey: ['products', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase.from('products').select('*, categories(name)').eq('establishment_id', establishmentId!).order('name');
+      const { data } = await db.from('products').select('*, categories(name)').eq('establishment_id', establishmentId!).order('name');
       return data || [];
     },
     enabled: !!establishmentId,
@@ -30,7 +30,7 @@ export default function RecipesTab() {
   const { data: ingredients = [] } = useQuery({
     queryKey: ['ingredients', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase.from('ingredients').select('*').eq('establishment_id', establishmentId!).eq('is_active', true).order('name');
+      const { data } = await db.from('ingredients').select('*').eq('establishment_id', establishmentId!).eq('is_active', true).order('name');
       return data || [];
     },
     enabled: !!establishmentId,
@@ -39,7 +39,7 @@ export default function RecipesTab() {
   const { data: recipes = [] } = useQuery({
     queryKey: ['product_recipes', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase.from('product_recipes').select('*, ingredients(name, unit)');
+      const { data } = await db.from('product_recipes').select('*, ingredients(name, unit)');
       return data || [];
     },
     enabled: !!establishmentId,
@@ -47,7 +47,7 @@ export default function RecipesTab() {
 
   const addMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('product_recipes').insert({
+      const { error } = await db.from('product_recipes').insert({
         product_id: selectedProduct!, ingredient_id: newItem.ingredient_id, quantity: newItem.quantity,
       });
       if (error) throw error;
@@ -63,7 +63,7 @@ export default function RecipesTab() {
 
   const removeMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('product_recipes').delete().eq('id', id);
+      const { error } = await db.from('product_recipes').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import CostsTab from '@/components/admin/CostsTab';
 
@@ -9,7 +9,7 @@ export default function AdminCosts() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const channel = supabase
+    const channel = db
       .channel('products-costs-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
         queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -21,13 +21,13 @@ export default function AdminCosts() {
         queryClient.invalidateQueries({ queryKey: ['products-with-recipes'] });
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { db.removeChannel(channel); };
   }, [queryClient]);
 
   const { data: products = [] } = useQuery({
     queryKey: ['products-with-recipes', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('products')
         .select('*, categories(name), product_recipes(quantity, ingredients(name, unit, cost_per_unit))')
         .eq('establishment_id', establishmentId!)

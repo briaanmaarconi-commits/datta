@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { useDeliverySettings, PLATFORM_LABELS, PLATFORM_COLORS, type DeliveryPlatform } from '@/hooks/useDeliverySettings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,7 +42,7 @@ export default function CashierDelivery() {
   const { data: products = [] } = useQuery({
     queryKey: ['delivery-products', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('products')
         .select('id, name, price, promo_price, promo_active, is_available, categories(name)')
         .eq('establishment_id', establishmentId!)
@@ -58,7 +58,7 @@ export default function CashierDelivery() {
   const { data: activeOrders = [] } = useQuery({
     queryKey: ['delivery-active-orders', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('orders')
         .select('*, order_items(id, quantity, unit_price, notes, products(name))')
         .eq('establishment_id', establishmentId!)
@@ -76,7 +76,7 @@ export default function CashierDelivery() {
     queryKey: ['delivery-today-closed', establishmentId],
     queryFn: async () => {
       const { from, to } = argDayRange(toArgDate());
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('orders')
         .select('id, total, delivery_fee, platform_commission, external_platform, created_at, customer_name, external_order_id')
         .eq('establishment_id', establishmentId!)
@@ -94,14 +94,14 @@ export default function CashierDelivery() {
 
   useEffect(() => {
     if (!establishmentId) return;
-    const ch = supabase
+    const ch = db
       .channel('delivery-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `establishment_id=eq.${establishmentId}` }, () => {
         queryClient.invalidateQueries({ queryKey: ['delivery-active-orders', establishmentId] });
         queryClient.invalidateQueries({ queryKey: ['delivery-today-closed', establishmentId] });
       })
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => { db.removeChannel(ch); };
   }, [establishmentId, queryClient]);
 
   const grouped = useMemo(() => {
@@ -157,7 +157,7 @@ export default function CashierDelivery() {
   const createOrder = useMutation({
     mutationFn: async () => {
       if (cart.length === 0) throw new Error('Agregá al menos un producto');
-      const { data: order, error } = await supabase
+      const { data: order, error } = await db
         .from('orders')
         .insert({
           establishment_id: establishmentId!,
@@ -179,7 +179,7 @@ export default function CashierDelivery() {
         .single();
       if (error) throw error;
 
-      const { error: itemsError } = await supabase.from('order_items').insert(
+      const { error: itemsError } = await db.from('order_items').insert(
         cart.map(l => ({
           order_id: order.id,
           product_id: l.productId,
@@ -205,7 +205,7 @@ export default function CashierDelivery() {
       const patch: Record<string, any> = { status };
       if (status === 'ready') patch.prepared_at = new Date().toISOString();
       if (status === 'delivered') patch.delivered_at = new Date().toISOString();
-      const { error } = await supabase.from('orders').update(patch as any).eq('id', id);
+      const { error } = await db.from('orders').update(patch as any).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {

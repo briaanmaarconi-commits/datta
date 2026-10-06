@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -80,7 +80,7 @@ export default function AdminAnalytics() {
   const { data: financeData } = useQuery({
     queryKey: ['analytics-finance', establishmentId, range.fromDate, range.toDate],
     queryFn: async () => {
-      const { data: txs, error } = await supabase
+      const { data: txs, error } = await db
         .from('finance_transactions')
         .select('*, finance_categories(name)')
         .eq('establishment_id', establishmentId!)
@@ -88,7 +88,7 @@ export default function AdminAnalytics() {
         .lte('date', range.toDate);
       if (error) throw error;
 
-      const { data: closedOrders } = await supabase
+      const { data: closedOrders } = await db
         .from('orders')
         .select('id, total, payment_method, created_at')
         .eq('establishment_id', establishmentId!)
@@ -146,13 +146,13 @@ export default function AdminAnalytics() {
     queryKey: ['analytics-orders', establishmentId, range.fromDate, range.toDate],
     queryFn: async () => {
       const [ordersRes, itemsRes] = await Promise.all([
-        supabase.from('orders')
+        db.from('orders')
           .select('id, total, status, created_at, prepared_at, delivered_at, payment_method, table_id, created_by')
           .eq('establishment_id', establishmentId!)
           .eq('status', 'closed')
           .gte('created_at', range.fromISO)
           .lte('created_at', range.toISO),
-        supabase.from('order_items')
+        db.from('order_items')
           .select('quantity, unit_price, product_id, products(name, price, categories(name)), orders!inner(establishment_id, status, created_at)')
           .eq('orders.establishment_id', establishmentId!)
           .eq('orders.status', 'closed')
@@ -265,7 +265,7 @@ export default function AdminAnalytics() {
       const waiterIds = Object.keys(waiterMap);
       let waiterNames: Record<string, string> = {};
       if (waiterIds.length > 0) {
-        const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', waiterIds);
+        const { data: profiles } = await db.from('profiles').select('id, full_name').in('id', waiterIds);
         (profiles || []).forEach(p => { waiterNames[p.id] = p.full_name || p.id.slice(0, 8); });
       }
       const waiterPerformance = Object.values(waiterMap).map(w => ({

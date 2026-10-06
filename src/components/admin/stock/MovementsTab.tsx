@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -105,7 +105,7 @@ function PurchasesSection() {
   const { data: ingredients = [] } = useQuery({
     queryKey: ['ingredients', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase.from('ingredients').select('*').eq('establishment_id', establishmentId!).eq('is_active', true).order('name');
+      const { data } = await db.from('ingredients').select('*').eq('establishment_id', establishmentId!).eq('is_active', true).order('name');
       return data || [];
     },
     enabled: !!establishmentId,
@@ -114,7 +114,7 @@ function PurchasesSection() {
   const { data: invoices = [] } = useQuery({
     queryKey: ['purchase_invoices', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase.from('purchase_invoices').select('*, purchase_invoice_items(*, ingredients(name, unit))')
+      const { data } = await db.from('purchase_invoices').select('*, purchase_invoice_items(*, ingredients(name, unit))')
         .eq('establishment_id', establishmentId!).order('created_at', { ascending: false }).limit(50);
       return data || [];
     },
@@ -141,12 +141,12 @@ function PurchasesSection() {
       const ing = ingredients.find((ig: any) => ig.id === it.ingredient_id) as any;
       if (ing) {
         const newStock = Math.max(0, Number(ing.current_stock) - Number(it.quantity));
-        await supabase.from('ingredients').update({ current_stock: newStock }).eq('id', it.ingredient_id);
+        await db.from('ingredients').update({ current_stock: newStock }).eq('id', it.ingredient_id);
       }
     }
     // Delete old movements & items linked to this invoice
-    await supabase.from('stock_movements').delete().eq('reference_id', inv.id);
-    await supabase.from('purchase_invoice_items').delete().eq('invoice_id', inv.id);
+    await db.from('stock_movements').delete().eq('reference_id', inv.id);
+    await db.from('purchase_invoice_items').delete().eq('invoice_id', inv.id);
   };
 
   const saveMutation = useMutation({
@@ -157,7 +157,7 @@ function PurchasesSection() {
         // Revert previous stock changes
         await revertInvoiceStock(editingInvoice);
         // Update invoice header
-        const { error: updErr } = await supabase.from('purchase_invoices').update({
+        const { error: updErr } = await db.from('purchase_invoices').update({
           supplier: form.supplier,
           invoice_number: form.invoice_number || null,
           notes: form.notes || null,
@@ -166,7 +166,7 @@ function PurchasesSection() {
         if (updErr) throw updErr;
         invoiceId = editingInvoice.id;
       } else {
-        const { data: inv, error: invErr } = await supabase.from('purchase_invoices').insert({
+        const { data: inv, error: invErr } = await db.from('purchase_invoices').insert({
           establishment_id: establishmentId!, supplier: form.supplier,
           invoice_number: form.invoice_number || null, notes: form.notes || null,
           total, created_by: session?.user?.id ?? null,
@@ -190,25 +190,25 @@ function PurchasesSection() {
           purchase_unit: i.purchase_unit,
         };
       });
-      const { error: itemsErr } = await supabase.from('purchase_invoice_items').insert(itemsData);
+      const { error: itemsErr } = await db.from('purchase_invoice_items').insert(itemsData);
       if (itemsErr) throw itemsErr;
 
       // Re-fetch fresh ingredient stock to apply additions correctly
-      const { data: freshIng } = await supabase.from('ingredients').select('id, current_stock')
+      const { data: freshIng } = await db.from('ingredients').select('id, current_stock')
         .in('id', items.map(i => i.ingredient_id));
       const stockMap = new Map((freshIng || []).map((r: any) => [r.id, Number(r.current_stock)]));
 
       for (let idx = 0; idx < items.length; idx++) {
         const item = items[idx];
         const baseRow = itemsData[idx];
-        const currentStock = stockMap.get(item.ingredient_id) ?? 0;
+        const currentStock = Number(stockMap.get(item.ingredient_id) ?? 0);
         // Solo actualizamos stock; el cost_per_unit lo recalcula el trigger SQL como promedio ponderado
-        await supabase.from('ingredients').update({
-          current_stock: currentStock + baseRow.quantity,
+        await db.from('ingredients').update({
+          current_stock: currentStock + Number(baseRow.quantity),
         }).eq('id', item.ingredient_id);
-        stockMap.set(item.ingredient_id, currentStock + baseRow.quantity);
+        stockMap.set(item.ingredient_id, currentStock + Number(baseRow.quantity));
 
-        await supabase.from('stock_movements').insert({
+        await db.from('stock_movements').insert({
           establishment_id: establishmentId!, ingredient_id: item.ingredient_id,
           type: 'entry' as any, quantity: baseRow.quantity,
           reason: `Compra - ${form.supplier} (${item.quantity} ${item.purchase_unit})`,
@@ -230,7 +230,7 @@ function PurchasesSection() {
   const deleteMutation = useMutation({
     mutationFn: async (inv: any) => {
       await revertInvoiceStock(inv);
-      const { error } = await supabase.from('purchase_invoices').delete().eq('id', inv.id);
+      const { error } = await db.from('purchase_invoices').delete().eq('id', inv.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -419,7 +419,7 @@ function WasteSection() {
   const { data: ingredients = [] } = useQuery({
     queryKey: ['ingredients', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase.from('ingredients').select('*').eq('establishment_id', establishmentId!).eq('is_active', true).order('name');
+      const { data } = await db.from('ingredients').select('*').eq('establishment_id', establishmentId!).eq('is_active', true).order('name');
       return data || [];
     },
     enabled: !!establishmentId,
@@ -428,7 +428,7 @@ function WasteSection() {
   const { data: recentWastes = [] } = useQuery({
     queryKey: ['stock_movements', 'waste', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase.from('stock_movements').select('*, ingredients(name, unit)')
+      const { data } = await db.from('stock_movements').select('*, ingredients(name, unit)')
         .eq('establishment_id', establishmentId!).eq('type', 'waste')
         .order('created_at', { ascending: false }).limit(20);
       return data || [];
@@ -444,8 +444,8 @@ function WasteSection() {
   const wasteMutation = useMutation({
     mutationFn: async () => {
       if (!selectedIng) throw new Error('No encontrado');
-      await supabase.from('ingredients').update({ current_stock: Math.max(0, Number(selectedIng.current_stock) - baseQty) }).eq('id', form.ingredient_id);
-      await supabase.from('stock_movements').insert({
+      await db.from('ingredients').update({ current_stock: Math.max(0, Number(selectedIng.current_stock) - baseQty) }).eq('id', form.ingredient_id);
+      await db.from('stock_movements').insert({
         establishment_id: establishmentId!, ingredient_id: form.ingredient_id,
         type: 'waste' as any, quantity: -baseQty,
         reason: form.unit !== selectedIng.unit ? `${form.reason} (${form.quantity} ${form.unit})` : form.reason,
@@ -532,7 +532,7 @@ function AdjustmentsSection() {
   const { data: ingredients = [] } = useQuery({
     queryKey: ['ingredients', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase.from('ingredients').select('*').eq('establishment_id', establishmentId!).eq('is_active', true).order('name');
+      const { data } = await db.from('ingredients').select('*').eq('establishment_id', establishmentId!).eq('is_active', true).order('name');
       return data || [];
     },
     enabled: !!establishmentId,
@@ -543,8 +543,8 @@ function AdjustmentsSection() {
       const ing = ingredients.find((i: any) => i.id === form.ingredient_id) as any;
       if (!ing) throw new Error('No encontrado');
       const diff = form.real_stock - Number(ing.current_stock);
-      await supabase.from('ingredients').update({ current_stock: form.real_stock }).eq('id', form.ingredient_id);
-      await supabase.from('stock_movements').insert({
+      await db.from('ingredients').update({ current_stock: form.real_stock }).eq('id', form.ingredient_id);
+      await db.from('stock_movements').insert({
         establishment_id: establishmentId!, ingredient_id: form.ingredient_id,
         type: 'adjustment' as any, quantity: diff,
         reason: form.reason || `Ajuste manual: ${ing.current_stock} → ${form.real_stock}`,
@@ -619,7 +619,7 @@ function HistorySection() {
   const { data: movements = [] } = useQuery({
     queryKey: ['stock_movements', establishmentId, filterType],
     queryFn: async () => {
-      let q = supabase.from('stock_movements').select('*, ingredients(name, unit)')
+      let q = db.from('stock_movements').select('*, ingredients(name, unit)')
         .eq('establishment_id', establishmentId!).order('created_at', { ascending: false }).limit(100);
       if (filterType !== 'all') q = q.eq('type', filterType as any);
       const { data } = await q;

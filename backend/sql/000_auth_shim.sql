@@ -58,6 +58,8 @@ CREATE OR REPLACE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
 $$;
 
 GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;
+-- Solo el backend (service_role) toca auth.users; los demás roles no tienen acceso a la tabla.
+GRANT ALL ON ALL TABLES IN SCHEMA auth TO service_role;
 GRANT EXECUTE ON FUNCTION auth.uid(), auth.role(), auth.jwt() TO anon, authenticated, service_role;
 
 -- Privilegios por defecto equivalentes a los de Supabase en el esquema public

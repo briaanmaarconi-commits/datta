@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { useTipMode } from '@/hooks/useTipMode';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,7 +37,7 @@ export default function TipsManagementTab() {
   const { data: tipInvoices = [] } = useQuery({
     queryKey: ['tip-invoices', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('invoices')
         .select('id, invoice_number, table_number, created_at, tip_amount, tip_payment_method, tip_waiter_id, tip_mode, tip_settled, tip_settled_at')
         .eq('establishment_id', establishmentId!)
@@ -52,7 +52,7 @@ export default function TipsManagementTab() {
   const { data: waiters = [] } = useQuery({
     queryKey: ['waiters-list', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('user_roles')
         .select('user_id, profiles:user_id(full_name, email)')
         .eq('establishment_id', establishmentId!)
@@ -116,7 +116,7 @@ export default function TipsManagementTab() {
   const settle = useMutation({
     mutationFn: async (group: { label: string; invoices: TipInvoice[]; total: number }) => {
       const ids = group.invoices.map(i => i.id);
-      const { error: upErr } = await supabase
+      const { error: upErr } = await db
         .from('invoices')
         .update({
           tip_settled: true,

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { toArgDate } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,7 +19,7 @@ export default function SuperAdminAnalytics() {
   const { data: establishments = [] } = useQuery({
     queryKey: ['establishments'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('establishments').select('id, name');
+      const { data, error } = await db.from('establishments').select('id, name');
       if (error) throw error;
       return data;
     },
@@ -47,7 +47,7 @@ export default function SuperAdminAnalytics() {
   const { data: salesData } = useQuery({
     queryKey: ['superadmin-analytics', from, to, selectedEst],
     queryFn: async () => {
-      let query = supabase.from('orders')
+      let query = db.from('orders')
         .select('id, total, status, created_at, establishment_id, establishments(name)')
         .eq('status', 'closed')
         .gte('created_at', from)
@@ -88,7 +88,7 @@ export default function SuperAdminAnalytics() {
   const { data: dattaFinances } = useQuery({
     queryKey: ['sa-datta-finances', from, to],
     queryFn: async () => {
-      const { data, error } = await supabase.from('datta_transactions')
+      const { data, error } = await db.from('datta_transactions')
         .select('type, amount, date, datta_finance_categories(name)')
         .gte('date', from.split('T')[0])
         .lte('date', to.split('T')[0]);

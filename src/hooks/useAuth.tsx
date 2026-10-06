@@ -1,13 +1,22 @@
-import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import type { User, Session } from '@supabase/supabase-js';
-import type { Database } from '@/integrations/supabase/types';
+import { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import { UNAUTHORIZED_EVENT } from '@/lib/db';
+import type { Database } from '@/lib/dbTypes';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
+export interface AuthUser {
+  id: string;
+  email: string | null;
+}
+
+/** Misma forma que usaba la app (session.user.id); ya no hay token en el navegador: la sesión viaja en una cookie httpOnly. */
+export interface AuthSession {
+  user: AuthUser;
+}
+
 interface AuthState {
-  user: User | null;
-  session: Session | null;
+  user: AuthUser | null;
+  session: AuthSession | null;
   role: AppRole | null;
   establishmentId: string | null;
   loading: boolean;
@@ -22,103 +31,76 @@ interface AuthContextValue extends AuthState {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    session: null,
-    role: null,
-    establishmentId: null,
-    loading: true,
+const SIGNED_OUT: AuthState = {
+  user: null,
+  session: null,
+  role: null,
+  establishmentId: null,
+  loading: false,
+  roleLoading: false,
+};
+
+interface MeResponse {
+  user: { id: string; email: string | null; role: AppRole | null; establishmentId: string | null } | null;
+}
+
+function toState(me: MeResponse): AuthState {
+  if (!me.user) return SIGNED_OUT;
+  const user = { id: me.user.id, email: me.user.email };
+  return {
+    user,
+    session: { user },
+    role: me.user.role,
+    establishmentId: me.user.establishmentId,
+    loading: false,
     roleLoading: false,
-  });
-  const roleFetchedFor = useRef<string | null>(null);
+  };
+}
 
-  const fetchUserRole = useCallback(async (userId: string, force = false) => {
-    if (!force && roleFetchedFor.current === userId) {
-      setState(prev => (prev.roleLoading ? { ...prev, roleLoading: false } : prev));
-      return;
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = useState<AuthState>({ ...SIGNED_OUT, loading: true });
+
+  const loadMe = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      const me: MeResponse = res.ok ? await res.json() : { user: null };
+      setState(toState(me));
+    } catch {
+      setState(SIGNED_OUT);
     }
-    roleFetchedFor.current = userId;
-    setState(prev => ({ ...prev, roleLoading: true }));
-    const { data } = await supabase
-      .from('user_roles')
-      .select('role, establishment_id')
-      .eq('user_id', userId)
-      .order('role')
-      .limit(1)
-      .maybeSingle();
-
-    setState(prev => ({
-      ...prev,
-      role: data?.role as AppRole ?? null,
-      establishmentId: data?.establishment_id ?? null,
-      roleLoading: false,
-    }));
   }, []);
 
-
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (session?.user) {
-          const alreadyFetched = roleFetchedFor.current === session.user.id;
-          setState(prev => ({
-            ...prev,
-            user: session.user,
-            session,
-            loading: false,
-            roleLoading: alreadyFetched ? prev.roleLoading : true,
-          }));
-          if (!alreadyFetched) setTimeout(() => fetchUserRole(session.user.id), 0);
-
-        } else {
-          roleFetchedFor.current = null;
-          setState({
-            user: null,
-            session: null,
-            role: null,
-            establishmentId: null,
-            loading: false,
-            roleLoading: false,
-          });
-        }
-      }
-    );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        const alreadyFetched = roleFetchedFor.current === session.user.id;
-        setState(prev => ({
-          ...prev,
-          user: session.user,
-          session,
-          loading: false,
-          roleLoading: alreadyFetched ? prev.roleLoading : true,
-        }));
-        fetchUserRole(session.user.id);
-
-      } else {
-        setState(prev => ({
-          ...prev,
-          user: null,
-          session: null,
-          loading: false,
-        }));
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [fetchUserRole]);
+    void loadMe();
+    // Si el backend responde 401 (sesión vencida/revocada) volvemos al login.
+    const onUnauthorized = () => setState((prev) => (prev.user ? SIGNED_OUT : prev));
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+  }, [loadMe]);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error };
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) return { error: new Error(json?.error?.message ?? 'Credenciales incorrectas') };
+      setState(toState(json));
+      return { error: null };
+    } catch (e) {
+      return { error: e };
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    roleFetchedFor.current = null;
-    setState({ user: null, session: null, role: null, establishmentId: null, loading: false, roleLoading: false });
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    } finally {
+      setState(SIGNED_OUT);
+    }
   };
 
   const getRoleRedirectPath = (role: AppRole | null): string => {
@@ -147,12 +129,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 const defaultAuth: AuthContextValue = {
-  user: null,
-  session: null,
-  role: null,
-  establishmentId: null,
+  ...SIGNED_OUT,
   loading: true,
-  roleLoading: false,
   signIn: async () => ({ error: new Error('No AuthProvider') }),
   signOut: async () => {},
   getRoleRedirectPath: () => '/login',

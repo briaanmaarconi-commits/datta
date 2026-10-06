@@ -5,7 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/components/ui/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
@@ -38,7 +38,7 @@ export default function InsightsSettingsDialog({ open, onOpenChange }: { open: b
   useEffect(() => {
     if (!open || !establishmentId) return;
     (async () => {
-      const { data } = await supabase.rpc('ensure_insight_preferences', { _establishment_id: establishmentId });
+      const { data } = await db.rpc('ensure_insight_preferences', { _establishment_id: establishmentId });
       const p = data as unknown as Prefs;
       setPrefs(p);
       setEmailsText((p?.daily_report_emails || []).join(', '));
@@ -65,7 +65,7 @@ export default function InsightsSettingsDialog({ open, onOpenChange }: { open: b
     if (!establishmentId || !prefs) return;
     setSaving(true);
     const emails = emailsText.split(/[,;\n]/).map((e) => e.trim()).filter(Boolean);
-    const { error } = await supabase
+    const { error } = await db
       .from('ai_insight_preferences')
       .update({
         enabled: prefs.enabled,

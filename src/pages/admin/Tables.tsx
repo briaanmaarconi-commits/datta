@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Plus, Trash2, QrCode, FolderPlus, Map } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,7 +37,7 @@ export default function AdminTables() {
   const { data: tables = [] } = useQuery({
     queryKey: ['tables', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('tables')
         .select('*')
         .eq('establishment_id', establishmentId!)
@@ -51,7 +51,7 @@ export default function AdminTables() {
   const { data: sectors = [] } = useQuery({
     queryKey: ['sectors', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('sectors')
         .select('*')
         .eq('establishment_id', establishmentId!)
@@ -64,18 +64,18 @@ export default function AdminTables() {
 
   useEffect(() => {
     if (!establishmentId) return;
-    const channel = supabase
+    const channel = db
       .channel('admin-tables-manage-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tables', filter: `establishment_id=eq.${establishmentId}` }, () => {
         queryClient.invalidateQueries({ queryKey: ['tables', establishmentId] });
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { db.removeChannel(channel); };
   }, [establishmentId, queryClient]);
 
   const createSector = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('sectors').insert({
+      const { error } = await db.from('sectors').insert({
         name: sectorName,
         establishment_id: establishmentId!,
         sort_order: sectors.length,
@@ -93,7 +93,7 @@ export default function AdminTables() {
 
   const deleteSector = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('sectors').delete().eq('id', id);
+      const { error } = await db.from('sectors').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -105,7 +105,7 @@ export default function AdminTables() {
 
   const createTable = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('tables').insert({
+      const { error } = await db.from('tables').insert({
         number: parseInt(number),
         capacity: parseInt(capacity),
         establishment_id: establishmentId!,
@@ -126,7 +126,7 @@ export default function AdminTables() {
 
   const deleteTable = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('tables').delete().eq('id', id);
+      const { error } = await db.from('tables').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {

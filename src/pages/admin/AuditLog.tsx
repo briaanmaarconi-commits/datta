@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -32,7 +32,7 @@ export default function AuditLog() {
   const { data: logs = [] } = useQuery({
     queryKey: ['audit-logs', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('audit_logs')
         .select('*')
         .eq('establishment_id', establishmentId!)
@@ -42,7 +42,7 @@ export default function AuditLog() {
       const userIds = Array.from(new Set((data || []).map((l: any) => l.user_id).filter(Boolean)));
       let profilesMap: Record<string, { full_name: string | null; email: string | null }> = {};
       if (userIds.length > 0) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await db
           .from('profiles')
           .select('id, full_name, email')
           .in('id', userIds);

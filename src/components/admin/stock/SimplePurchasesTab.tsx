@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import InvoiceScanDialog, { type ParsedInvoice } from '@/components/shared/InvoiceScanDialog';
 import InvoiceItemsReviewDialog from '@/components/shared/InvoiceItemsReviewDialog';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -113,7 +113,7 @@ export default function SimplePurchasesTab() {
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ['simple-purchases', establishmentId, period],
     queryFn: async () => {
-      let q = supabase
+      let q = db
         .from('purchase_invoices')
         .select('id, supplier, invoice_date, total, notes, payment_method, purchase_invoice_items(id, item_name, quantity, unit, unit_price, ingredients(name, unit))')
         .eq('establishment_id', establishmentId!)
@@ -128,7 +128,7 @@ export default function SimplePurchasesTab() {
   });
 
   const suppliers = useMemo(
-    () => Array.from(new Set(invoices.map((i: any) => i.supplier).filter(Boolean))),
+    () => Array.from(new Set<string>(invoices.map((i: any) => i.supplier).filter(Boolean))),
     [invoices]
   );
 
@@ -185,7 +185,7 @@ export default function SimplePurchasesTab() {
   const { data: establishment } = useQuery({
     queryKey: ['establishment-ai-invoice-reader', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('establishments')
         .select('id, ai_invoice_reader')
         .eq('id', establishmentId!)
@@ -263,15 +263,15 @@ export default function SimplePurchasesTab() {
 
       let invoiceId = editingId;
       if (editingId) {
-        const { error } = await supabase
+        const { error } = await db
           .from('purchase_invoices')
           .update({ supplier: supplier.trim(), invoice_date: invoiceDate, total, notes: notes || null, payment_method: paymentMethod })
           .eq('id', editingId);
         if (error) throw error;
-        const { error: delErr } = await supabase.from('purchase_invoice_items').delete().eq('invoice_id', editingId);
+        const { error: delErr } = await db.from('purchase_invoice_items').delete().eq('invoice_id', editingId);
         if (delErr) throw delErr;
       } else {
-        const { data, error } = await supabase
+        const { data, error } = await db
           .from('purchase_invoices')
           .insert({
             establishment_id: establishmentId!,
@@ -290,7 +290,7 @@ export default function SimplePurchasesTab() {
         invoiceId = data.id;
       }
 
-      const { error: itemsErr } = await supabase.from('purchase_invoice_items').insert(
+      const { error: itemsErr } = await db.from('purchase_invoice_items').insert(
         valid.map(l => {
           const qty = Number(l.quantity);
           return {
@@ -317,8 +317,8 @@ export default function SimplePurchasesTab() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await supabase.from('purchase_invoice_items').delete().eq('invoice_id', id);
-      const { error } = await supabase.from('purchase_invoices').delete().eq('id', id);
+      await db.from('purchase_invoice_items').delete().eq('invoice_id', id);
+      const { error } = await db.from('purchase_invoices').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {

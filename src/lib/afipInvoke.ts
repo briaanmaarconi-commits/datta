@@ -1,14 +1,14 @@
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 
 /**
  * Llama a la edge function `afip-invoice` y devuelve SIEMPRE el mensaje real de error.
  *
- * `supabase.functions.invoke` descarta el body cuando la respuesta no es 2xx y sólo deja
+ * `db.functions.invoke` descarta el body cuando la respuesta no es 2xx y sólo deja
  * "Edge Function returned a non-2xx status code". Acá leemos el body de `error.context`
  * para poder mostrar el rechazo concreto de ARCA (código + descripción).
  */
 export async function invokeAfip<T = any>(body: Record<string, unknown>): Promise<T> {
-  const { data, error } = await supabase.functions.invoke('afip-invoice', { body });
+  const { data, error } = await db.functions.invoke('afip-invoice', { body });
 
   if (error) {
     let message = error.message || 'Error al comunicarse con ARCA';

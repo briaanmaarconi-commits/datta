@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,7 +30,7 @@ export default function DirectStockTab() {
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['direct-stock-products', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('products')
         .select('id, name, direct_stock, direct_min_stock, cost, price, categories(name)')
         .eq('establishment_id', establishmentId!)
@@ -44,7 +44,7 @@ export default function DirectStockTab() {
 
   const updateMin = useMutation({
     mutationFn: async ({ id, value }: { id: string; value: number }) => {
-      const { error } = await supabase.from('products').update({ direct_min_stock: value }).eq('id', id);
+      const { error } = await db.from('products').update({ direct_min_stock: value }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['direct-stock-products'] }),

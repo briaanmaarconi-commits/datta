@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,7 +39,7 @@ export default function PurchasesTab() {
   const { data: ingredients = [] } = useQuery({
     queryKey: ['ingredients', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase.from('ingredients').select('*').eq('establishment_id', establishmentId!).eq('is_active', true).order('name');
+      const { data } = await db.from('ingredients').select('*').eq('establishment_id', establishmentId!).eq('is_active', true).order('name');
       return data || [];
     },
     enabled: !!establishmentId,
@@ -48,7 +48,7 @@ export default function PurchasesTab() {
   const { data: invoices = [] } = useQuery({
     queryKey: ['purchase_invoices', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase.from('purchase_invoices').select('*, purchase_invoice_items(*, ingredients(name, unit))')
+      const { data } = await db.from('purchase_invoices').select('*, purchase_invoice_items(*, ingredients(name, unit))')
         .eq('establishment_id', establishmentId!).order('created_at', { ascending: false }).limit(50);
       return data || [];
     },
@@ -68,7 +68,7 @@ export default function PurchasesTab() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       // Create invoice
-      const { data: inv, error: invErr } = await supabase.from('purchase_invoices').insert({
+      const { data: inv, error: invErr } = await db.from('purchase_invoices').insert({
         establishment_id: establishmentId!, supplier: form.supplier,
         invoice_number: form.invoice_number || null, notes: form.notes || null,
         payment_method: form.payment_method,
@@ -78,7 +78,7 @@ export default function PurchasesTab() {
 
       // Create items
       const itemsData = items.map(i => ({ invoice_id: inv.id, ingredient_id: i.ingredient_id, quantity: i.quantity, unit_price: i.unit_price }));
-      const { error: itemsErr } = await supabase.from('purchase_invoice_items').insert(itemsData);
+      const { error: itemsErr } = await db.from('purchase_invoice_items').insert(itemsData);
       if (itemsErr) throw itemsErr;
 
       // Update stock & create movements
@@ -86,10 +86,10 @@ export default function PurchasesTab() {
         // Update current_stock
         const ing = ingredients.find((ig: any) => ig.id === item.ingredient_id);
         if (ing) {
-          await supabase.from('ingredients').update({ current_stock: Number(ing.current_stock) + item.quantity, cost_per_unit: item.unit_price }).eq('id', item.ingredient_id);
+          await db.from('ingredients').update({ current_stock: Number(ing.current_stock) + item.quantity, cost_per_unit: item.unit_price }).eq('id', item.ingredient_id);
         }
         // Create movement
-        await supabase.from('stock_movements').insert({
+        await db.from('stock_movements').insert({
           establishment_id: establishmentId!, ingredient_id: item.ingredient_id,
           type: 'entry' as any, quantity: item.quantity, reason: `Compra - ${form.supplier}`,
           reference_id: inv.id, created_by: session?.user?.id ?? null,

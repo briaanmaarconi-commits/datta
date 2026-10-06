@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 
 export function useActiveShift() {
@@ -10,7 +10,7 @@ export function useActiveShift() {
   const { data: activeShift, isLoading } = useQuery({
     queryKey: ['active-shift', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await db
         .from('shift_controls')
         .select('*')
         .eq('establishment_id', establishmentId!)
@@ -35,7 +35,7 @@ export function useActiveShift() {
     const invalidate = () =>
       queryClient.invalidateQueries({ queryKey: ['active-shift', establishmentId] });
 
-    const channel = supabase
+    const channel = db
       .channel(`active-shift-${establishmentId}-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
@@ -51,7 +51,7 @@ export function useActiveShift() {
 
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
-      supabase.removeChannel(channel);
+      db.removeChannel(channel);
     };
   }, [establishmentId, queryClient]);
 

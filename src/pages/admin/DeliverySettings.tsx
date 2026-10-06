@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { useDeliverySettings } from '@/hooks/useDeliverySettings';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -42,8 +42,6 @@ const STATUS_META: Record<IntegrationStatus['status'], { label: string; variant:
   error: { label: 'Error', variant: 'destructive' },
 };
 
-const PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-
 function PlatformCard({ platform, status, commission, onSaved }: {
   platform: PlatformKey;
   status?: IntegrationStatus;
@@ -69,7 +67,7 @@ function PlatformCard({ platform, status, commission, onSaved }: {
 
   const save = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('delivery-credentials', {
+      const { data, error } = await db.functions.invoke('delivery-credentials', {
         body: {
           establishment_id: establishmentId,
           platform,
@@ -90,7 +88,7 @@ function PlatformCard({ platform, status, commission, onSaved }: {
 
   const test = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('delivery-test-connection', {
+      const { data, error } = await db.functions.invoke('delivery-test-connection', {
         body: { establishment_id: establishmentId, platform },
       });
       if (error) throw error;
@@ -100,8 +98,8 @@ function PlatformCard({ platform, status, commission, onSaved }: {
     onError: (e: Error) => toast.error(e.message || 'No se pudo probar la conexión'),
   });
 
-  const webhookUrl = status?.webhook_token && PROJECT_ID
-    ? `https://${PROJECT_ID}.supabase.co/functions/v1/delivery-webhook?token=${status.webhook_token}`
+  const webhookUrl = status?.webhook_token
+    ? `${window.location.origin}/api/delivery-webhook?token=${status.webhook_token}`
     : null;
 
   const st = STATUS_META[status?.status ?? 'not_configured'];
@@ -193,7 +191,7 @@ function MenuMappingTab() {
   const { data: mappings = [] } = useQuery({
     queryKey: ['delivery-mapping', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('delivery_menu_mapping')
         .select('*')
         .eq('establishment_id', establishmentId!)
@@ -208,7 +206,7 @@ function MenuMappingTab() {
   const { data: products = [] } = useQuery({
     queryKey: ['delivery-mapping-products', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('products')
         .select('id, name')
         .eq('establishment_id', establishmentId!)
@@ -221,7 +219,7 @@ function MenuMappingTab() {
 
   const link = useMutation({
     mutationFn: async ({ id, productId }: { id: string; productId: string }) => {
-      const { error } = await supabase.from('delivery_menu_mapping').update({ product_id: productId }).eq('id', id);
+      const { error } = await db.from('delivery_menu_mapping').update({ product_id: productId }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['delivery-mapping', establishmentId] }); toast.success('Producto vinculado'); },
@@ -286,7 +284,7 @@ export default function AdminDeliverySettings() {
   const { data: statuses = [], isLoading } = useQuery({
     queryKey: ['delivery-integrations', establishmentId],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).rpc('get_delivery_integration_status', { _establishment_id: establishmentId });
+      const { data, error } = await (db as any).rpc('get_delivery_integration_status', { _establishment_id: establishmentId });
       if (error) throw error;
       return (data ?? []) as IntegrationStatus[];
     },

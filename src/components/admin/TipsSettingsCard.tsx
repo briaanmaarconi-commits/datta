@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { useTipMode } from '@/hooks/useTipMode';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +15,7 @@ export default function TipsSettingsCard() {
 
   const update = useMutation({
     mutationFn: async (newMode: 'pool' | 'individual') => {
-      const { error } = await supabase
+      const { error } = await db
         .from('establishments')
         .update({ tip_mode: newMode } as any)
         .eq('id', establishmentId!);

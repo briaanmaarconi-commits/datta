@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { invokeAfip } from '@/lib/afipInvoke';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,7 +52,7 @@ export default function AdminBilling() {
   const { data: establishment } = useQuery({
     queryKey: ['establishment-fiscal', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await db
         .from('establishments')
         .select('name, razon_social, domicilio_comercial, condicion_iva, cuit, punto_venta_afip')
         .eq('id', establishmentId!)
@@ -65,7 +65,7 @@ export default function AdminBilling() {
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ['admin-billing-invoices', establishmentId, dateFrom, dateTo],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('invoices')
         .select('id, invoice_number, table_number, total, payment_method, items, created_at')
         .eq('establishment_id', establishmentId!)
@@ -82,7 +82,7 @@ export default function AdminBilling() {
   const { data: fiscalInvoices = [] } = useQuery({
     queryKey: ['admin-billing-fiscal', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await db
         .from('fiscal_invoices')
         .select('invoice_id, is_credit_note, status, cae')
         .eq('establishment_id', establishmentId!);
@@ -95,7 +95,7 @@ export default function AdminBilling() {
   const { data: coveredLinks = [] } = useQuery({
     queryKey: ['admin-billing-covered', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await db
         .from('fiscal_invoice_covered_invoices')
         .select('invoice_id')
         .eq('establishment_id', establishmentId!);
@@ -194,7 +194,7 @@ export default function AdminBilling() {
         setProgress(100);
         const fiscalId = res?.fiscal_invoice_id;
         if (fiscalId) {
-          await supabase.from('fiscal_invoice_covered_invoices').insert(
+          await db.from('fiscal_invoice_covered_invoices').insert(
             selectedRows.map((inv: any) => ({
               fiscal_invoice_id: fiscalId,
               invoice_id: inv.id,

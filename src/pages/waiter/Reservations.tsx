@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, CheckCircle2, Clock, Phone, Plus, RotateCcw, Users, X } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -64,7 +64,7 @@ export default function WaiterReservations() {
   const { data: tables = [] } = useQuery({
     queryKey: ['reservation-tables', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('tables')
         .select('id, number, capacity, status')
         .eq('establishment_id', establishmentId!)
@@ -80,7 +80,7 @@ export default function WaiterReservations() {
     queryFn: async () => {
       const from = new Date(`${day}T00:00:00`);
       const to = new Date(`${day}T23:59:59.999`);
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('reservations' as any)
         .select('*')
         .eq('establishment_id', establishmentId!)
@@ -96,14 +96,14 @@ export default function WaiterReservations() {
   // Sincronización en vivo con Caja / Administración
   useEffect(() => {
     if (!establishmentId) return;
-    const channel = supabase
+    const channel = db
       .channel('waiter-reservations')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => {
         queryClient.invalidateQueries({ queryKey: ['reservations', establishmentId] });
       })
       .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      db.removeChannel(channel);
     };
   }, [establishmentId, queryClient]);
 
@@ -138,7 +138,7 @@ export default function WaiterReservations() {
     mutationFn: async () => {
       if (!tableId) throw new Error('Seleccioná una mesa');
       if (!customerName.trim()) throw new Error('Ingresá el nombre del cliente');
-      const { error } = await supabase.from('reservations' as any).insert({
+      const { error } = await db.from('reservations' as any).insert({
         establishment_id: establishmentId!,
         table_id: tableId,
         customer_name: customerName.trim(),
@@ -162,12 +162,12 @@ export default function WaiterReservations() {
 
   const updateStatus = useMutation({
     mutationFn: async ({ reservation, status }: { reservation: any; status: ReservationStatus }) => {
-      const { error } = await supabase.from('reservations' as any).update({ status }).eq('id', reservation.id);
+      const { error } = await db.from('reservations' as any).update({ status }).eq('id', reservation.id);
       if (error) throw error;
 
       // Al llegar la gente, la mesa queda ocupada con la cantidad de personas de la reserva
       if (status === 'seated' && reservation.table_id) {
-        await supabase
+        await db
           .from('tables')
           .update({ status: 'occupied', guest_count: reservation.party_size })
           .eq('id', reservation.table_id);

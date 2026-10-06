@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -155,19 +155,19 @@ async function fetchPeriodData(establishmentId: string, from: string, to: string
   const toDate = getLocalDateStr(new Date(to));
 
   const [ordersRes, itemsRes, financeRes] = await Promise.all([
-    supabase.from('orders')
+    db.from('orders')
       .select('id, total, status, created_at, table_id, created_by')
       .eq('establishment_id', establishmentId)
       .eq('status', 'closed')
       .gte('created_at', from)
       .lte('created_at', to),
-    supabase.from('order_items')
+    db.from('order_items')
       .select('quantity, unit_price, product_id, products(name, category_id, categories(name)), orders!inner(establishment_id, status, created_at)')
       .eq('orders.establishment_id', establishmentId)
       .eq('orders.status', 'closed')
       .gte('orders.created_at', from)
       .lte('orders.created_at', to),
-    supabase.from('finance_transactions')
+    db.from('finance_transactions')
       .select('*, finance_categories(name)')
       .eq('establishment_id', establishmentId)
       .gte('date', fromDate)

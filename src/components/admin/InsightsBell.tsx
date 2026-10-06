@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Bell, AlertTriangle, Lightbulb, CheckCheck, Sparkles } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -39,7 +39,7 @@ export default function InsightsBell() {
     queryKey: ['ai-insights', establishmentId],
     enabled: !!establishmentId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('ai_insights')
         .select('*')
         .eq('establishment_id', establishmentId!)
@@ -55,7 +55,7 @@ export default function InsightsBell() {
   // Realtime
   useEffect(() => {
     if (!establishmentId) return;
-    const channel = supabase
+    const channel = db
       .channel(`ai_insights_${establishmentId}`)
       .on(
         'postgres_changes',
@@ -64,7 +64,7 @@ export default function InsightsBell() {
       )
       .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      db.removeChannel(channel);
     };
   }, [establishmentId, queryClient]);
 
@@ -73,16 +73,16 @@ export default function InsightsBell() {
   const recs = insights.filter((i) => i.kind === 'recommendation');
 
   async function markRead(id: string) {
-    await supabase.from('ai_insights').update({ status: 'read', read_at: new Date().toISOString() }).eq('id', id);
+    await db.from('ai_insights').update({ status: 'read', read_at: new Date().toISOString() }).eq('id', id);
     queryClient.invalidateQueries({ queryKey: ['ai-insights', establishmentId] });
   }
   async function dismiss(id: string) {
-    await supabase.from('ai_insights').update({ status: 'dismissed' }).eq('id', id);
+    await db.from('ai_insights').update({ status: 'dismissed' }).eq('id', id);
     queryClient.invalidateQueries({ queryKey: ['ai-insights', establishmentId] });
   }
   async function markAllRead() {
     if (!establishmentId) return;
-    await supabase
+    await db
       .from('ai_insights')
       .update({ status: 'read', read_at: new Date().toISOString() })
       .eq('establishment_id', establishmentId)
@@ -94,7 +94,7 @@ export default function InsightsBell() {
     if (!establishmentId) return;
     setRunning(true);
     try {
-      const { error } = await supabase.functions.invoke('ai-daily-analysis', {
+      const { error } = await db.functions.invoke('ai-daily-analysis', {
         headers: { 'x-establishment-id': establishmentId },
       });
       if (error) throw error;

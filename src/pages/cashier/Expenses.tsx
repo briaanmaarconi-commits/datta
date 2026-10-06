@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { parseAmount, sanitizeAmountInput } from '@/lib/parseAmount';
 import { useAuth } from '@/hooks/useAuth';
 import { toArgDate } from '@/lib/utils';
@@ -88,7 +88,7 @@ export default function CashierExpenses() {
   const { data: categories = [], isLoading: catsLoading } = useQuery({
     queryKey: ['finance-categories', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('finance_categories')
         .select('*')
         .eq('establishment_id', establishmentId!)
@@ -101,7 +101,7 @@ export default function CashierExpenses() {
 
   const seedCategories = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.rpc('seed_default_finance_categories' as any, {
+      const { error } = await db.rpc('seed_default_finance_categories' as any, {
         _establishment_id: establishmentId!,
       });
       if (error) throw error;
@@ -129,14 +129,14 @@ export default function CashierExpenses() {
   const { data: transactions = [] } = useQuery({
     queryKey: ['cashier-finance-transactions', establishmentId],
     queryFn: async () => {
-      const { data: manualTx, error } = await supabase
+      const { data: manualTx, error } = await db
         .from('finance_transactions')
         .select('*, finance_categories(name)')
         .eq('establishment_id', establishmentId!)
         .order('date', { ascending: false });
       if (error) throw error;
 
-      const { data: closedOrders, error: ordErr } = await supabase
+      const { data: closedOrders, error: ordErr } = await db
         .from('orders')
         .select('id, total, payment_method, created_at')
         .eq('establishment_id', establishmentId!)
@@ -182,7 +182,7 @@ export default function CashierExpenses() {
 
   const createCategory = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('finance_categories').insert({
+      const { error } = await db.from('finance_categories').insert({
         establishment_id: establishmentId!,
         name: catName,
         type: catType,
@@ -228,7 +228,7 @@ export default function CashierExpenses() {
     mutationFn: async () => {
       if (editingTx) {
         // Update existing
-        const { error } = await supabase.from('finance_transactions').update({
+        const { error } = await db.from('finance_transactions').update({
           category_id: txCategoryId,
           type: txType,
           amount: parseAmount(txAmount),
@@ -239,7 +239,7 @@ export default function CashierExpenses() {
         if (error) throw error;
       } else {
         // Create new
-        const { error } = await supabase.from('finance_transactions').insert({
+        const { error } = await db.from('finance_transactions').insert({
           establishment_id: establishmentId!,
           category_id: txCategoryId,
           type: txType,
@@ -267,7 +267,7 @@ export default function CashierExpenses() {
 
   const deleteTransaction = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('finance_transactions').delete().eq('id', id);
+      const { error } = await db.from('finance_transactions').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -292,7 +292,7 @@ export default function CashierExpenses() {
   const { data: establishment } = useQuery({
     queryKey: ['establishment-ai-invoice-reader', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('establishments')
         .select('id, ai_invoice_reader')
         .eq('id', establishmentId!)
@@ -339,7 +339,7 @@ export default function CashierExpenses() {
     const grouped = dateFilteredTx
       .filter((t: any) => !isTipTx({ type: t.type, amount: t.amount, categoryName: t.finance_categories?.name }))
       .filter((t: any) => t.type === 'expense')
-      .reduce((acc: Record<string, number>, t: any) => {
+      .reduce<Record<string, number>>((acc, t: any) => {
         const name = t.finance_categories?.name || 'Sin categoría';
         acc[name] = (acc[name] || 0) + Number(t.amount);
         return acc;

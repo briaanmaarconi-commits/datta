@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import StarRating from './StarRating';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { toast } from 'sonner';
 
 interface WaiterReviewDialogProps {
@@ -26,7 +26,7 @@ export default function WaiterReviewDialog({ open, onOpenChange, establishmentId
     if (rating === 0) { toast.error('Seleccioná una calificación'); return; }
     if (!waiterName.trim()) { toast.error('Ingresá el nombre del mozo'); return; }
     setLoading(true);
-    const { error } = await supabase.from('waiter_reviews' as any).insert({
+    const { error } = await db.from('waiter_reviews' as any).insert({
       establishment_id: establishmentId,
       waiter_name: waiterName.trim(),
       rating,

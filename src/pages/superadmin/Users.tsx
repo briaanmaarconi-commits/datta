@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { Users as UsersIcon, Plus, Trash2, Pencil } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import type { Database } from '@/integrations/supabase/types';
+import type { Database } from '@/lib/dbTypes';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -42,7 +42,7 @@ export default function SuperAdminUsers() {
   const { data: roles = [] } = useQuery({
     queryKey: ['all-user-roles'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('user_roles')
         .select('*, profiles:user_id(full_name, email), establishments:establishment_id(name)')
         .order('role');
@@ -54,7 +54,7 @@ export default function SuperAdminUsers() {
   const { data: establishments = [] } = useQuery({
     queryKey: ['establishments'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('establishments').select('id, name').eq('is_active', true);
+      const { data, error } = await db.from('establishments').select('id, name').eq('is_active', true);
       if (error) throw error;
       return data;
     },
@@ -62,7 +62,7 @@ export default function SuperAdminUsers() {
 
   const createUser = useMutation({
     mutationFn: async () => {
-      const res = await supabase.functions.invoke('create-user', {
+      const res = await db.functions.invoke('create-user', {
         body: { email, password, fullName, role, establishmentId: role === 'superadmin' ? null : establishmentId || null },
       });
       if (res.error) throw new Error(res.error.message || 'Error al crear usuario');
@@ -79,7 +79,7 @@ export default function SuperAdminUsers() {
 
   const updateRole = useMutation({
     mutationFn: async () => {
-      const res = await supabase.functions.invoke('create-user', {
+      const res = await db.functions.invoke('create-user', {
         body: {
           action: 'update_role',
           roleId: editRoleId,
@@ -100,7 +100,7 @@ export default function SuperAdminUsers() {
 
   const deleteRole = useMutation({
     mutationFn: async (id: string) => {
-      const res = await supabase.functions.invoke('create-user', {
+      const res = await db.functions.invoke('create-user', {
         body: { action: 'delete_role', roleId: id },
       });
       if (res.error) throw new Error(res.error.message || 'Error al eliminar');

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -74,7 +74,7 @@ export default function FloorPlanView({ onTableClick, tables, activeOrders }: Fl
   const { data: sectors = [] } = useQuery({
     queryKey: ['sectors', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('sectors').select('*').eq('establishment_id', establishmentId!).order('sort_order');
+      const { data, error } = await db.from('sectors').select('*').eq('establishment_id', establishmentId!).order('sort_order');
       if (error) throw error;
       return data;
     },
@@ -84,7 +84,7 @@ export default function FloorPlanView({ onTableClick, tables, activeOrders }: Fl
   const { data: floorPlan } = useQuery({
     queryKey: ['floor-plan', establishmentId, selectedSector],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('floor_plans').select('*')
         .eq('establishment_id', establishmentId!)
         .eq('sector_id', selectedSector)

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,7 +52,7 @@ export default function AddProductsDialog({
   const { data: categories = [] } = useQuery({
     queryKey: ['cashier-add-categories', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('categories')
         .select('id, name')
         .eq('establishment_id', establishmentId!)
@@ -67,7 +67,7 @@ export default function AddProductsDialog({
   const { data: products = [] } = useQuery({
     queryKey: ['cashier-add-products', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('products')
         .select('id, name, price, promo_price, promo_active, category_id, is_available')
         .eq('establishment_id', establishmentId!)

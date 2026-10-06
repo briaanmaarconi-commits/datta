@@ -1,6 +1,6 @@
 // Detección de compras posiblemente duplicadas (misma compra cargada en Stock
 // y también a mano en Movimientos de caja). Solo avisa, nunca bloquea.
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 
 export interface SimilarPurchase {
   id: string;
@@ -53,13 +53,13 @@ export async function findSimilarPurchases(params: {
   const out: SimilarPurchase[] = [];
 
   const [{ data: purchases }, { data: txs }] = await Promise.all([
-    supabase
+    db
       .from('purchase_invoices')
       .select('id, supplier, invoice_date, total')
       .eq('establishment_id', establishmentId)
       .gte('invoice_date', from)
       .lte('invoice_date', to),
-    supabase
+    db
       .from('finance_transactions')
       .select('id, description, date, amount, type')
       .eq('establishment_id', establishmentId)

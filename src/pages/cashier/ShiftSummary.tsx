@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -49,7 +49,7 @@ export default function ShiftSummary() {
   const { data: establishment } = useQuery({
     queryKey: ['establishment-name', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await db
         .from('establishments')
         .select('name')
         .eq('id', establishmentId!)
@@ -65,46 +65,46 @@ export default function ShiftSummary() {
     const to = shift.closed_at ?? new Date().toISOString();
 
     const [ordersRes, expensesRes, invoicesRes, fiscalRes, profileRes, courtesyRes, accountsRes, anomaliesRes] = await Promise.all([
-      supabase
+      db
         .from('orders')
         .select('total, payment_method')
         .eq('establishment_id', establishmentId!)
         .eq('status', 'closed')
         .gte('created_at', from)
         .lte('created_at', to),
-      supabase
+      db
         .from('finance_transactions')
         .select('type, amount, affects_cash, finance_categories(name)')
         .eq('establishment_id', establishmentId!)
         .gte('created_at', from)
         .lte('created_at', to),
 
-      supabase
+      db
         .from('invoices')
         .select('tip_amount')
         .eq('establishment_id', establishmentId!)
         .gte('created_at', from)
         .lte('created_at', to),
-      supabase
+      db
         .from('fiscal_invoices')
         .select('id', { count: 'exact', head: true })
         .eq('establishment_id', establishmentId!)
         .gte('created_at', from)
         .lte('created_at', to),
       shift.closed_by
-        ? supabase.from('profiles').select('full_name').eq('id', shift.closed_by).maybeSingle()
+        ? db.from('profiles').select('full_name').eq('id', shift.closed_by).maybeSingle()
         : Promise.resolve({ data: null } as any),
-      supabase
+      db
         .from('courtesy_charges')
         .select('account_id, sale_amount, table_number')
         .eq('establishment_id', establishmentId!)
         .gte('created_at', from)
         .lte('created_at', to),
-      supabase
+      db
         .from('courtesy_accounts')
         .select('id, name')
         .eq('establishment_id', establishmentId!),
-      supabase
+      db
         .from('audit_logs')
         .select('action, record_id, details, created_at')
         .eq('establishment_id', establishmentId!)
@@ -194,7 +194,7 @@ export default function ShiftSummary() {
   const { data: stats } = useQuery({
     queryKey: ['shift-stats', establishmentId, activeShift?.id],
     queryFn: async () => {
-      let query = supabase
+      let query = db
         .from('orders')
         .select('id, total, status, payment_method')
         .eq('establishment_id', establishmentId!)
@@ -223,7 +223,7 @@ export default function ShiftSummary() {
     queryKey: ['shift-manual-movements', establishmentId, activeShift?.id],
     queryFn: async () => {
       if (!activeShift?.opened_at) return { manualIncome: 0, manualExpenses: 0 };
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('finance_transactions')
         .select('type, amount, affects_cash, finance_categories(name)')
         .eq('establishment_id', establishmentId!)
@@ -247,7 +247,7 @@ export default function ShiftSummary() {
   const { data: pastShifts = [] } = useQuery({
     queryKey: ['past-shifts', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('shift_controls')
         .select('*')
         .eq('establishment_id', establishmentId!)
@@ -266,11 +266,11 @@ export default function ShiftSummary() {
     queryFn: async () => {
       const cutoff = getOrdersCutoff(activeShift as any);
       const [tablesRes, ordersRes] = await Promise.all([
-        supabase
+        db
           .from('tables')
           .select('id, number, status')
           .eq('establishment_id', establishmentId!),
-        supabase
+        db
           .from('orders')
           .select('table_id, status, created_at')
           .eq('establishment_id', establishmentId!)
@@ -309,7 +309,7 @@ export default function ShiftSummary() {
     mutationFn: async () => {
       const now = new Date().toISOString();
       const today = now.split('T')[0];
-      const { error } = await supabase.from('shift_controls').insert({
+      const { error } = await db.from('shift_controls').insert({
         establishment_id: establishmentId!,
         shift_date: today,
         is_controlled: false,
@@ -334,7 +334,7 @@ export default function ShiftSummary() {
       const actualCash = Number(actualCashInput);
       const difference = actualCash - expectedCash;
       const closedAt = new Date().toISOString();
-      const { error } = await supabase
+      const { error } = await db
         .from('shift_controls')
         .update({
           closed_at: closedAt,
@@ -384,7 +384,7 @@ export default function ShiftSummary() {
 
   const reopenShift = useMutation({
     mutationFn: async (shiftId: string) => {
-      const { error } = await supabase
+      const { error } = await db
         .from('shift_controls')
         .update({
           closed_at: null,

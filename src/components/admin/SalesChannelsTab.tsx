@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { PLATFORM_LABELS, type DeliveryPlatform } from '@/hooks/useDeliverySettings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,7 +35,7 @@ export default function SalesChannelsTab() {
   const { data, isLoading } = useQuery({
     queryKey: ['sales-channels', establishmentId, range.fromISO, range.toISO],
     queryFn: async () => {
-      const { data: orders, error } = await supabase
+      const { data: orders, error } = await db
         .from('orders')
         .select('id, total, channel, external_platform, platform_commission, delivery_fee, created_at')
         .eq('establishment_id', establishmentId!)

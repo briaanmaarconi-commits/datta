@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -85,19 +85,19 @@ export default function ProfitMarginTab() {
 
       // Orders (closed) with items + product cost snapshot
       const [ordersRes, itemsRes, txRes] = await Promise.all([
-        supabase.from('orders')
+        db.from('orders')
           .select('id, total, created_at, payment_method, table_id, tables(number)')
           .eq('establishment_id', establishmentId!)
           .eq('status', 'closed')
           .gte('created_at', fromISO)
           .lte('created_at', toISO),
-        supabase.from('order_items')
+        db.from('order_items')
           .select('quantity, unit_price, cost_snapshot, products(name), orders!inner(id, establishment_id, status, created_at)')
           .eq('orders.establishment_id', establishmentId!)
           .eq('orders.status', 'closed')
           .gte('orders.created_at', fromISO)
           .lte('orders.created_at', toISO),
-        supabase.from('finance_transactions')
+        db.from('finance_transactions')
           .select('id, amount, type, date, description, category_id, finance_categories(name)')
           .eq('establishment_id', establishmentId!)
           .eq('type', 'expense')

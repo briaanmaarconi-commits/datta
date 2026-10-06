@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,7 @@ export default function ResaleProductsDialog({ open, onOpenChange }: Props) {
   const { data: products = [] } = useQuery({
     queryKey: ['resale-products-picker', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('products')
         .select('id, name, stock_mode, categories(name)')
         .eq('establishment_id', establishmentId!)
@@ -76,11 +76,11 @@ export default function ResaleProductsDialog({ open, onOpenChange }: Props) {
       const toDirect = products.filter((p: any) => selected.has(p.id) && p.stock_mode !== 'direct').map((p: any) => p.id);
       const toNone = products.filter((p: any) => !selected.has(p.id) && p.stock_mode === 'direct').map((p: any) => p.id);
       if (toDirect.length) {
-        const { error } = await supabase.from('products').update({ stock_mode: 'direct' }).in('id', toDirect);
+        const { error } = await db.from('products').update({ stock_mode: 'direct' }).in('id', toDirect);
         if (error) throw error;
       }
       if (toNone.length) {
-        const { error } = await supabase.from('products').update({ stock_mode: 'none' }).in('id', toNone);
+        const { error } = await db.from('products').update({ stock_mode: 'none' }).in('id', toNone);
         if (error) throw error;
       }
       return { added: toDirect.length, removed: toNone.length };

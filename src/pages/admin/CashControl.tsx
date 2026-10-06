@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { parseAmount, sanitizeAmountInput } from '@/lib/parseAmount';
 import { useAuth } from '@/hooks/useAuth';
 import { toArgDate } from '@/lib/utils';
@@ -71,7 +71,7 @@ function ShiftControlTab({ establishmentId, userId }: { establishmentId: string 
   const { data: shifts = [] } = useQuery({
     queryKey: ['shift-closings', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('shift_controls')
         .select('*')
         .eq('establishment_id', establishmentId!)
@@ -80,7 +80,7 @@ function ShiftControlTab({ establishmentId, userId }: { establishmentId: string 
 
       // For each shift, get orders in that range
       const results = await Promise.all((data || []).map(async (shift: any) => {
-        let query = supabase
+        let query = db
           .from('orders')
           .select('id, total, payment_method')
           .eq('establishment_id', establishmentId!)
@@ -106,14 +106,14 @@ function ShiftControlTab({ establishmentId, userId }: { establishmentId: string 
   const toggleControl = useMutation({
     mutationFn: async ({ isControlled, controlId }: { isControlled: boolean; controlId: string }) => {
       if (isControlled) {
-        const { error } = await supabase.from('shift_controls').update({
+        const { error } = await db.from('shift_controls').update({
           is_controlled: false,
           controlled_by: null,
           controlled_at: null,
         }).eq('id', controlId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('shift_controls').update({
+        const { error } = await db.from('shift_controls').update({
           is_controlled: true,
           controlled_by: userId!,
           controlled_at: new Date().toISOString(),
@@ -326,7 +326,7 @@ function FinanceTab({ establishmentId, userId }: { establishmentId: string | nul
   const { data: categories = [] } = useQuery({
     queryKey: ['finance-categories', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('finance_categories')
         .select('*')
         .eq('establishment_id', establishmentId!)
@@ -341,14 +341,14 @@ function FinanceTab({ establishmentId, userId }: { establishmentId: string | nul
     queryKey: ['finance-transactions', establishmentId],
     queryFn: async () => {
       // Manual transactions
-      const { data: manualTx, error } = await supabase
+      const { data: manualTx, error } = await db
         .from('finance_transactions')
         .select('*, finance_categories(name)')
         .eq('establishment_id', establishmentId!)
         .order('date', { ascending: false });
       if (error) throw error;
 
-      const { data: closedOrders, error: ordErr } = await supabase
+      const { data: closedOrders, error: ordErr } = await db
         .from('orders')
         .select('id, total, payment_method, created_at')
         .eq('establishment_id', establishmentId!)
@@ -387,7 +387,7 @@ function FinanceTab({ establishmentId, userId }: { establishmentId: string | nul
 
   const createCategory = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('finance_categories').insert({
+      const { error } = await db.from('finance_categories').insert({
         establishment_id: establishmentId!,
         name: catName,
         type: catType,
@@ -405,7 +405,7 @@ function FinanceTab({ establishmentId, userId }: { establishmentId: string | nul
 
   const deleteCategory = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('finance_categories').delete().eq('id', id);
+      const { error } = await db.from('finance_categories').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -417,7 +417,7 @@ function FinanceTab({ establishmentId, userId }: { establishmentId: string | nul
 
   const createTransaction = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('finance_transactions').insert({
+      const { error } = await db.from('finance_transactions').insert({
         establishment_id: establishmentId!,
         category_id: txCategoryId,
         type: txType,
@@ -441,7 +441,7 @@ function FinanceTab({ establishmentId, userId }: { establishmentId: string | nul
 
   const deleteTransaction = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('finance_transactions').delete().eq('id', id);
+      const { error } = await db.from('finance_transactions').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {

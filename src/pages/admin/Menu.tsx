@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Plus, Pencil, Trash2, GripVertical, X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,9 +26,9 @@ import { parseAmount } from '@/lib/parseAmount';
 async function uploadImage(file: File, path: string): Promise<string> {
   const ext = file.name.split('.').pop();
   const fileName = `${path}/${Date.now()}.${ext}`;
-  const { error } = await supabase.storage.from('product-images').upload(fileName, file);
+  const { error } = await db.storage.from('product-images').upload(fileName, file);
   if (error) throw error;
-  const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
+  const { data } = db.storage.from('product-images').getPublicUrl(fileName);
   return data.publicUrl;
 }
 
@@ -63,7 +63,7 @@ export default function AdminMenu() {
   const { data: categories = [] } = useQuery({
     queryKey: ['categories', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('categories')
         .select('*')
         .eq('establishment_id', establishmentId!)
@@ -77,7 +77,7 @@ export default function AdminMenu() {
   const { data: products = [] } = useQuery({
     queryKey: ['products', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('products')
         .select('*, categories(name)')
         .eq('establishment_id', establishmentId!)
@@ -97,7 +97,7 @@ export default function AdminMenu() {
       if (editCatId) {
         const update: any = { name: catName };
         if (imageUrl) update.image_url = imageUrl;
-        const { error } = await supabase.from('categories').update(update).eq('id', editCatId);
+        const { error } = await db.from('categories').update(update).eq('id', editCatId);
         if (error) throw error;
       } else {
         const insert: any = {
@@ -106,7 +106,7 @@ export default function AdminMenu() {
           sort_order: categories.length,
         };
         if (imageUrl) insert.image_url = imageUrl;
-        const { error } = await supabase.from('categories').insert(insert);
+        const { error } = await db.from('categories').insert(insert);
         if (error) throw error;
       }
     },
@@ -120,7 +120,7 @@ export default function AdminMenu() {
 
   const deleteCategory = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('categories').delete().eq('id', id);
+      const { error } = await db.from('categories').delete().eq('id', id);
       if (error) throw error;
       return id;
     },
@@ -140,7 +140,7 @@ export default function AdminMenu() {
 
   const toggleCategory = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await supabase.from('categories').update({ is_active: !is_active }).eq('id', id);
+      const { error } = await db.from('categories').update({ is_active: !is_active }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -168,10 +168,10 @@ export default function AdminMenu() {
       if (imageUrl) payload.image_url = imageUrl;
       let productId = editProdId;
       if (editProdId) {
-        const { error } = await supabase.from('products').update(payload).eq('id', editProdId);
+        const { error } = await db.from('products').update(payload).eq('id', editProdId);
         if (error) throw error;
       } else {
-        const { data, error } = await supabase.from('products').insert(payload).select('id').single();
+        const { data, error } = await db.from('products').insert(payload).select('id').single();
         if (error) throw error;
         productId = data.id;
       }
@@ -213,7 +213,7 @@ export default function AdminMenu() {
 
   const deleteProduct = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('products').delete().eq('id', id);
+      const { error } = await db.from('products').delete().eq('id', id);
       if (error) throw error;
       return id;
     },
@@ -226,7 +226,7 @@ export default function AdminMenu() {
 
   const toggleProduct = useMutation({
     mutationFn: async ({ id, is_available }: { id: string; is_available: boolean }) => {
-      const { error } = await supabase.from('products').update({ is_available: !is_available }).eq('id', id);
+      const { error } = await db.from('products').update({ is_available: !is_available }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {

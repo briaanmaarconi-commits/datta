@@ -10,6 +10,11 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    // En desarrollo la API (backend/) corre en :8081; en producción la sirve el mismo dominio bajo /api.
+    proxy: {
+      "/api": "http://localhost:8081",
+      "/files": "http://localhost:8081",
+    },
   },
   plugins: [react()],
   resolve: {

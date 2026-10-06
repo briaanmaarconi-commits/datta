@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +21,7 @@ export default function StockDashboard() {
   const { data: ingredients = [] } = useQuery({
     queryKey: ['ingredients', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await db
         .from('ingredients').select('*')
         .eq('establishment_id', establishmentId!)
         .eq('is_active', true).order('name');
@@ -33,7 +33,7 @@ export default function StockDashboard() {
   const { data: directProducts = [] } = useQuery({
     queryKey: ['products-direct-stock', establishmentId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await db
         .from('products').select('id, name, direct_stock, direct_min_stock')
         .eq('establishment_id', establishmentId!)
         .eq('stock_mode', 'direct')

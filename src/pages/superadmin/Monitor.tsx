@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Building2 } from 'lucide-react';
@@ -18,7 +18,7 @@ export default function SuperAdminMonitor() {
   const { data: establishments = [] } = useQuery({
     queryKey: ['monitor-establishments'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('establishments').select('id, name, is_active').eq('is_active', true).order('name');
+      const { data, error } = await db.from('establishments').select('id, name, is_active').eq('is_active', true).order('name');
       if (error) throw error;
       return data;
     },
@@ -27,20 +27,20 @@ export default function SuperAdminMonitor() {
   const { data: allTables = [] } = useQuery({
     queryKey: ['monitor-tables'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('tables').select('*').order('number');
+      const { data, error } = await db.from('tables').select('*').order('number');
       if (error) throw error;
       return data;
     },
   });
 
   useEffect(() => {
-    const channel = supabase
+    const channel = db
       .channel('superadmin-tables-monitor')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, () => {
         queryClient.invalidateQueries({ queryKey: ['monitor-tables'] });
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { db.removeChannel(channel); };
   }, [queryClient]);
 
   return (

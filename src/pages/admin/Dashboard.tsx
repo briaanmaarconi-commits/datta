@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { DollarSign, ShoppingCart, Receipt, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,12 +18,12 @@ export default function AdminDashboard() {
       const { from, to } = argDayRange(today);
 
       const [ordersRes, tablesRes] = await Promise.all([
-        supabase.from('orders')
+        db.from('orders')
           .select('id, total, status, created_at')
           .eq('establishment_id', establishmentId!)
           .gte('created_at', from)
           .lte('created_at', to),
-        supabase.from('tables')
+        db.from('tables')
           .select('id, status')
           .eq('establishment_id', establishmentId!),
       ]);

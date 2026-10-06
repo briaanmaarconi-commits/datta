@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -116,7 +116,7 @@ export default function FloorPlanEditor() {
   const { data: sectors = [] } = useQuery({
     queryKey: ['sectors', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('sectors').select('*').eq('establishment_id', establishmentId!).order('sort_order');
+      const { data, error } = await db.from('sectors').select('*').eq('establishment_id', establishmentId!).order('sort_order');
       if (error) throw error;
       return data;
     },
@@ -126,7 +126,7 @@ export default function FloorPlanEditor() {
   const { data: tables = [] } = useQuery({
     queryKey: ['tables', establishmentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('tables').select('*').eq('establishment_id', establishmentId!).order('number');
+      const { data, error } = await db.from('tables').select('*').eq('establishment_id', establishmentId!).order('number');
       if (error) throw error;
       return data;
     },
@@ -136,7 +136,7 @@ export default function FloorPlanEditor() {
   const { data: floorPlan } = useQuery({
     queryKey: ['floor-plan', establishmentId, selectedSector],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('floor_plans').select('*')
         .eq('establishment_id', establishmentId!)
         .eq('sector_id', selectedSector)
@@ -168,10 +168,10 @@ export default function FloorPlanEditor() {
     mutationFn: async () => {
       const layoutData: FloorPlanData = { elements, ...canvasSize };
       if (floorPlan) {
-        const { error } = await supabase.from('floor_plans').update({ layout_data: layoutData as any }).eq('id', floorPlan.id);
+        const { error } = await db.from('floor_plans').update({ layout_data: layoutData as any }).eq('id', floorPlan.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('floor_plans').insert({
+        const { error } = await db.from('floor_plans').insert({
           establishment_id: establishmentId!,
           sector_id: selectedSector,
           layout_data: layoutData as any,
@@ -210,7 +210,7 @@ export default function FloorPlanEditor() {
       const existing = tables.filter(t => numbers.includes(t.number));
       const missing = numbers.filter(n => !existing.some(t => t.number === n));
       if (missing.length > 0) {
-        const { error } = await supabase.from('tables').insert(
+        const { error } = await db.from('tables').insert(
           missing.map(n => ({
             establishment_id: establishmentId!,
             sector_id: selectedSector,
@@ -221,7 +221,7 @@ export default function FloorPlanEditor() {
         );
         if (error) throw error;
       }
-      const { data: refreshed, error: fetchError } = await supabase
+      const { data: refreshed, error: fetchError } = await db
         .from('tables').select('*')
         .eq('establishment_id', establishmentId!)
         .in('number', numbers);
