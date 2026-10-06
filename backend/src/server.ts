@@ -16,6 +16,9 @@ import { registerCreateUser } from "./fn/createUser.js";
 import { registerDelivery } from "./fn/delivery.js";
 import { registerAfipCsr } from "./fn/afipCsr.js";
 import { registerAfipInvoice } from "./fn/afipInvoice.js";
+import { registerAiFunctions } from "./fn/ai.js";
+import { registerChat } from "./fn/chat.js";
+import { startCron } from "./cron.js";
 
 export async function buildApp() {
   const app = Fastify({ logger: true, bodyLimit: 25 * 1024 * 1024, trustProxy: true });
@@ -57,6 +60,8 @@ export async function buildApp() {
   await registerDelivery(app);
   await registerAfipCsr(app);
   await registerAfipInvoice(app);
+  await registerAiFunctions(app);
+  await registerChat(app);
   await registerRealtime(app);
 
   await loadCatalog();
@@ -66,4 +71,5 @@ export async function buildApp() {
 if (process.argv[1] && /server\.(ts|js)$/.test(process.argv[1])) {
   const app = await buildApp();
   await app.listen({ port: env.PORT, host: "0.0.0.0" });
+  startCron(app);
 }

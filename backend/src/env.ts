@@ -13,6 +13,7 @@ const schema = z.object({
 
   COOKIE_SECURE: bool.default("true"),
   SESSION_TTL_DAYS: z.coerce.number().default(30),
+  LOGIN_RATE_LIMIT: z.coerce.number().default(10),
   PUBLIC_ORIGIN: z.string().url().default("http://localhost:8080"),
   STORAGE_DIR: z.string().default("./uploads"),
 

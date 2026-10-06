@@ -42,7 +42,7 @@ export function requireUser(req: FastifyRequest, reply: FastifyReply): SessionUs
 const loginBody = z.object({ email: z.string().email().max(200), password: z.string().min(1).max(200) });
 
 export async function registerAuthRoutes(app: FastifyInstance) {
-  app.post("/api/auth/login", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (req, reply) => {
+  app.post("/api/auth/login", { config: { rateLimit: { max: env.LOGIN_RATE_LIMIT, timeWindow: "1 minute" } } }, async (req, reply) => {
     const parsed = loginBody.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: { message: "Datos inválidos" } });
     const email = parsed.data.email.trim().toLowerCase();
