@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
 import PriceSensitivityCard from '@/components/admin/PriceSensitivityCard';
+import MissingCostsAlert from '@/components/shared/MissingCostsAlert';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { toArgDate, argDayRange, argHour, argDayOfWeek } from '@/lib/utils';
@@ -977,7 +978,8 @@ export default function AdminAnalytics() {
         <TabsContent value="compare">
           <AnalyticsComparison />
         </TabsContent>
-        <TabsContent value="profitability">
+        <TabsContent value="profitability" className="space-y-6">
+          <MissingCostsAlert context="profitability" />
           <ProfitMarginTab />
         </TabsContent>
         <TabsContent value="products">

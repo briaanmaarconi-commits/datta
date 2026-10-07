@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { LayoutDashboard, UtensilsCrossed, Grid3X3, Users, BarChart3, LogOut, Monitor, Wallet, Calculator, ClipboardList, Package, CalendarCheck, Receipt, Bike, MessageSquareWarning, BadgeDollarSign, PhoneCall, Printer } from 'lucide-react';
+import { LayoutDashboard, UtensilsCrossed, Grid3X3, Users, BarChart3, LogOut, Monitor, Wallet, Calculator, ClipboardList, Package, CalendarCheck, Receipt, Bike, MessageSquareWarning, BadgeDollarSign, PhoneCall, Printer, HandCoins } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import { db } from '@/lib/db';
@@ -38,6 +38,7 @@ function navEntries(deliveryEnabled: boolean): NavEntry[] {
     },
     {
       title: 'Caja y facturación', icon: Wallet, items: [
+        { title: 'Costos y gastos', url: '/admin/costos-gastos', icon: HandCoins },
         { title: 'Caja', url: '/admin/cash', icon: Wallet },
         { title: 'Facturación', url: '/admin/billing', icon: Receipt },
       ],

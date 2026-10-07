@@ -25,6 +25,7 @@ const RPCS: Record<string, RpcDef> = {
   apply_purchase_stock: { runAs: "authenticated" },
   register_waste: { runAs: "authenticated" },
   add_product_stock: { runAs: "authenticated" },
+  pending_recurring_expenses: { runAs: "authenticated" },
   get_afip_cert_status: { runAs: "authenticated" },
   get_delivery_integration_status: { runAs: "authenticated" },
 };

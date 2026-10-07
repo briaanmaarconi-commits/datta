@@ -4,7 +4,7 @@
 import { aiEnabled, generateText } from "../ai.js";
 import { SERVICE, withDb } from "../db/pool.js";
 import { env } from "../env.js";
-import { artDayRange, addDays } from "../lib/time.js";
+import { artDateString, artDayRange, addDays } from "../lib/time.js";
 
 interface Insight {
   kind: "alert" | "recommendation";
@@ -164,6 +164,31 @@ export async function analyzeEstablishment(establishmentId: string): Promise<Rec
           kind: "alert", severity: "info", category: "operations",
           title: "No se registró apertura de caja ayer",
           body: "Hubo pedidos pero no se abrió turno. Revisá el flujo de cierre diario.",
+        });
+      }
+    }
+
+    // Recordatorio de costos y gastos del mes que terminó (el 2 y, si sigue faltando, el 10).
+    const dayOfMonth = Number(artDateString().slice(8, 10));
+    if (!silenced.includes("costs") && (dayOfMonth === 2 || dayOfMonth === 10)) {
+      const overdue = (await q(`SELECT name, amount FROM public.pending_recurring_expenses($1) WHERE overdue`, [establishmentId]));
+      const prevMonthStart = `${addDays(artDateString().slice(0, 8) + "01", -1).slice(0, 8)}01`;
+      const thisMonthStart = `${artDateString().slice(0, 8)}01`;
+      const loaded = (await q(
+        `SELECT c.kind, count(*)::int AS n FROM public.finance_transactions t JOIN public.finance_categories c ON c.id = t.category_id
+          WHERE t.establishment_id = $1 AND t.type = 'expense' AND t.date >= $2 AND t.date < $3 GROUP BY c.kind`,
+        [establishmentId, prevMonthStart, thisMonthStart],
+      ));
+      const fixedLoaded = loaded.find((r) => r.kind === "fixed")?.n ?? 0;
+      const missing = overdue.map((r) => `• ${r.name}${Number(r.amount) > 0 ? ` (aprox. ${ars(Number(r.amount))})` : ""}`);
+      if (missing.length > 0 || fixedLoaded === 0) {
+        insights.push({
+          kind: "alert", severity: "warning", category: "costs",
+          title: "Faltan cargar costos y gastos del mes pasado",
+          body: missing.length > 0
+            ? `Confirmá en Costos y gastos:\n${missing.slice(0, 6).join("\n")}\nSin esto, la rentabilidad y el punto de equilibrio no son reales.`
+            : "El mes pasado no se cargó ningún gasto fijo (alquiler, sueldos, servicios). Cargalos en Costos y gastos para que la rentabilidad sea real.",
+          payload: { overdue: overdue.length, fixedLoaded },
         });
       }
     }

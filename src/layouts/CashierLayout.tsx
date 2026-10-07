@@ -1,4 +1,4 @@
-import { Grid3X3, Receipt, FileText, DollarSign, LogOut, CalendarCheck, UtensilsCrossed, LayoutGrid, Users, MonitorSpeaker, Wallet, Calculator, Package, ScrollText, MessageSquareWarning, BadgeDollarSign, PhoneCall, Printer } from 'lucide-react';
+import { Grid3X3, Receipt, FileText, DollarSign, LogOut, CalendarCheck, UtensilsCrossed, LayoutGrid, Users, MonitorSpeaker, Wallet, Calculator, Package, ScrollText, MessageSquareWarning, BadgeDollarSign, PhoneCall, Printer, HandCoins } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import {
   Sidebar, SidebarContent, SidebarProvider, SidebarTrigger, SidebarHeader, SidebarFooter, useSidebar,
@@ -29,6 +29,7 @@ function navEntries(deliveryEnabled: boolean): NavEntry[] {
     {
       // De lo que más se usa en el turno a lo que menos.
       title: 'Caja', icon: Wallet, items: [
+        { title: 'Costos y gastos', url: '/cashier/costos-gastos', icon: HandCoins },
         { title: 'Salidas e ingresos', url: '/cashier/expenses', icon: DollarSign },
         { title: 'Facturación', url: '/cashier/invoices', icon: FileText },
         { title: 'Resumen de turno', url: '/cashier/shift', icon: Receipt },

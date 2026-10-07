@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { DollarSign, ShoppingCart, Receipt, Clock } from 'lucide-react';
 import { toArgDate, argDayRange } from '@/lib/utils';
 import InsightsFeed from '@/components/admin/InsightsFeed';
+import MissingCostsAlert from '@/components/shared/MissingCostsAlert';
 
 
 export default function AdminDashboard() {
@@ -58,6 +59,7 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+      <MissingCostsAlert />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {cards.map(c => (

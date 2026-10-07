@@ -19,10 +19,12 @@ const EXCLUDED_EXPENSE_CATEGORIES = [SUPPLIES_CATEGORY, TIPS_PAYOUT_CATEGORY];
 // Detect any tip-related expense category (case-insensitive) to exclude pass-through tips
 const isTipCategory = (name: string) => /propina|tip/i.test(name);
 // Detect manual raw-material category (used as MP, excluded from operating expenses)
-const isManualMPCategory = (name: string) =>
-  /materia\s*prima|costo\s+de\s+mercader[ií]a|mercader[ií]a\s+vendida/i.test(name);
-const isExcludedExpense = (name: string) =>
-  EXCLUDED_EXPENSE_CATEGORIES.includes(name) || isTipCategory(name) || isManualMPCategory(name);
+// Con tipo cargado (Costos y gastos) manda el tipo; si no, se deduce por el nombre. Las compras de Stock
+// (Compras de insumos) no cuentan: en ese caso el costo sale del costo de cada plato vendido.
+const isManualMPCategory = (name: string, kind?: string | null) =>
+  kind ? kind === 'cogs' && name !== SUPPLIES_CATEGORY : /materia\s*prima|costo\s+de\s+mercader[ií]a|mercader[ií]a\s+vendida/i.test(name);
+const isExcludedExpense = (name: string, kind?: string | null) =>
+  EXCLUDED_EXPENSE_CATEGORIES.includes(name) || isTipCategory(name) || isManualMPCategory(name, kind);
 
 const fmt = (v: number) => `$${Math.round(v).toLocaleString('es-AR')}`;
 
@@ -98,7 +100,7 @@ export default function ProfitMarginTab() {
           .gte('orders.created_at', fromISO)
           .lte('orders.created_at', toISO),
         db.from('finance_transactions')
-          .select('id, amount, type, date, description, category_id, finance_categories(name)')
+          .select('id, amount, type, date, description, category_id, finance_categories(name, kind)')
           .eq('establishment_id', establishmentId!)
           .eq('type', 'expense')
           .gte('date', fromDate)
@@ -138,9 +140,9 @@ export default function ProfitMarginTab() {
     data.txs.forEach(t => {
       if (t.date >= period.fromDate && t.date <= period.toDate) {
         const catName = t.finance_categories?.name || '';
-        if (isManualMPCategory(catName)) {
+        if (isManualMPCategory(catName, t.finance_categories?.kind)) {
           costMPManual += Number(t.amount);
-        } else if (!isExcludedExpense(catName)) {
+        } else if (!isExcludedExpense(catName, t.finance_categories?.kind)) {
           fixedExpenses += Number(t.amount);
         }
       }
@@ -195,9 +197,9 @@ export default function ProfitMarginTab() {
       const idx = months.findIndex(m => dt >= m.from && dt < m.to);
       if (idx < 0) return;
       const catName = t.finance_categories?.name || '';
-      if (isManualMPCategory(catName)) {
+      if (isManualMPCategory(catName, t.finance_categories?.kind)) {
         months[idx].costMPManual += Number(t.amount);
-      } else if (!isExcludedExpense(catName)) {
+      } else if (!isExcludedExpense(catName, t.finance_categories?.kind)) {
         months[idx].fixedExpenses += Number(t.amount);
       }
     });
@@ -260,7 +262,7 @@ export default function ProfitMarginTab() {
   const mpManualRows = useMemo(() => {
     if (!data) return [];
     return data.txs
-      .filter(t => t.date >= activePeriod.fromDate && t.date <= activePeriod.toDate && isManualMPCategory(t.finance_categories?.name || ''))
+      .filter(t => t.date >= activePeriod.fromDate && t.date <= activePeriod.toDate && isManualMPCategory(t.finance_categories?.name || '', t.finance_categories?.kind))
       .map(t => ({
         date: new Date(t.date + 'T12:00:00').toLocaleDateString('es-AR'),
         category: t.finance_categories?.name || 'Costo de mercadería',
@@ -274,7 +276,7 @@ export default function ProfitMarginTab() {
   const expRows = useMemo(() => {
     if (!data) return [];
     return data.txs
-      .filter(t => t.date >= activePeriod.fromDate && t.date <= activePeriod.toDate && !isExcludedExpense(t.finance_categories?.name || ''))
+      .filter(t => t.date >= activePeriod.fromDate && t.date <= activePeriod.toDate && !isExcludedExpense(t.finance_categories?.name || '', t.finance_categories?.kind))
       .map(t => ({
         date: new Date(t.date + 'T12:00:00').toLocaleDateString('es-AR'),
         category: t.finance_categories?.name || 'Sin categoría',
@@ -292,7 +294,7 @@ export default function ProfitMarginTab() {
     data.txs.forEach(t => {
       if (t.date >= activePeriod.fromDate && t.date <= activePeriod.toDate) {
         const name = t.finance_categories?.name || 'Sin categoría';
-        if (isExcludedExpense(name)) return;
+        if (isExcludedExpense(name, t.finance_categories?.kind)) return;
         map[name] = (map[name] || 0) + Number(t.amount);
       }
     });

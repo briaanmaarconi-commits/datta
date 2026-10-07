@@ -138,6 +138,17 @@ export const SECTION_HELP: Record<string, SectionHelp> = {
       'Los pedidos entran a cocina como comanda de delivery.',
     ],
   },
+  '/admin/costos-gastos': {
+    title: 'Costos y gastos',
+    what: 'Todo lo que sale del local: mercadería, gastos fijos (alquiler, sueldos, servicios) y gastos variables.',
+    bullets: [
+      'Tocá "Cargar gasto", elegí qué pagaste, el monto y con qué plata.',
+      'Si sale de la caja del turno, se descuenta del efectivo esperado; si no, no la toca.',
+      'Configurá los gastos fijos una vez: cada mes el sistema pregunta si ya se pagaron.',
+      'Sin estos datos, la rentabilidad y el punto de equilibrio no son reales.',
+    ],
+    note: 'Las compras de Stock aparecen solas acá. Solo el administrador puede borrar un gasto.',
+  },
   '/admin/impresoras': {
     title: 'Impresoras',
     what: 'Configuración guiada de la impresora de cada computadora del local.',
@@ -300,6 +311,15 @@ export const SECTION_HELP: Record<string, SectionHelp> = {
     bullets: [
       'Cargá pedidos y mandalos a cocina.',
       'Se imprimen como comanda de delivery.',
+    ],
+  },
+  '/cashier/costos-gastos': {
+    title: 'Costos y gastos',
+    what: 'Cargá todo lo que sale del local: mercadería, alquiler, sueldos, servicios, etc.',
+    bullets: [
+      'Elegí qué se pagó, el monto y con qué plata.',
+      'Si sale de la caja del turno, se descuenta del efectivo esperado.',
+      'Cuando un gasto fijo vence, aparece arriba para confirmarlo.',
     ],
   },
   '/cashier/impresoras': {
