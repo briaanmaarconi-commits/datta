@@ -23,6 +23,8 @@ const RPCS: Record<string, RpcDef> = {
   get_business_health: { runAs: "service_role", estArg: "_establishment_id" },
   apply_sale_stock: { runAs: "authenticated" },
   apply_purchase_stock: { runAs: "authenticated" },
+  register_waste: { runAs: "authenticated" },
+  add_product_stock: { runAs: "authenticated" },
   get_afip_cert_status: { runAs: "authenticated" },
   get_delivery_integration_status: { runAs: "authenticated" },
 };

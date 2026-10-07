@@ -99,7 +99,7 @@ export default function ResaleProductsDialog({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Elegir productos de reventa</DialogTitle>
+          <DialogTitle>Elegir qué productos se cuentan por unidad o porción</DialogTitle>
           <DialogDescription>
             Marcá los productos que se venden tal cual se compran (gaseosas, agua, vinos, cervezas). Solo esos llevan
             control de stock; los platos elaborados quedan afuera.

@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Package, ClipboardCheck, ListChecks, AlertTriangle, Wallet } from 'lucide-react';
+import { Package, ClipboardCheck, ListChecks, AlertTriangle, Wallet, Plus } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
 import ResaleProductsDialog from './ResaleProductsDialog';
 import DirectStockCountDialog from './DirectStockCountDialog';
@@ -20,12 +22,37 @@ function statusOf(stock: number, min: number) {
   return { label: 'OK', variant: 'outline' as const };
 }
 
-export default function DirectStockTab() {
+/**
+ * Productos que se cuentan por unidad o porción. En modo simple es todo el inventario;
+ * en avanzado, lo que se vende tal cual se compra (bebidas, postres, empanadas).
+ */
+export default function DirectStockTab({ advanced = false }: { advanced?: boolean }) {
   const { establishmentId } = useAuth();
   const queryClient = useQueryClient();
   const [showPicker, setShowPicker] = useState(false);
   const [showCount, setShowCount] = useState(false);
   const [search, setSearch] = useState('');
+  const [adding, setAdding] = useState<{ id: string; name: string } | null>(null);
+  const [addQty, setAddQty] = useState('');
+  const [addNote, setAddNote] = useState('');
+
+  const addStock = useMutation({
+    mutationFn: async () => {
+      const { error } = await db.rpc('add_product_stock' as any, {
+        _product_id: adding!.id, _quantity: Number(addQty.replace(',', '.')), _note: addNote.trim() || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: `Se sumaron ${addQty} a ${adding?.name}` });
+      setAdding(null);
+      setAddQty('');
+      setAddNote('');
+      queryClient.invalidateQueries({ queryKey: ['direct-stock-products'] });
+      queryClient.invalidateQueries({ queryKey: ['waste-items'] });
+    },
+    onError: (e: Error) => toast({ title: e.message || 'No se pudo sumar el stock', variant: 'destructive' }),
+  });
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['direct-stock-products', establishmentId],
@@ -74,13 +101,18 @@ export default function DirectStockTab() {
         />
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" className="gap-2" onClick={() => setShowPicker(true)}>
-            <ListChecks className="h-4 w-4" /> Elegir productos de reventa
+            <ListChecks className="h-4 w-4" /> Elegir qué productos se cuentan
           </Button>
           <Button className="gap-2" onClick={() => setShowCount(true)}>
-            <ClipboardCheck className="h-4 w-4" /> Recuento de stock
+            <ClipboardCheck className="h-4 w-4" /> Conteo físico
           </Button>
         </div>
       </div>
+      <p className="text-sm text-muted-foreground">
+        {advanced
+          ? 'Acá van los productos que se venden tal cual se compran o ya vienen porcionados: bebidas, postres, empanadas. Cada venta descuenta 1.'
+          : 'Cargá cuántas porciones o unidades tenés de cada producto (ej.: 200 medallones, 50 porciones de ojo de bife). Cada venta descuenta 1. Tocá "Sumar" cuando entra mercadería o porcionás.'}
+      </p>
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
@@ -116,10 +148,12 @@ export default function DirectStockTab() {
           ) : products.length === 0 ? (
             <div className="py-8 text-center space-y-3">
               <p className="text-sm text-muted-foreground">
-                Todavía no hay productos con control de stock. Marcá las bebidas y todo lo que se vende tal cual se compra.
+                {advanced
+                  ? 'Todavía no hay productos por unidad. Marcá las bebidas y todo lo que se vende tal cual se compra.'
+                  : 'Todavía no hay productos con stock. Elegí los productos que querés controlar y después cargá cuántos tenés.'}
               </p>
               <Button variant="outline" className="gap-2" onClick={() => setShowPicker(true)}>
-                <ListChecks className="h-4 w-4" /> Elegir productos de reventa
+                <ListChecks className="h-4 w-4" /> Elegir qué productos se cuentan
               </Button>
             </div>
           ) : (
@@ -135,6 +169,7 @@ export default function DirectStockTab() {
                     <TableHead className="text-right hidden sm:table-cell">Precio</TableHead>
                     <TableHead className="text-right hidden lg:table-cell">Margen</TableHead>
                     <TableHead className="text-right">Estado</TableHead>
+                    <TableHead className="w-[1%]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -167,6 +202,11 @@ export default function DirectStockTab() {
                           {margin === null ? '—' : `${margin.toFixed(0)}%`}
                         </TableCell>
                         <TableCell className="text-right"><Badge variant={st.variant}>{st.label}</Badge></TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="outline" className="gap-1" onClick={() => setAdding({ id: p.id, name: p.name })}>
+                            <Plus className="h-3.5 w-3.5" />Sumar
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -176,6 +216,26 @@ export default function DirectStockTab() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!adding} onOpenChange={o => { if (!o) setAdding(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Sumar a {adding?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>¿Cuántas porciones o unidades entraron?</Label>
+              <Input autoFocus inputMode="decimal" value={addQty} onChange={e => setAddQty(e.target.value)} placeholder="Ej: 24" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Aclaración (opcional)</Label>
+              <Input value={addNote} onChange={e => setAddNote(e.target.value)} placeholder="Ej: llegó el pedido del proveedor" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAdding(null)}>Cancelar</Button>
+            <Button disabled={!(Number(addQty.replace(',', '.')) > 0) || addStock.isPending} onClick={() => addStock.mutate()}>Sumar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ResaleProductsDialog open={showPicker} onOpenChange={setShowPicker} />
       <DirectStockCountDialog

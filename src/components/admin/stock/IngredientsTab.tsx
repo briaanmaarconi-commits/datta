@@ -21,7 +21,10 @@ const UNITS = [
   { value: 'unidad', label: 'Unidades' },
 ];
 
-const emptyForm = { name: '', unit: 'g', current_stock: 0, min_stock: 0, cost_per_unit: 0, supplier: '' };
+const emptyForm = { name: '', unit: 'g', current_stock: 0, min_stock: 0, cost_per_unit: 0, supplier: '', yield_pct: '' };
+
+// Rendimiento opcional: vacío = 100% (se usa todo lo que se compra).
+const yieldValue = (v: string) => { const n = Number(String(v).replace(',', '.')); return n > 0 && n < 100 ? n : null; };
 
 export default function IngredientsTab() {
   const { establishmentId } = useAuth();
@@ -52,14 +55,16 @@ export default function IngredientsTab() {
         const { error } = await db.from('ingredients').update({
           name: form.name, unit: form.unit, current_stock: form.current_stock,
           min_stock: form.min_stock, cost_per_unit: form.cost_per_unit, supplier: form.supplier || null,
-        }).eq('id', editing.id);
+          yield_pct: yieldValue(form.yield_pct),
+        } as any).eq('id', editing.id);
         if (error) throw error;
       } else {
         const { error } = await db.from('ingredients').insert({
           establishment_id: establishmentId!, name: form.name, unit: form.unit,
           current_stock: form.current_stock, min_stock: form.min_stock,
           cost_per_unit: form.cost_per_unit, supplier: form.supplier || null,
-        });
+          yield_pct: yieldValue(form.yield_pct),
+        } as any);
         if (error) throw error;
       }
     },
@@ -86,7 +91,7 @@ export default function IngredientsTab() {
 
   const openEdit = (ing: any) => {
     setEditing(ing);
-    setForm({ name: ing.name, unit: ing.unit, current_stock: ing.current_stock, min_stock: ing.min_stock, cost_per_unit: ing.cost_per_unit, supplier: ing.supplier || '' });
+    setForm({ name: ing.name, unit: ing.unit, current_stock: ing.current_stock, min_stock: ing.min_stock, cost_per_unit: ing.cost_per_unit, supplier: ing.supplier || '', yield_pct: ing.yield_pct ? String(ing.yield_pct) : '' });
     setOpen(true);
   };
 
@@ -129,6 +134,7 @@ export default function IngredientsTab() {
               <TableHead className="text-right">Stock</TableHead>
               <TableHead className="text-right">Mínimo</TableHead>
               <TableHead className="text-right">Costo/u</TableHead>
+              <TableHead className="text-right">Rendimiento</TableHead>
               <TableHead>Proveedor</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="w-20"></TableHead>
@@ -142,6 +148,7 @@ export default function IngredientsTab() {
                 <TableCell className="text-right">{ing.current_stock}</TableCell>
                 <TableCell className="text-right">{ing.min_stock}</TableCell>
                 <TableCell className="text-right">${Number(ing.cost_per_unit).toFixed(2)}</TableCell>
+                <TableCell className="text-right">{ing.yield_pct ? `${Number(ing.yield_pct)}%` : '—'}</TableCell>
                 <TableCell>{ing.supplier || '-'}</TableCell>
                 <TableCell>{stockStatus(ing)}</TableCell>
                 <TableCell>
@@ -167,7 +174,7 @@ export default function IngredientsTab() {
               </TableRow>
             ))}
             {filtered.length === 0 && (
-              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                 {ingredients.length === 0 ? 'No hay ingredientes. Hacé click en "Agregar" para comenzar.' : 'No se encontraron ingredientes que coincidan con la búsqueda.'}
               </TableCell></TableRow>
             )}
@@ -209,6 +216,13 @@ export default function IngredientsTab() {
             <div>
               <Label>Proveedor (opcional)</Label>
               <Input value={form.supplier} onChange={e => setForm(f => ({ ...f, supplier: e.target.value }))} placeholder="Ej: Distribuidora Norte" />
+            </div>
+            <div>
+              <Label>Rendimiento % (opcional)</Label>
+              <Input inputMode="decimal" value={form.yield_pct} onChange={e => setForm(f => ({ ...f, yield_pct: e.target.value }))} placeholder="Dejalo vacío si se usa todo" />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Cuánto queda útil después de limpiar o cocinar. Ej.: si de 1 kg de carne cruda quedan 800 g limpios, poné 80. Así cada venta descuenta también lo que se pierde al prepararlo.
+              </p>
             </div>
           </div>
           <DialogFooter>

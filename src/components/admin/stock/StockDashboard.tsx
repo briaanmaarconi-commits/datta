@@ -66,7 +66,7 @@ export default function StockDashboard() {
         <CardContent className="py-12 text-center text-muted-foreground">
           <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
           <p className="text-lg font-medium">No hay ítems en seguimiento</p>
-          <p className="text-sm">Configurá productos en modo "Stock directo" o cargá ingredientes desde la pestaña "Productos y Recetas"</p>
+          <p className="text-sm">Cargá ingredientes en "Ingredientes" y armá las recetas en "Platos y recetas". Las bebidas y postres van en "Por unidad o porción".</p>
         </CardContent>
       </Card>
     );

@@ -15,9 +15,9 @@ import { toast } from '@/hooks/use-toast';
 type StockMode = 'none' | 'direct' | 'recipe';
 
 const MODE_CONFIG = {
-  none: { label: 'Sin trackeo', icon: EyeOff, color: 'text-muted-foreground' },
-  direct: { label: 'Stock directo', icon: ShoppingBag, color: 'text-blue-500' },
-  recipe: { label: 'Por receta', icon: Package, color: 'text-green-500' },
+  none: { label: 'Sin control', icon: EyeOff, color: 'text-muted-foreground' },
+  direct: { label: 'Por unidad o porción', icon: ShoppingBag, color: 'text-blue-500' },
+  recipe: { label: 'Por receta (ingredientes)', icon: Package, color: 'text-green-500' },
 };
 
 export default function ProductsRecipesTab() {
@@ -65,9 +65,9 @@ export default function ProductsRecipesTab() {
       {/* Stat chips */}
       <div className="flex flex-wrap gap-2">
         <FilterChip active={filterMode === 'all'} onClick={() => setFilterMode('all')} label={`Todos (${counts.total})`} />
-        <FilterChip active={filterMode === 'none'} onClick={() => setFilterMode('none')} label={`Sin configurar (${counts.none})`} icon={EyeOff} />
-        <FilterChip active={filterMode === 'direct'} onClick={() => setFilterMode('direct')} label={`Directo (${counts.direct})`} icon={ShoppingBag} />
-        <FilterChip active={filterMode === 'recipe'} onClick={() => setFilterMode('recipe')} label={`Receta (${counts.recipe})`} icon={Package} />
+        <FilterChip active={filterMode === 'none'} onClick={() => setFilterMode('none')} label={`Sin control (${counts.none})`} icon={EyeOff} />
+        <FilterChip active={filterMode === 'direct'} onClick={() => setFilterMode('direct')} label={`Por unidad o porción (${counts.direct})`} icon={ShoppingBag} />
+        <FilterChip active={filterMode === 'recipe'} onClick={() => setFilterMode('recipe')} label={`Por receta (${counts.recipe})`} icon={Package} />
       </div>
 
       {/* Search */}
@@ -210,21 +210,21 @@ function ProductEditor({ product, onClose }: { product: any; onClose: () => void
       <div className="space-y-6 mt-6">
         {/* Mode selection */}
         <div>
-          <Label className="text-sm font-semibold mb-3 block">¿Cómo se trackea el stock?</Label>
+          <Label className="text-sm font-semibold mb-3 block">¿Cómo se descuenta del stock al venderlo?</Label>
           <div className="grid grid-cols-1 gap-2">
             <ModeOption
-              mode="none" current={mode} title="Sin trackeo"
-              description="No se controla el inventario de este producto"
+              mode="none" current={mode} title="Sin control"
+              description="No se descuenta nada al venderlo (ej.: una ensalada que no querés controlar)"
               onClick={() => modeMutation.mutate('none')}
             />
             <ModeOption
-              mode="direct" current={mode} title="Stock directo"
-              description="Contás unidades terminadas (ej: bebidas, postres)"
+              mode="direct" current={mode} title="Por unidad o porción"
+              description="Se cuenta por unidades o porciones y cada venta descuenta 1 (ej.: bebidas, postres, empanadas)"
               onClick={() => modeMutation.mutate('direct')}
             />
             <ModeOption
-              mode="recipe" current={mode} title="Por receta"
-              description="Se descuentan ingredientes al vender (ej: hamburguesa, pizza)"
+              mode="recipe" current={mode} title="Por receta (ingredientes)"
+              description="Cada venta descuenta los ingredientes que lleva (ej.: hamburguesa, pizza)"
               onClick={() => modeMutation.mutate('recipe')}
             />
           </div>

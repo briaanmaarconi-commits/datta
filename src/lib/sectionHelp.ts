@@ -112,13 +112,14 @@ export const SECTION_HELP: Record<string, SectionHelp> = {
   },
   '/admin/stock': {
     title: 'Stock',
-    what: 'Control de existencias de los productos de reventa (los que se venden tal cual).',
+    what: 'Control del inventario en uno de dos modos: simple (por porciones o unidades) o avanzado (por ingredientes).',
     bullets: [
-      'Hacé el conteo inicial y ajustes cuando haga falta.',
-      'Registrá compras de mercadería con su forma de pago.',
-      'El stock se descuenta solo al facturar cada venta.',
+      'Simple: cargás cuántas porciones o unidades tenés y cada venta descuenta 1.',
+      'Avanzado: cargás ingredientes y recetas; cada venta descuenta lo que lleva el plato.',
+      'Bebidas, postres o empanadas se cuentan por unidad en los dos modos.',
+      'Registrá las mermas con su motivo para ver cuánta plata se pierde por mes.',
     ],
-    note: 'Los platos elaborados no llevan stock porque exigirían cargar ingredientes.',
+    note: 'El stock se descuenta solo cuando se cobra el pedido (mesa, delivery o caja).',
   },
   '/admin/audit': {
     title: 'Historial',
@@ -278,10 +279,11 @@ export const SECTION_HELP: Record<string, SectionHelp> = {
   },
   '/cashier/stock': {
     title: 'Stock',
-    what: 'Existencias de los productos de reventa.',
+    what: 'Inventario del local (simple por porciones o avanzado por ingredientes).',
     bullets: [
-      'Conteo inicial, ajustes y compras.',
-      'Se descuenta solo al facturar la venta.',
+      'Sumá stock cuando entra mercadería y hacé el conteo físico cada tanto.',
+      'Registrá las mermas con su motivo.',
+      'Se descuenta solo cuando se cobra el pedido.',
     ],
   },
   '/cashier/audit': {

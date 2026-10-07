@@ -16,7 +16,6 @@ import { Plus, X, ShoppingCart, Trash2, Wrench, Pencil } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import IngredientCombobox from './IngredientCombobox';
 
-const WASTE_REASONS = ['Vencimiento', 'Se quemó', 'Se cayó / derramó', 'Mala calidad', 'Sobrante del día', 'Otro'];
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   entry: { label: 'Entrada', color: 'bg-green-500/20 text-green-700 border-green-500/30' },
   sale: { label: 'Venta', color: 'bg-blue-500/20 text-blue-700 border-blue-500/30' },
@@ -33,12 +32,10 @@ export default function MovementsTab() {
       <Tabs value={subTab} onValueChange={setSubTab}>
         <TabsList>
           <TabsTrigger value="purchases" className="gap-1.5"><ShoppingCart className="h-3.5 w-3.5" />Compras</TabsTrigger>
-          <TabsTrigger value="waste" className="gap-1.5"><Trash2 className="h-3.5 w-3.5" />Mermas</TabsTrigger>
           <TabsTrigger value="adjustments" className="gap-1.5"><Wrench className="h-3.5 w-3.5" />Ajustes</TabsTrigger>
           <TabsTrigger value="history" className="gap-1.5">Historial</TabsTrigger>
         </TabsList>
         <TabsContent value="purchases"><PurchasesSection /></TabsContent>
-        <TabsContent value="waste"><WasteSection /></TabsContent>
         <TabsContent value="adjustments"><AdjustmentsSection /></TabsContent>
         <TabsContent value="history"><HistorySection /></TabsContent>
       </Tabs>
@@ -406,119 +403,6 @@ function PurchasesSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-// ---- WASTE ----
-function WasteSection() {
-  const { establishmentId, session } = useAuth();
-  const queryClient = useQueryClient();
-  const [form, setForm] = useState({ ingredient_id: '', quantity: 0, unit: '', reason: '' });
-
-  const { data: ingredients = [] } = useQuery({
-    queryKey: ['ingredients', establishmentId],
-    queryFn: async () => {
-      const { data } = await db.from('ingredients').select('*').eq('establishment_id', establishmentId!).eq('is_active', true).order('name');
-      return data || [];
-    },
-    enabled: !!establishmentId,
-  });
-
-  const { data: recentWastes = [] } = useQuery({
-    queryKey: ['stock_movements', 'waste', establishmentId],
-    queryFn: async () => {
-      const { data } = await db.from('stock_movements').select('*, ingredients(name, unit)')
-        .eq('establishment_id', establishmentId!).eq('type', 'waste')
-        .order('created_at', { ascending: false }).limit(20);
-      return data || [];
-    },
-    enabled: !!establishmentId,
-  });
-
-  const selectedIng = ingredients.find((i: any) => i.id === form.ingredient_id) as any;
-  const wasteUnits = selectedIng ? getPurchaseUnits(selectedIng.unit) : [];
-  const factor = selectedIng ? (getConversionFactor(form.unit, selectedIng.unit) ?? 1) : 1;
-  const baseQty = form.quantity * factor;
-
-  const wasteMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedIng) throw new Error('No encontrado');
-      await db.from('ingredients').update({ current_stock: Math.max(0, Number(selectedIng.current_stock) - baseQty) }).eq('id', form.ingredient_id);
-      await db.from('stock_movements').insert({
-        establishment_id: establishmentId!, ingredient_id: form.ingredient_id,
-        type: 'waste' as any, quantity: -baseQty,
-        reason: form.unit !== selectedIng.unit ? `${form.reason} (${form.quantity} ${form.unit})` : form.reason,
-        created_by: session?.user?.id ?? null,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ingredients'] });
-      queryClient.invalidateQueries({ queryKey: ['stock_movements'] });
-      toast({ title: 'Merma registrada' });
-      setForm({ ingredient_id: '', quantity: 0, unit: '', reason: '' });
-    },
-    onError: () => toast({ title: 'Error al registrar merma', variant: 'destructive' }),
-  });
-
-  return (
-    <div className="space-y-4">
-      <Card>
-        <CardContent className="pt-4 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <div className="sm:col-span-2">
-              <Label className="text-xs">Ingrediente</Label>
-              <IngredientCombobox
-                ingredients={ingredients}
-                value={form.ingredient_id}
-                onChange={v => {
-                  const ing = ingredients.find((i: any) => i.id === v) as any;
-                  const defaultUnit = ing ? getPurchaseUnits(ing.unit)[0] : '';
-                  setForm(f => ({ ...f, ingredient_id: v, unit: defaultUnit }));
-                }}
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Cantidad</Label>
-              <div className="flex gap-1">
-                <Input type="number" value={form.quantity || ''} onChange={e => setForm(f => ({ ...f, quantity: Number(e.target.value) }))} className="flex-1" />
-                <Select value={form.unit} onValueChange={v => setForm(f => ({ ...f, unit: v }))} disabled={!selectedIng}>
-                  <SelectTrigger className="w-20"><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>{wasteUnits.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs">Motivo</Label>
-              <Select value={form.reason} onValueChange={v => setForm(f => ({ ...f, reason: v }))}>
-                <SelectTrigger><SelectValue placeholder="Motivo" /></SelectTrigger>
-                <SelectContent>{WASTE_REASONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-          </div>
-          {selectedIng && form.quantity > 0 && form.unit && form.unit !== selectedIng.unit && (
-            <p className="text-xs text-muted-foreground">= {baseQty.toLocaleString('es-AR')} {selectedIng.unit} se descontarán del stock</p>
-          )}
-          <Button onClick={() => wasteMutation.mutate()} disabled={!form.ingredient_id || !form.quantity || !form.unit || !form.reason || wasteMutation.isPending} variant="destructive" size="sm">
-            <Trash2 className="h-4 w-4 mr-1" />{wasteMutation.isPending ? 'Registrando...' : 'Registrar merma'}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {recentWastes.length > 0 && (
-        <div className="space-y-1.5">
-          <h3 className="text-sm font-medium">Mermas recientes</h3>
-          {recentWastes.map((w: any) => (
-            <div key={w.id} className="flex items-center justify-between p-2 rounded border text-sm">
-              <span><span className="font-medium">{w.ingredients?.name}</span> <span className="text-muted-foreground">{Math.abs(w.quantity)} {w.ingredients?.unit}</span></span>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="text-xs">{w.reason}</Badge>
-                <span className="text-xs text-muted-foreground">{new Date(w.created_at).toLocaleDateString('es-AR')}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
