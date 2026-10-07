@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
-import { Building2, Plus, Pencil, Eye, Search, DollarSign, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Building2, Plus, Pencil, Eye, Search, DollarSign, AlertTriangle, CheckCircle2, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import SubscriptionPanel from '@/components/superadmin/SubscriptionPanel';
+import DeleteClientDialog from '@/components/superadmin/DeleteClientDialog';
 import { billing, type BillingOverview } from '@/lib/billingApi';
 
 const SERVICE_LABELS: Record<string, string> = { trial: 'Prueba gratis', active: 'Al día', past_due: 'Vencido', suspended: 'Suspendido', cancelled: 'Cancelado' };
@@ -31,6 +32,7 @@ export default function SuperAdminClients() {
   const [editId, setEditId] = useState<string | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentEstId, setPaymentEstId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [form, setForm] = useState({ name: '', address: '', city: '', contact_phone: '', contact_email: '', plan_id: '', agreed_price: '', service_start_date: '', service_status: 'active', delivery_enabled: false, rappi_commission: '', peya_commission: '' });
   const [payForm, setPayForm] = useState({ amount: '', payment_method: 'transfer', period_month: (new Date().getMonth() + 1).toString(), period_year: new Date().getFullYear().toString(), payment_date: new Date().toISOString().split('T')[0], notes: '' });
 
@@ -245,6 +247,8 @@ export default function SuperAdminClients() {
         </div>
       </div>
 
+      <DeleteClientDialog client={deleteTarget} onClose={() => setDeleteTarget(null)} />
+
       {/* Payment registration dialog */}
       <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
         <DialogContent>
@@ -391,6 +395,7 @@ export default function SuperAdminClients() {
                       <Button variant="ghost" size="icon" onClick={() => setDetailId(est.id)} title="Ver detalle"><Eye className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => openPaymentDialog(est.id)} title="Registrar pago"><DollarSign className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => startEdit(est)} title="Editar"><Pencil className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => setDeleteTarget({ id: est.id, name: est.name })} title="Eliminar cliente" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                     </TableCell>
                   </TableRow>
                 );

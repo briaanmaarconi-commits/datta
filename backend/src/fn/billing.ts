@@ -14,7 +14,7 @@ import { fail, loadRoles, requireSession } from "./common.js";
 const uuid = z.string().uuid();
 
 /** Solo el superadmin administra suscripciones. */
-async function requireSuper(req: FastifyRequest, reply: FastifyReply) {
+export async function requireSuper(req: FastifyRequest, reply: FastifyReply) {
   const user = requireSession(req, reply);
   if (!user) return null;
   const roles = await loadRoles(user.id);

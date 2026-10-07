@@ -19,6 +19,7 @@ import { registerAfipInvoice } from "./fn/afipInvoice.js";
 import { registerAiFunctions } from "./fn/ai.js";
 import { registerChat } from "./fn/chat.js";
 import { registerBilling } from "./fn/billing.js";
+import { registerClients } from "./fn/clients.js";
 import { startCron } from "./cron.js";
 import { registerWeb } from "./web.js";
 
@@ -66,6 +67,7 @@ export async function buildApp() {
   await registerAiFunctions(app);
   await registerChat(app);
   await registerBilling(app);
+  await registerClients(app);
   await registerRealtime(app);
 
   await registerWeb(app);

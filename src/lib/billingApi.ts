@@ -14,6 +14,20 @@ export async function billing<T = any>(action: string, body: Record<string, unkn
   return json as T;
 }
 
+/** Llama a /api/fn/clients/<acción> (solo superadmin). */
+export async function clientsApi<T = any>(action: string, body: Record<string, unknown> = {}): Promise<T> {
+  const res = await fetch(`/api/fn/clients/${action}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+  const json = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(json?.error?.message ?? json?.error ?? `Error ${res.status}`);
+  return json as T;
+}
+
 export type EffectiveStatus = 'trial' | 'active' | 'past_due' | 'suspended' | 'cancelled';
 
 export interface BillingClient {
