@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import SubscriptionPanel from '@/components/superadmin/SubscriptionPanel';
 import DeleteClientDialog from '@/components/superadmin/DeleteClientDialog';
+import DemoRestaurantButton from '@/components/superadmin/DemoRestaurantButton';
 import { billing, type BillingOverview } from '@/lib/billingApi';
 
 const SERVICE_LABELS: Record<string, string> = { trial: 'Prueba gratis', active: 'Al día', past_due: 'Vencido', suspended: 'Suspendido', cancelled: 'Cancelado' };
@@ -184,6 +185,7 @@ export default function SuperAdminClients() {
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} className="pl-8 w-56" />
           </div>
+          <DemoRestaurantButton exists={establishments.some((e: any) => e.name === 'DEMO Datta')} />
           <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); else setOpen(true); }}>
             <DialogTrigger asChild>
               <Button className="gap-2"><Plus className="h-4 w-4" /> Nuevo cliente</Button>

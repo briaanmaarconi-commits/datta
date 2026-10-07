@@ -82,6 +82,28 @@ async function writeBackup(c: pg.PoolClient, est: { id: string; name: string }, 
   return { base, file };
 }
 
+/**
+ * Borra a un cliente y todo lo suyo, en el orden que exige la base: primero lo que no cae solo en cascada (FK sin cascade o sin FK),
+ * después el cliente, sus usuarios y por último la auditoría. La contabilidad de Datta (datta_transactions) se conserva sin el vínculo.
+ */
+export async function purgeEstablishment(c: pg.PoolClient, id: string, userIds: string[]) {
+  await c.query(`DELETE FROM public.fiscal_invoices WHERE establishment_id = $1`, [id]);
+  await c.query(`DELETE FROM public.invoices WHERE establishment_id = $1`, [id]);
+  await c.query(`UPDATE public.datta_transactions SET establishment_id = NULL WHERE establishment_id = $1`, [id]);
+  for (const t of ["reservations", "stock_movements", "purchase_invoices", "ingredients"]) {
+    await c.query(`DELETE FROM public."${t}" WHERE establishment_id = $1`, [id]);
+  }
+  // La base no deja borrar una categoría con productos: los productos van antes que las categorías.
+  await c.query(`DELETE FROM public.products WHERE establishment_id = $1`, [id]);
+  await c.query(`DELETE FROM public.establishments WHERE id = $1`, [id]);
+  if (userIds.length) await c.query(`DELETE FROM auth.users WHERE id = ANY($1)`, [userIds]); // arrastra perfiles y sesiones
+  // Al final: los propios borrados generan filas de auditoría del cliente, que ya no tienen a quién pertenecer.
+  await c.query(`DELETE FROM public.audit_logs WHERE establishment_id = $1`, [id]);
+}
+
+/** Usuarios que solo existen por este cliente (nunca un superadmin). */
+export { clientUserIds };
+
 /** Mueve (no borra) las carpetas de archivos del cliente a la papelera. */
 async function moveFiles(estId: string, base: string) {
   const root = resolve(env.STORAGE_DIR);
@@ -134,19 +156,7 @@ export async function registerClients(app: FastifyInstance) {
         // Si tiene suscripción activa en Mercado Pago, se cancela primero para no seguir cobrando.
         if (s.mp_preapproval_id && s.mp_status !== "cancelled" && mpEnabled()) await cancelPreapproval(s.mp_preapproval_id);
 
-        // Orden: lo que no se borra solo en cascada (FK sin cascade o sin FK) y después el cliente.
-        await c.query(`DELETE FROM public.fiscal_invoices WHERE establishment_id = $1`, [id]);
-        await c.query(`DELETE FROM public.invoices WHERE establishment_id = $1`, [id]);
-        await c.query(`UPDATE public.datta_transactions SET establishment_id = NULL WHERE establishment_id = $1`, [id]); // la contabilidad de Datta se conserva
-        for (const t of ["reservations", "stock_movements", "purchase_invoices", "ingredients"]) {
-          await c.query(`DELETE FROM public."${t}" WHERE establishment_id = $1`, [id]);
-        }
-        // La base no deja borrar una categoría con productos: los productos van antes que las categorías.
-        await c.query(`DELETE FROM public.products WHERE establishment_id = $1`, [id]);
-        await c.query(`DELETE FROM public.establishments WHERE id = $1`, [id]);
-        if (userIds.length) await c.query(`DELETE FROM auth.users WHERE id = ANY($1)`, [userIds]); // arrastra perfiles y sesiones
-        // Al final: los propios borrados generan filas de auditoría del cliente, que ya no tienen a quién pertenecer.
-        await c.query(`DELETE FROM public.audit_logs WHERE establishment_id = $1`, [id]);
+        await purgeEstablishment(c, id, userIds);
 
         return { ok: true, name: s.name, backup: backup.base, deleted: { orders: s.orders, fiscal_invoices: s.fiscal_invoices, products: s.products, users: userIds.length }, base: backup.base };
       });

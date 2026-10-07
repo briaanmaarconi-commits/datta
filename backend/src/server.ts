@@ -20,6 +20,7 @@ import { registerAiFunctions } from "./fn/ai.js";
 import { registerChat } from "./fn/chat.js";
 import { registerBilling } from "./fn/billing.js";
 import { registerClients } from "./fn/clients.js";
+import { registerDemo } from "./fn/demo.js";
 import { VIEW_ONLY_ERROR, attachViewAs, dbContextFor, registerViewAs } from "./auth/viewAs.js";
 import { registerDattaBilling } from "./fn/dattaBilling.js";
 import { registerPriceSensitivity } from "./fn/priceSensitivity.js";
@@ -75,6 +76,7 @@ export async function buildApp() {
   await registerChat(app);
   await registerBilling(app);
   await registerClients(app);
+  await registerDemo(app);
   await registerDattaBilling(app);
   await registerPriceSensitivity(app);
   await registerRealtime(app);
