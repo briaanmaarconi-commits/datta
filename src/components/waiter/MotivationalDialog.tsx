@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Sparkles } from 'lucide-react';
 
@@ -25,23 +25,29 @@ export default function MotivationalDialog() {
   const [phrase] = useState(() => PHRASES[Math.floor(Math.random() * PHRASES.length)]);
 
   useEffect(() => {
-    const shown = sessionStorage.getItem(SESSION_KEY);
-    if (!shown) {
-      setOpen(true);
+    try {
+      if (sessionStorage.getItem(SESSION_KEY)) return;
+    } catch {
+      // A blocked optional preference must not prevent the waiter screen loading.
+    }
+    setOpen(true);
+    try {
       sessionStorage.setItem(SESSION_KEY, 'true');
+    } catch {
+      // The dialog remains usable when storage is blocked or full.
     }
   }, []);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-md text-center border-primary/30 bg-gradient-to-b from-card to-card/95">
+      <DialogContent aria-describedby={undefined} className="sm:max-w-md text-center border-primary/30 bg-gradient-to-b from-card to-card/95">
         <div className="flex flex-col items-center gap-4 py-4">
           <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-3xl">
             {phrase.emoji}
           </div>
           <div className="flex items-center gap-2 text-primary">
             <Sparkles className="h-5 w-5" />
-            <span className="text-sm font-semibold uppercase tracking-wider">Mensaje del día</span>
+            <DialogTitle className="text-sm font-semibold uppercase tracking-wider">Mensaje del día</DialogTitle>
             <Sparkles className="h-5 w-5" />
           </div>
           <p className="text-lg font-medium leading-relaxed px-2">
