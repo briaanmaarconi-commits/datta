@@ -49,7 +49,7 @@ function getDateRange(period: PeriodFilter): { from: Date; to: Date } {
 }
 
 export default function CashierExpenses() {
-  const { establishmentId, session } = useAuth();
+  const { establishmentId, session, viewAs } = useAuth();
   const userId = session?.user?.id;
   const queryClient = useQueryClient();
 
@@ -117,6 +117,7 @@ export default function CashierExpenses() {
   useEffect(() => {
     if (
       !seededRef.current &&
+      !(viewAs && !viewAs.operate) && // el superadmin que solo mira no modifica nada
       establishmentId &&
       !catsLoading &&
       categories.length === 0

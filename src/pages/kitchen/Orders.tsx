@@ -20,7 +20,7 @@ function formatElapsed(created: string) {
 }
 
 export default function KitchenOrders() {
-  const { establishmentId } = useAuth();
+  const { establishmentId, viewAs } = useAuth();
   const queryClient = useQueryClient();
   const { log: auditLog } = useAuditLog();
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -278,7 +278,8 @@ export default function KitchenOrders() {
     if (tickets.length === 0) return;
 
     persistPrinted();
-    if (!autoPrint) return;
+    // El superadmin que mira desde su navegador no imprime las comandas del local.
+    if (!autoPrint || viewAs) return;
     tickets.forEach(enqueue);
   }, [orders, ordersLoaded, autoPrint, establishmentId]);
 

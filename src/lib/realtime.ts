@@ -1,6 +1,8 @@
 // Reemplazo de supabase.channel(...).on('postgres_changes', ...).subscribe().
 // Todos los canales comparten una única conexión SSE (/api/events) que emite los NOTIFY de Postgres.
 
+import { viewAsQuery } from './viewAs';
+
 type EventName = 'INSERT' | 'UPDATE' | 'DELETE' | '*';
 
 interface Binding {
@@ -48,7 +50,7 @@ function dispatch(ev: ServerEvent) {
 
 function ensureSource() {
   if (source || typeof EventSource === 'undefined') return;
-  source = new EventSource('/api/events', { withCredentials: true });
+  source = new EventSource(`/api/events${viewAsQuery()}`, { withCredentials: true });
   source.onmessage = (m) => {
     try {
       dispatch(JSON.parse(m.data));

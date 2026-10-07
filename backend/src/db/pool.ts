@@ -14,6 +14,10 @@ export interface DbContext {
   role: DbRole;
   /** auth.uid() para las policies; null en tareas internas (service_role). */
   userId: string | null;
+  /** Transacción de solo lectura: Postgres rechaza cualquier escritura (modo espectador del superadmin). */
+  readOnly?: boolean;
+  /** Local que está viendo/operando un superadmin ("ver como"); lo lee get_user_establishment solo para superadmins. */
+  actingEstablishment?: string | null;
 }
 
 export const SERVICE: DbContext = { role: "service_role", userId: null };
@@ -25,11 +29,12 @@ export const SERVICE: DbContext = { role: "service_role", userId: null };
 export async function withDb<T>(ctx: DbContext, fn: (c: pg.PoolClient) => Promise<T>): Promise<T> {
   const client = await pool.connect();
   try {
-    await client.query("BEGIN");
+    await client.query(ctx.readOnly ? "BEGIN READ ONLY" : "BEGIN");
     // ctx.role sale de un tipo cerrado, nunca de texto del cliente.
     await client.query(`SET LOCAL ROLE ${ctx.role}`);
     const claims = JSON.stringify({ sub: ctx.userId ?? undefined, role: ctx.role });
     await client.query("SELECT set_config('request.jwt.claims', $1, true)", [claims]);
+    if (ctx.actingEstablishment) await client.query("SELECT set_config('app.acting_establishment', $1, true)", [ctx.actingEstablishment]);
     const result = await fn(client);
     await client.query("COMMIT");
     return result;

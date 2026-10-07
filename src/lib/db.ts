@@ -2,6 +2,8 @@
 // (from/select/eq/..., rpc, channel, functions.invoke, storage) pero habla con el
 // backend propio: POST /api/db/query, /api/db/rpc, /api/fn/*, /api/storage/*.
 import { createChannel, removeChannel } from './realtime';
+import { toast } from 'sonner';
+import { getViewAs, viewAsHeaders } from './viewAs';
 
 export interface DbError {
   message: string;
@@ -17,11 +19,21 @@ export interface DbResult<T = any> {
 
 export const UNAUTHORIZED_EVENT = 'datta:unauthorized';
 
+/** En una pestaña "ver como" en solo mirar, el servidor rechaza las escrituras: se avisa siempre, aunque la pantalla no revise el error. */
+let lastViewOnlyToast = 0;
+function notifyIfViewOnly(error: any) {
+  const code = error?.code;
+  const blocked = code === 'VIEW_ONLY' || (code === '25006' && !!getViewAs() && !getViewAs()!.operate);
+  if (!blocked || Date.now() - lastViewOnlyToast < 2000) return;
+  lastViewOnlyToast = Date.now();
+  toast.error('Modo solo mirar: activá «Operar» (arriba) para modificar datos.');
+}
+
 async function post(path: string, body: unknown): Promise<{ status: number; json: any }> {
   const res = await fetch(path, {
     method: 'POST',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...viewAsHeaders() },
     body: JSON.stringify(body),
   });
   let json: any = null;
@@ -31,6 +43,7 @@ async function post(path: string, body: unknown): Promise<{ status: number; json
     /* sin cuerpo */
   }
   if (res.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+  notifyIfViewOnly(json?.error);
   return { status: res.status, json };
 }
 
@@ -123,7 +136,7 @@ async function invokeFunction(name: string, opts?: { body?: unknown; headers?: R
     const res = await fetch(`/api/fn/${name}`, {
       method: 'POST',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json', ...(opts?.headers ?? {}) },
+      headers: { 'Content-Type': 'application/json', ...(opts?.headers ?? {}), ...viewAsHeaders() },
       body: JSON.stringify(opts?.body ?? {}),
     });
     if (res.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
@@ -135,6 +148,7 @@ async function invokeFunction(name: string, opts?: { body?: unknown; headers?: R
       } catch {
         /* cuerpo no JSON */
       }
+      try { notifyIfViewOnly((await res.clone().json())?.error); } catch { /* no JSON */ }
       const err: any = new Error(typeof message === 'string' ? message : JSON.stringify(message));
       err.context = res;
       return { data: null, count: null, error: err };
@@ -155,9 +169,10 @@ const storage = {
         form.append('path', path);
         form.append('file', file);
         try {
-          const res = await fetch(`/api/storage/${bucket}`, { method: 'POST', credentials: 'include', body: form });
+          const res = await fetch(`/api/storage/${bucket}`, { method: 'POST', credentials: 'include', headers: viewAsHeaders(), body: form });
           const json: any = await res.json().catch(() => null);
           if (!res.ok) {
+            notifyIfViewOnly(json?.error);
             return { data: null, count: null, error: { message: json?.error?.message ?? `Error ${res.status}`, code: String(res.status) } };
           }
           return { data: { path: json?.path ?? path }, error: null, count: null };

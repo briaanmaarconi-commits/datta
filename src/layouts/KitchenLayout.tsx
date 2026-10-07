@@ -2,13 +2,15 @@ import { LogOut, ChefHat } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { usePrivateTheme } from '@/hooks/usePrivateTheme';
+import ViewAsBanner from '@/components/shared/ViewAsBanner';
 
 export default function KitchenLayout({ children }: { children: React.ReactNode }) {
-  const { signOut } = useAuth();
+  const { signOut, viewAs } = useAuth();
   usePrivateTheme();
 
   return (
     <div className="workspace-shell flex min-h-screen flex-col">
+      <ViewAsBanner />
       <header className="workspace-header justify-between">
         <div className="flex items-center gap-2">
           <ChefHat className="h-5 w-5 text-primary" />
@@ -17,7 +19,7 @@ export default function KitchenLayout({ children }: { children: React.ReactNode 
         </div>
         <Button variant="ghost" size="sm" onClick={signOut} className="gap-2">
           <LogOut className="h-4 w-4" />
-          Salir
+          {viewAs ? 'Cerrar vista' : 'Salir'}
         </Button>
       </header>
       <main className="workspace-main">{children}</main>

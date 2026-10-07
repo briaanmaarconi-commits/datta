@@ -1,4 +1,5 @@
 import type { SessionUser } from "../auth/session.js";
+import type { ViewAs } from "../auth/viewAs.js";
 import { loadCatalog } from "./catalog.js";
 import { toQueryError, type QueryResult } from "./queryEngine.js";
 import { withDb, type DbRole } from "./pool.js";
@@ -34,7 +35,7 @@ const fail = (message: string, code: string): QueryResult => ({
   count: null,
 });
 
-export async function runRpc(user: SessionUser, fn: string, args: Record<string, unknown> = {}): Promise<QueryResult> {
+export async function runRpc(user: SessionUser, fn: string, args: Record<string, unknown> = {}, viewAs: ViewAs | null = null): Promise<QueryResult> {
   const def = RPCS[fn];
   if (!def) return fail(`Función no permitida: ${fn}`, "42883");
   const cat = await loadCatalog();
@@ -50,6 +51,8 @@ export async function runRpc(user: SessionUser, fn: string, args: Record<string,
     if (user.role !== "superadmin" && est !== user.establishmentId) {
       return fail("Sin permiso sobre ese establecimiento", "42501");
     }
+    // Una pestaña "ver como" solo puede consultar el local que está viendo.
+    if (viewAs && est !== viewAs.establishmentId) return fail("Sin permiso sobre ese establecimiento", "42501");
   }
 
   const params: unknown[] = [];
@@ -63,7 +66,7 @@ export async function runRpc(user: SessionUser, fn: string, args: Record<string,
     .join(", ");
 
   try {
-    return await withDb({ role: def.runAs, userId: user.id }, async (c) => {
+    return await withDb({ role: def.runAs, userId: user.id, readOnly: !!viewAs && !viewAs.operate, actingEstablishment: viewAs?.establishmentId ?? null }, async (c) => {
       switch (meta.kind) {
         case "void":
           await c.query(`SELECT ${fn}(${call})`, params);

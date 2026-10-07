@@ -14,6 +14,7 @@ import { useDeliverySettings } from '@/hooks/useDeliverySettings';
 import { Bike } from 'lucide-react';
 import SectionHelp from '@/components/shared/SectionHelp';
 import ServiceBanner from '@/components/shared/ServiceBanner';
+import ViewAsBanner from '@/components/shared/ViewAsBanner';
 import { usePrivateTheme } from '@/hooks/usePrivateTheme';
 
 const operationItems = [
@@ -39,7 +40,7 @@ function SidebarNav() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { signOut, viewAs } = useAuth();
   const { enabled: deliveryEnabled } = useDeliverySettings();
 
   const opItems = deliveryEnabled
@@ -75,7 +76,7 @@ function SidebarNav() {
       <SidebarFooter className="p-2">
         <Button variant="ghost" className="w-full justify-start gap-2 text-sidebar-foreground" onClick={signOut}>
           <LogOut className="h-4 w-4" />
-          {!collapsed && <span>Cerrar sesión</span>}
+          {!collapsed && <span>{viewAs ? 'Cerrar vista' : 'Cerrar sesión'}</span>}
         </Button>
       </SidebarFooter>
     </Sidebar>
@@ -84,11 +85,13 @@ function SidebarNav() {
 
 export default function CashierLayout({ children }: { children: React.ReactNode }) {
   usePrivateTheme();
+  const { viewAs } = useAuth();
   return (
     <SidebarProvider>
       <div className="workspace-shell flex min-h-screen w-full">
         <SidebarNav />
         <div className="flex-1 flex flex-col">
+          <ViewAsBanner />
           <ServiceBanner />
           <header className="workspace-header">
             <SidebarTrigger />
@@ -99,7 +102,7 @@ export default function CashierLayout({ children }: { children: React.ReactNode 
         </div>
       </div>
       {/* el asistente queda arriba de la calculadora para no taparse */}
-      <ChatBot bottomClass="bottom-24" />
+      {!viewAs && <ChatBot bottomClass="bottom-24" />}
       <FloatingCalculator />
     </SidebarProvider>
   );

@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import SectionHelp from '@/components/shared/SectionHelp';
 import { usePrivateTheme } from '@/hooks/usePrivateTheme';
+import ViewAsBanner from '@/components/shared/ViewAsBanner';
 
 const items = [
   { title: 'Mis Mesas', url: '/waiter', icon: Grid3X3 },
@@ -21,7 +22,7 @@ function SidebarNav() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { signOut, viewAs } = useAuth();
 
   return (
     <Sidebar collapsible="icon">
@@ -50,7 +51,7 @@ function SidebarNav() {
       <SidebarFooter className="p-2">
         <Button variant="ghost" className="w-full justify-start gap-2 text-sidebar-foreground" onClick={signOut}>
           <LogOut className="h-4 w-4" />
-          {!collapsed && <span>Cerrar sesión</span>}
+          {!collapsed && <span>{viewAs ? 'Cerrar vista' : 'Cerrar sesión'}</span>}
         </Button>
       </SidebarFooter>
     </Sidebar>
@@ -64,6 +65,7 @@ export default function WaiterLayout({ children }: { children: React.ReactNode }
       <div className="workspace-shell flex min-h-screen w-full">
         <SidebarNav />
         <div className="flex-1 flex flex-col">
+          <ViewAsBanner />
           <header className="workspace-header">
             <SidebarTrigger />
             <span className="ml-3 text-sm font-medium text-muted-foreground">Mesero</span>

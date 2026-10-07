@@ -12,13 +12,16 @@ interface ChangeEvent {
 }
 interface Subscriber {
   user: SessionUser;
+  /** Superadmin en "ver como": solo recibe los eventos de ese local. */
+  acting: string | null;
   write: (chunk: string) => void;
 }
 
 const subscribers = new Set<Subscriber>();
 
-function visibleTo(user: SessionUser, ev: ChangeEvent): boolean {
-  if (user.role === "superadmin") return true;
+export function visibleTo(sub: Pick<Subscriber, "user" | "acting">, ev: ChangeEvent): boolean {
+  const { user } = sub;
+  if (user.role === "superadmin") return sub.acting ? ev.est === sub.acting : true;
   return !!ev.est && ev.est === user.establishmentId;
 }
 
@@ -30,7 +33,7 @@ function broadcast(raw: string) {
     return;
   }
   const line = `data: ${raw}\n\n`;
-  for (const s of subscribers) if (visibleTo(s.user, ev)) s.write(line);
+  for (const s of subscribers) if (visibleTo(s, ev)) s.write(line);
 }
 
 let listener: pg.Client | null = null;
@@ -75,7 +78,7 @@ export async function registerRealtime(app: FastifyInstance) {
       "X-Accel-Buffering": "no",
     });
     res.write("retry: 3000\n\n");
-    const sub: Subscriber = { user, write: (chunk) => res.write(chunk) };
+    const sub: Subscriber = { user, acting: req.viewAs?.establishmentId ?? null, write: (chunk) => res.write(chunk) };
     subscribers.add(sub);
     const beat = setInterval(() => res.write(": ping\n\n"), 20_000);
     req.raw.on("close", () => {

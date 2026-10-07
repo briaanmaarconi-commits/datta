@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { UNAUTHORIZED_EVENT } from '@/lib/db';
+import { clearViewAs, useViewAsCtx, type ViewAsCtx } from '@/lib/viewAs';
 import type { Database } from '@/lib/dbTypes';
 
 type AppRole = Database['public']['Enums']['app_role'];
@@ -37,6 +38,11 @@ interface AuthState {
 }
 
 interface AuthContextValue extends AuthState {
+  /** Contexto "ver como" de esta pestaña (solo si el usuario real es superadmin); role y establishmentId ya vienen del local visto. */
+  viewAs: ViewAsCtx | null;
+  /** Rol real del usuario (superadmin aunque esté mirando como cocina/caja/mozo). */
+  realRole: AppRole | null;
+  exitViewAs: () => void;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   getRoleRedirectPath: (role: AppRole | null) => string;
@@ -76,6 +82,7 @@ function toState(me: MeResponse): AuthState {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const viewCtx = useViewAsCtx();
   const [state, setState] = useState<AuthState>({ ...SIGNED_OUT, loading: true });
 
   const loadMe = useCallback(async () => {
@@ -116,7 +123,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Salir de la vista: cierra la pestaña (si la abrió el panel) o vuelve al panel del superadmin; no cierra la sesión.
+  const exitViewAs = () => {
+    clearViewAs();
+    window.close();
+    setTimeout(() => { window.location.href = '/superadmin/monitor'; }, 300);
+  };
+
   const signOut = async () => {
+    if (state.role === 'superadmin' && viewCtx) return exitViewAs();
     try {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     } finally {
@@ -135,8 +150,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const viewAs = state.role === 'superadmin' ? viewCtx : null;
   const value: AuthContextValue = {
     ...state,
+    role: viewAs ? viewAs.role : state.role,
+    establishmentId: viewAs ? viewAs.establishmentId : state.establishmentId,
+    viewAs,
+    realRole: state.role,
+    exitViewAs,
     signIn,
     signOut,
     getRoleRedirectPath,
@@ -151,6 +172,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 const defaultAuth: AuthContextValue = {
   ...SIGNED_OUT,
+  viewAs: null,
+  realRole: null,
+  exitViewAs: () => {},
   loading: true,
   signIn: async () => ({ error: new Error('No AuthProvider') }),
   signOut: async () => {},

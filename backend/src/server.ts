@@ -20,6 +20,7 @@ import { registerAiFunctions } from "./fn/ai.js";
 import { registerChat } from "./fn/chat.js";
 import { registerBilling } from "./fn/billing.js";
 import { registerClients } from "./fn/clients.js";
+import { VIEW_ONLY_ERROR, attachViewAs, dbContextFor, registerViewAs } from "./auth/viewAs.js";
 import { startCron } from "./cron.js";
 import { registerWeb } from "./web.js";
 
@@ -32,10 +33,12 @@ export async function buildApp() {
   app.decorateRequest("user", null);
   app.decorateRequest("blocked", null);
   app.addHook("onRequest", attachUser);
+  app.addHook("onRequest", attachViewAs); // "ver como" del superadmin (por pestaña); después de attachUser
 
   app.get("/api/health", async () => ({ ok: true }));
 
   await registerAuthRoutes(app);
+  await registerViewAs(app);
 
   // Reemplazo de PostgREST: la seguridad la aplican las policies RLS de Postgres
   // con el rol "authenticated" y auth.uid() del usuario de la sesión.
@@ -47,7 +50,9 @@ export async function buildApp() {
       return { data: null, count: null, error: { message: "Consulta inválida", code: "PGRST100", details: parsed.error.message, hint: null } };
     }
     const spec = parsed.data as QuerySpec;
-    return withDb({ role: "authenticated", userId: user.id }, (c) => runQuery(c, spec));
+    // Modo "solo mirar" del superadmin: además de la transacción READ ONLY, un mensaje claro en vez de un error de Postgres.
+    if (req.viewAs && !req.viewAs.operate && spec.op !== "select") return { data: null, count: null, error: VIEW_ONLY_ERROR };
+    return withDb(dbContextFor(user, req.viewAs), (c) => runQuery(c, spec));
   });
 
   app.post("/api/db/rpc", async (req, reply) => {
@@ -55,7 +60,7 @@ export async function buildApp() {
     if (!user) return;
     const body = z.object({ fn: z.string(), args: z.record(z.unknown()).optional() }).safeParse(req.body);
     if (!body.success) return { data: null, count: null, error: { message: "RPC inválido", code: "PGRST100", details: null, hint: null } };
-    return runRpc(user, body.data.fn, body.data.args ?? {});
+    return runRpc(user, body.data.fn, body.data.args ?? {}, req.viewAs);
   });
 
   await registerPublicRoutes(app);
