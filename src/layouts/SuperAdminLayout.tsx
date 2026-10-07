@@ -1,33 +1,37 @@
 import { LayoutDashboard, Building2, Users, BarChart3, LogOut, Monitor, Wallet, CreditCard, Receipt, MessageSquareWarning, FileText } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
-import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
 import {
-  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
-  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider,
-  SidebarTrigger, SidebarHeader, SidebarFooter, useSidebar,
+  Sidebar, SidebarContent, SidebarProvider, SidebarTrigger, SidebarHeader, SidebarFooter, useSidebar,
 } from '@/components/ui/sidebar';
+import GroupedNav, { type NavEntry } from '@/components/shared/GroupedNav';
 import { Button } from '@/components/ui/button';
 import { usePrivateTheme } from '@/hooks/usePrivateTheme';
 import SupportNavBadge from '@/components/support/SupportNavBadge';
 
-const items = [
-  { title: 'Dashboard', url: '/superadmin', icon: LayoutDashboard },
-  { title: 'Clientes', url: '/superadmin/clients', icon: Building2 },
-  { title: 'Cobranzas', url: '/superadmin/billing', icon: Receipt },
-  { title: 'Facturación Datta', url: '/superadmin/facturacion', icon: FileText },
-  { title: 'Inconvenientes', url: '/superadmin/inconvenientes', icon: MessageSquareWarning },
-  { title: 'Usuarios', url: '/superadmin/users', icon: Users },
-  { title: 'Monitoreo', url: '/superadmin/monitor', icon: Monitor },
-  { title: 'Analíticas', url: '/superadmin/analytics', icon: BarChart3 },
-  { title: 'Caja', url: '/superadmin/cash', icon: Wallet },
-  { title: 'Planes', url: '/superadmin/plans', icon: CreditCard },
+const entries: NavEntry[] = [
+  { title: 'Inicio', url: '/superadmin', icon: LayoutDashboard },
+  {
+    title: 'Clientes', icon: Building2, items: [
+      { title: 'Clientes', url: '/superadmin/clients', icon: Building2 },
+      { title: 'Usuarios', url: '/superadmin/users', icon: Users },
+      { title: 'Monitoreo', url: '/superadmin/monitor', icon: Monitor },
+    ],
+  },
+  {
+    title: 'Cobros y facturación', icon: Receipt, items: [
+      { title: 'Cobranzas', url: '/superadmin/billing', icon: Receipt },
+      { title: 'Facturación Datta', url: '/superadmin/facturacion', icon: FileText },
+      { title: 'Planes', url: '/superadmin/plans', icon: CreditCard },
+      { title: 'Caja', url: '/superadmin/cash', icon: Wallet },
+    ],
+  },
+  { title: 'Estadísticas', url: '/superadmin/analytics', icon: BarChart3 },
+  { title: 'Inconvenientes', url: '/superadmin/inconvenientes', icon: MessageSquareWarning, badge: (c) => <SupportNavBadge collapsed={c} /> },
 ];
 
 function SidebarNav() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
-  const location = useLocation();
   const { signOut } = useAuth();
 
   return (
@@ -36,24 +40,7 @@ function SidebarNav() {
         {collapsed ? <span className="font-display text-xl font-bold text-sidebar-primary">d</span> : <h1 className="workspace-brand">datta</h1>}
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Gestión Datta</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {items.map(item => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={location.pathname === item.url}>
-                    <NavLink to={item.url} end>
-                      <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
-                      {item.url === '/superadmin/inconvenientes' && <SupportNavBadge collapsed={collapsed} />}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <GroupedNav entries={entries} storageKey="datta.nav.superadmin" />
       </SidebarContent>
       <SidebarFooter className="p-2">
         <Button variant="ghost" className="w-full justify-start gap-2 text-sidebar-foreground" onClick={signOut}>

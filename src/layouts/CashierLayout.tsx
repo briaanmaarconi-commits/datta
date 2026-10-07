@@ -1,12 +1,9 @@
 import { Grid3X3, Receipt, FileText, DollarSign, LogOut, CalendarCheck, UtensilsCrossed, LayoutGrid, Users, MonitorSpeaker, Wallet, Calculator, Package, ScrollText, MessageSquareWarning, BadgeDollarSign, PhoneCall, Printer } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
-import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
 import {
-  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
-  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider,
-  SidebarTrigger, SidebarHeader, SidebarFooter, useSidebar,
+  Sidebar, SidebarContent, SidebarProvider, SidebarTrigger, SidebarHeader, SidebarFooter, useSidebar,
 } from '@/components/ui/sidebar';
+import GroupedNav, { type NavEntry } from '@/components/shared/GroupedNav';
 import { Button } from '@/components/ui/button';
 import FloatingCalculator from '@/components/cashier/FloatingCalculator';
 import ChatBot from '@/components/admin/ChatBot';
@@ -18,42 +15,55 @@ import ViewAsBanner from '@/components/shared/ViewAsBanner';
 import { usePrivateTheme } from '@/hooks/usePrivateTheme';
 import SupportNavBadge from '@/components/support/SupportNavBadge';
 
-const operationItems = [
-  { title: 'Mesas', url: '/cashier', icon: Grid3X3 },
-  { title: 'Delivery propio', url: '/cashier/delivery-propio', icon: PhoneCall },
-  { title: 'Reservas', url: '/cashier/reservations', icon: CalendarCheck },
-  { title: 'Monitoreo', url: '/cashier/monitor', icon: MonitorSpeaker },
-  { title: 'Facturación', url: '/cashier/invoices', icon: FileText },
-  { title: 'Salidas e Ingresos', url: '/cashier/expenses', icon: DollarSign },
-  { title: 'Resumen de turno', url: '/cashier/shift', icon: Receipt },
-];
-
-const managementItems = [
-  { title: 'Carta', url: '/cashier/menu', icon: UtensilsCrossed },
-  { title: 'Mesas y sectores', url: '/cashier/tables-config', icon: LayoutGrid },
-  { title: 'Personal', url: '/cashier/staff', icon: Users },
-  { title: 'Caja', url: '/cashier/cash', icon: Wallet },
-  { title: 'Precios y márgenes', url: '/cashier/costs', icon: Calculator },
-  { title: 'Stock', url: '/cashier/stock', icon: Package },
-  { title: 'Auditoría', url: '/cashier/audit', icon: ScrollText },
-  { title: 'Impresoras', url: '/cashier/impresoras', icon: Printer },
-];
-
-const accountItems = [
-  { title: 'Suscripción', url: '/cashier/suscripcion', icon: BadgeDollarSign },
-  { title: 'Inconvenientes', url: '/cashier/inconvenientes', icon: MessageSquareWarning },
-];
+function navEntries(deliveryEnabled: boolean): NavEntry[] {
+  return [
+    { title: 'Mesas', url: '/cashier', icon: Grid3X3 },
+    {
+      title: 'Pedidos', icon: PhoneCall, items: [
+        { title: 'Delivery propio', url: '/cashier/delivery-propio', icon: PhoneCall },
+        ...(deliveryEnabled ? [{ title: 'Delivery por apps', url: '/cashier/delivery', icon: Bike }] : []),
+        { title: 'Reservas', url: '/cashier/reservations', icon: CalendarCheck },
+        { title: 'Monitoreo', url: '/cashier/monitor', icon: MonitorSpeaker },
+      ],
+    },
+    {
+      // De lo que más se usa en el turno a lo que menos.
+      title: 'Caja', icon: Wallet, items: [
+        { title: 'Salidas e ingresos', url: '/cashier/expenses', icon: DollarSign },
+        { title: 'Facturación', url: '/cashier/invoices', icon: FileText },
+        { title: 'Resumen de turno', url: '/cashier/shift', icon: Receipt },
+        { title: 'Caja', url: '/cashier/cash', icon: Wallet },
+      ],
+    },
+    {
+      title: 'Carta y precios', icon: UtensilsCrossed, items: [
+        { title: 'Carta', url: '/cashier/menu', icon: UtensilsCrossed },
+        { title: 'Precios y márgenes', url: '/cashier/costs', icon: Calculator },
+        { title: 'Stock', url: '/cashier/stock', icon: Package },
+      ],
+    },
+    {
+      title: 'Ajustes', icon: LayoutGrid, items: [
+        { title: 'Mesas y sectores', url: '/cashier/tables-config', icon: LayoutGrid },
+        { title: 'Personal', url: '/cashier/staff', icon: Users },
+        { title: 'Impresoras', url: '/cashier/impresoras', icon: Printer },
+        { title: 'Auditoría', url: '/cashier/audit', icon: ScrollText },
+      ],
+    },
+    {
+      title: 'Mi cuenta Datta', icon: BadgeDollarSign, items: [
+        { title: 'Suscripción', url: '/cashier/suscripcion', icon: BadgeDollarSign },
+        { title: 'Inconvenientes', url: '/cashier/inconvenientes', icon: MessageSquareWarning, badge: (c) => <SupportNavBadge collapsed={c} /> },
+      ],
+    },
+  ];
+}
 
 function SidebarNav() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
-  const location = useLocation();
   const { signOut, viewAs } = useAuth();
   const { enabled: deliveryEnabled } = useDeliverySettings();
-
-  const opItems = deliveryEnabled
-    ? [...operationItems.slice(0, 1), { title: 'Delivery', url: '/cashier/delivery', icon: Bike }, ...operationItems.slice(1)]
-    : operationItems;
 
   return (
     <Sidebar collapsible="icon">
@@ -61,26 +71,7 @@ function SidebarNav() {
         {collapsed ? <span className="font-display text-xl font-bold text-sidebar-primary">d</span> : <h1 className="workspace-brand">datta</h1>}
       </SidebarHeader>
       <SidebarContent>
-        {[{ label: 'Operación', items: opItems }, { label: 'Gestión', items: managementItems }, { label: 'Cuenta Datta', items: accountItems }].map(group => (
-          <SidebarGroup key={group.label}>
-            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {group.items.map(item => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={location.pathname === item.url}>
-                      <NavLink to={item.url} end>
-                        <item.icon className="h-4 w-4" />
-                        {!collapsed && <span>{item.title}</span>}
-                        {item.url === '/cashier/inconvenientes' && <SupportNavBadge collapsed={collapsed} />}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
+        <GroupedNav entries={navEntries(deliveryEnabled)} storageKey="datta.nav.cashier" />
       </SidebarContent>
       <SidebarFooter className="p-2">
         <Button variant="ghost" className="w-full justify-start gap-2 text-sidebar-foreground" onClick={signOut}>
