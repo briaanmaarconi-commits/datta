@@ -137,6 +137,25 @@ export const SECTION_HELP: Record<string, SectionHelp> = {
       'Los pedidos entran a cocina como comanda de delivery.',
     ],
   },
+  '/admin/impresoras': {
+    title: 'Impresoras',
+    what: 'Configuración guiada de la impresora de cada computadora del local.',
+    bullets: [
+      'Datta imprime en la impresora predeterminada de Windows de cada PC.',
+      'Seguí los pasos en cada computadora que imprime: qué imprime, papel, prueba y acceso directo.',
+      'El acceso directo hace que los tickets salgan solos, sin el cuadro de impresión.',
+    ],
+  },
+  '/admin/delivery-propio': {
+    title: 'Delivery propio',
+    what: 'Pedidos por teléfono con tu propio repartidor. Van a cocina y se cobran como una mesa.',
+    bullets: [
+      'Escribí primero el teléfono: si el cliente ya pidió, sus datos se completan solos.',
+      'Si es departamento, cargá piso y depto. Anotá con cuánto paga para llevar el vuelto.',
+      'Al volver el repartidor, tocá "Entregado y cobrado": entra a la caja y descuenta stock.',
+      'En Clientes ves a quién le podés mandar promociones por WhatsApp y exportás la lista.',
+    ],
+  },
   '/admin/suscripcion': {
     title: 'Suscripción',
     what: 'Tu plan de Datta: estado, próximo vencimiento, monto, pagos y facturas.',
@@ -279,6 +298,22 @@ export const SECTION_HELP: Record<string, SectionHelp> = {
     bullets: [
       'Cargá pedidos y mandalos a cocina.',
       'Se imprimen como comanda de delivery.',
+    ],
+  },
+  '/cashier/impresoras': {
+    title: 'Impresoras',
+    what: 'Configuración guiada de la impresora de esta computadora.',
+    bullets: [
+      'Seguí los pasos: qué imprime, papel, prueba y acceso directo.',
+      'El acceso directo hace que los tickets salgan solos, sin el cuadro de impresión.',
+    ],
+  },
+  '/cashier/delivery-propio': {
+    title: 'Delivery propio',
+    what: 'Pedidos por teléfono: van a cocina y se cobran como una mesa.',
+    bullets: [
+      'Escribí primero el teléfono: si el cliente ya pidió, sus datos se completan solos.',
+      'Al volver el repartidor, tocá "Entregado y cobrado".',
     ],
   },
   '/cashier/suscripcion': {

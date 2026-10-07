@@ -275,5 +275,14 @@
   .ticket-80mm .ft-item,
   .ticket-80mm .ft-qr,
   .ticket-80mm .ft-total { break-inside: avoid; page-break-inside: avoid; }
+
+  /* Papel de 58mm (Configurar impresión de esta PC): el @page lo inyecta src/lib/printSetup.ts. */
+  html[data-paper="58"],
+  html[data-paper="58"] body { width: 58mm !important; }
+  html[data-paper="58"] .print-ticket { width: 58mm; padding: 2mm; font-size: 11px; }
+  html[data-paper="58"] .print-ticket:has(.ticket-80mm) { width: 58mm; }
+  html[data-paper="58"] .ticket-80mm { width: 54mm; padding: 1mm; font-size: 11px; }
+  html[data-paper="58"] .ticket-80mm .ft-total { font-size: 15px; }
+  html[data-paper="58"] .ticket-80mm .ft-qr-img { width: 28mm !important; height: 28mm !important; }
 }
 

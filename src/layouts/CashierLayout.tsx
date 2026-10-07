@@ -1,4 +1,4 @@
-import { Grid3X3, Receipt, FileText, DollarSign, LogOut, CalendarCheck, UtensilsCrossed, LayoutGrid, Users, MonitorSpeaker, Wallet, Calculator, Package, ScrollText, MessageSquareWarning, BadgeDollarSign } from 'lucide-react';
+import { Grid3X3, Receipt, FileText, DollarSign, LogOut, CalendarCheck, UtensilsCrossed, LayoutGrid, Users, MonitorSpeaker, Wallet, Calculator, Package, ScrollText, MessageSquareWarning, BadgeDollarSign, PhoneCall, Printer } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
@@ -20,6 +20,7 @@ import SupportNavBadge from '@/components/support/SupportNavBadge';
 
 const operationItems = [
   { title: 'Mesas', url: '/cashier', icon: Grid3X3 },
+  { title: 'Delivery propio', url: '/cashier/delivery-propio', icon: PhoneCall },
   { title: 'Reservas', url: '/cashier/reservations', icon: CalendarCheck },
   { title: 'Monitoreo', url: '/cashier/monitor', icon: MonitorSpeaker },
   { title: 'Facturación', url: '/cashier/invoices', icon: FileText },
@@ -35,6 +36,7 @@ const managementItems = [
   { title: 'Precios y márgenes', url: '/cashier/costs', icon: Calculator },
   { title: 'Stock', url: '/cashier/stock', icon: Package },
   { title: 'Auditoría', url: '/cashier/audit', icon: ScrollText },
+  { title: 'Impresoras', url: '/cashier/impresoras', icon: Printer },
 ];
 
 const accountItems = [

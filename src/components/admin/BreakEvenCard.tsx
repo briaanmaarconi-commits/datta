@@ -1,6 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Slider } from '@/components/ui/slider';
 import { Target, AlertTriangle, CheckCircle2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -26,9 +25,6 @@ interface Props {
 const fmt = (v: number) => `$${Math.round(v).toLocaleString('es-AR')}`;
 
 export default function BreakEvenCard({ periodLabel, sales, costMP, fixedExpenses, daysInPeriod, monthly }: Props) {
-  const [costReduction, setCostReduction] = useState(0);
-  const [expenseReduction, setExpenseReduction] = useState(0);
-
   const cmRatio = sales > 0 ? (sales - costMP) / sales : 0;
   const breakEven = cmRatio > 0 ? fixedExpenses / cmRatio : 0;
   const diff = sales - breakEven;
@@ -36,16 +32,6 @@ export default function BreakEvenCard({ periodLabel, sales, costMP, fixedExpense
 
   // Normalized to monthly (30 days) for sub-period mini cards
   const monthlyBE = daysInPeriod > 0 ? (breakEven / daysInPeriod) * 30 : 0;
-
-  // Simulator
-  const simCostMP = costMP * (1 - costReduction / 100);
-  const simExpenses = fixedExpenses * (1 - expenseReduction / 100);
-  const simCmRatio = sales > 0 ? (sales - simCostMP) / sales : 0;
-  const simBreakEven = simCmRatio > 0 ? simExpenses / simCmRatio : 0;
-  const simProfit = sales - simCostMP - simExpenses;
-  const origProfit = sales - costMP - fixedExpenses;
-  const beChange = breakEven > 0 ? ((simBreakEven - breakEven) / breakEven) * 100 : 0;
-  const profitChange = Math.abs(origProfit) > 0.01 ? ((simProfit - origProfit) / Math.abs(origProfit)) * 100 : 0;
 
   const monthlyChartMax = useMemo(() => {
     if (monthly.length === 0) return 0;
@@ -193,51 +179,6 @@ export default function BreakEvenCard({ periodLabel, sales, costMP, fixedExpense
         </Card>
       )}
 
-      {/* Simulator */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Simulador: ¿Qué pasa si...?</CardTitle>
-          <p className="text-xs text-muted-foreground">Probá escenarios sin tocar tus datos reales.</p>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <label className="font-medium">Reduzco costo de materia prima en:</label>
-              <span className="font-bold text-blue-600">{costReduction}%</span>
-            </div>
-            <Slider value={[costReduction]} onValueChange={(v) => setCostReduction(v[0])} max={50} step={1} />
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <label className="font-medium">Reduzco gastos operativos en:</label>
-              <span className="font-bold text-orange-600">{expenseReduction}%</span>
-            </div>
-            <Slider value={[expenseReduction]} onValueChange={(v) => setExpenseReduction(v[0])} max={50} step={1} />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 pt-2 border-t">
-            <div className="rounded-md bg-muted/50 p-3">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide">Nuevo punto de equilibrio</div>
-              <div className="text-xl font-bold mt-1">{fmt(simBreakEven)}</div>
-              {breakEven > 0 && (
-                <div className={cn('text-xs font-semibold mt-0.5', beChange < 0 ? 'text-emerald-600' : 'text-red-600')}>
-                  {beChange > 0 ? '+' : ''}{beChange.toFixed(1)}% vs actual
-                </div>
-              )}
-            </div>
-            <div className={cn('rounded-md p-3', simProfit >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10')}>
-              <div className="text-xs text-muted-foreground uppercase tracking-wide">Ganancia proyectada</div>
-              <div className={cn('text-xl font-bold mt-1', simProfit >= 0 ? 'text-emerald-600' : 'text-red-600')}>
-                {fmt(simProfit)}
-              </div>
-              {Math.abs(origProfit) > 0.01 && (
-                <div className={cn('text-xs font-semibold mt-0.5', profitChange > 0 ? 'text-emerald-600' : 'text-red-600')}>
-                  {profitChange > 0 ? '+' : ''}{profitChange.toFixed(0)}% vs actual
-                </div>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

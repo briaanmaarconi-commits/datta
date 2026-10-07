@@ -9,6 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
+import type { DateRange } from 'react-day-picker';
+import PriceSensitivityCard from '@/components/admin/PriceSensitivityCard';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { toArgDate, argDayRange, argHour, argDayOfWeek } from '@/lib/utils';
@@ -56,14 +58,25 @@ const CATEGORY_COLORS = ['#f97316', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', 
 
 const MONTH_NAMES_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
+/** "8 de octubre 2026", "1 al 8 de octubre 2026" o "28 sep 2026 al 5 oct 2026". */
+function rangeLabel(from: Date, to: Date): string {
+  const [a, b] = from <= to ? [from, to] : [to, from];
+  if (a.toDateString() === b.toDateString()) return format(a, "d 'de' MMMM yyyy", { locale: es });
+  if (a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()) {
+    return `${format(a, 'd')} al ${format(b, "d 'de' MMMM yyyy", { locale: es })}`;
+  }
+  return `${format(a, 'd MMM yyyy', { locale: es })} al ${format(b, 'd MMM yyyy', { locale: es })}`;
+}
+
 export default function AdminAnalytics() {
   const { establishmentId } = useAuth();
   const [waiterPeriod, setWaiterPeriod] = useState('day');
   const [selectedHelpCategory, setSelectedHelpCategory] = useState<string | null>(null);
   const [categoryRankOrder, setCategoryRankOrder] = useState<'top' | 'bottom'>('top');
-  const [elasticShowAll, setElasticShowAll] = useState(false);
   const [waitersShowAll, setWaitersShowAll] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  // Rango personalizado (un día = desde y hasta iguales). Sin rango, se usa el mes elegido.
+  const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | undefined>(undefined);
+  const [draftRange, setDraftRange] = useState<DateRange | undefined>(undefined);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
 
   // Mes/año seleccionado (por defecto, mes en curso en horario argentino)
@@ -77,10 +90,14 @@ export default function AdminAnalytics() {
   const { enabled: deliveryEnabled } = useDeliverySettings();
 
   const range = useMemo(() => {
-    if (selectedDate) {
-      const dateStr = getLocalDateStr(selectedDate);
-      const { from, to } = argDayRange(dateStr);
-      return { fromDate: dateStr, toDate: dateStr, fromISO: from, toISO: to };
+    if (customRange) {
+      const today = toArgDate();
+      const fromDate = getLocalDateStr(customRange.from);
+      const rawTo = getLocalDateStr(customRange.to);
+      const toDate = rawTo > today ? today : rawTo;
+      const { from: fromISO } = argDayRange(fromDate);
+      const { to: toISO } = argDayRange(toDate);
+      return { fromDate, toDate, fromISO, toISO };
     }
     const mm = String(selectedMonth.month).padStart(2, '0');
     const fromDate = `${selectedMonth.year}-${mm}-01`;
@@ -91,7 +108,7 @@ export default function AdminAnalytics() {
     const { from: fromISO } = argDayRange(fromDate);
     const { to: toISO } = argDayRange(toDate);
     return { fromDate, toDate, fromISO, toISO };
-  }, [selectedDate, selectedMonth, currentMonth]);
+  }, [customRange, selectedMonth, currentMonth]);
 
   // ─── Finance data (income + expenses) ───
   const { data: financeData } = useQuery({
@@ -253,31 +270,6 @@ export default function AdminAnalytics() {
         .map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }))
         .sort((a, b) => b.value - a.value);
 
-      const elasticityMap: Record<string, { name: string; pricePoints: { price: number; qty: number }[] }> = {};
-      items.forEach(item => {
-        const pid = item.product_id;
-        const name = item.products?.name || 'Desconocido';
-        const price = Number(item.unit_price);
-        if (!elasticityMap[pid]) elasticityMap[pid] = { name, pricePoints: [] };
-        elasticityMap[pid].pricePoints.push({ price, qty: item.quantity });
-      });
-      const elasticity = Object.values(elasticityMap).map(p => {
-        const priceGroups: Record<number, number> = {};
-        p.pricePoints.forEach(pp => { priceGroups[pp.price] = (priceGroups[pp.price] || 0) + pp.qty; });
-        const points = Object.entries(priceGroups).map(([price, qty]) => ({ price: Number(price), qty })).sort((a, b) => a.price - b.price);
-        let ePD: number | null = null;
-        if (points.length >= 2) {
-          const p1 = points[0], p2 = points[points.length - 1];
-          const dQ = p2.qty - p1.qty, dP = p2.price - p1.price;
-          const avgQ = (p1.qty + p2.qty) / 2, avgP = (p1.price + p2.price) / 2;
-          if (dP !== 0 && avgQ !== 0 && avgP !== 0) ePD = (dQ / avgQ) / (dP / avgP);
-        }
-        const totalQty = points.reduce((s, pp) => s + pp.qty, 0);
-        const totalRevenue = p.pricePoints.reduce((s, pp) => s + pp.price * pp.qty, 0);
-        const avgPrice = totalRevenue / totalQty;
-        return { name: p.name, elasticity: ePD, totalQty, avgPrice };
-      }).sort((a, b) => b.totalQty - a.totalQty);
-
       const waiterMap: Record<string, { id: string; tables: Record<string, number> }> = {};
       orders.forEach(o => {
         if (!o.created_by) return;
@@ -320,7 +312,7 @@ export default function AdminAnalytics() {
       return {
         totalSales, totalOrders, avgTicket, avgPrepTime,
         productRanking, dishRanking, drinkRanking, categoryRevenue, categoryProductRanking, salesByDay, paymentBreakdown,
-        elasticity, waiterPerformance, heatmap, uniqueTables,
+        waiterPerformance, heatmap, uniqueTables,
       };
     },
     enabled: !!establishmentId,
@@ -363,9 +355,23 @@ export default function AdminAnalytics() {
     );
   };
 
-  const periodLabel = selectedDate
-    ? format(selectedDate, "d 'de' MMMM yyyy", { locale: es })
+  const periodLabel = customRange
+    ? rangeLabel(customRange.from, customRange.to)
     : format(new Date(selectedMonth.year, selectedMonth.month - 1, 1), "MMMM yyyy", { locale: es }).replace(/^./, c => c.toUpperCase());
+
+  const applyRange = (from: Date, to: Date) => {
+    setCustomRange(from <= to ? { from, to } : { from: to, to: from });
+    setMonthPickerOpen(false);
+  };
+  const today = new Date();
+  const daysAgo = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return d; };
+  const QUICK_RANGES: { label: string; from: () => Date; to: () => Date }[] = [
+    { label: 'Hoy', from: () => today, to: () => today },
+    { label: 'Ayer', from: () => daysAgo(1), to: () => daysAgo(1) },
+    { label: 'Últimos 7 días', from: () => daysAgo(6), to: () => today },
+    { label: 'Últimos 15 días', from: () => daysAgo(14), to: () => today },
+    { label: 'Últimos 30 días', from: () => daysAgo(29), to: () => today },
+  ];
 
   const handleExport = (type: 'pdf' | 'excel') => {
     const exportData = {
@@ -407,19 +413,25 @@ export default function AdminAnalytics() {
 
       {/* Date filter */}
       <div className="flex items-center gap-3 flex-wrap">
-        <Popover open={monthPickerOpen} onOpenChange={(open) => { setMonthPickerOpen(open); if (open) setPickerYear(selectedMonth.year); }}>
+        <Popover open={monthPickerOpen} onOpenChange={(open) => { setMonthPickerOpen(open); if (open) { setPickerYear(selectedMonth.year); setDraftRange(customRange); } }}>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
-              className="w-[220px] justify-start text-left font-normal"
+              className="min-w-[220px] justify-start text-left font-normal"
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {selectedDate
-                ? format(selectedDate, "d 'de' MMMM yyyy", { locale: es })
-                : format(new Date(selectedMonth.year, selectedMonth.month - 1, 1), "MMMM yyyy", { locale: es }).replace(/^./, c => c.toUpperCase())}
+              {periodLabel}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-3 pointer-events-auto" align="start">
+          <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] p-3 pointer-events-auto" align="start">
+            {/* Atajos */}
+            <div className="mb-3 flex flex-wrap gap-1.5 border-b pb-3">
+              {QUICK_RANGES.map(q => (
+                <Button key={q.label} variant="outline" size="sm" className="text-xs" onClick={() => applyRange(q.from(), q.to())}>
+                  {q.label}
+                </Button>
+              ))}
+            </div>
             {/* Selector de mes/año */}
             <div className="flex items-center justify-between mb-2">
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPickerYear(y => y - 1)}>
@@ -438,7 +450,7 @@ export default function AdminAnalytics() {
               {MONTH_NAMES_SHORT.map((name, idx) => {
                 const m = idx + 1;
                 const isFuture = pickerYear === currentMonth.year && m > currentMonth.month;
-                const isActive = !selectedDate && pickerYear === selectedMonth.year && m === selectedMonth.month;
+                const isActive = !customRange && pickerYear === selectedMonth.year && m === selectedMonth.month;
                 return (
                   <Button
                     key={name}
@@ -448,7 +460,7 @@ export default function AdminAnalytics() {
                     className="text-xs"
                     onClick={() => {
                       setSelectedMonth({ year: pickerYear, month: m });
-                      setSelectedDate(undefined);
+                      setCustomRange(undefined);
                       setMonthPickerOpen(false);
                     }}
                   >
@@ -457,21 +469,32 @@ export default function AdminAnalytics() {
                 );
               })}
             </div>
-            {/* Día específico (opcional) */}
+            {/* Rango de días (o un solo día) */}
             <div className="mt-3 pt-3 border-t">
-              <p className="text-xs text-muted-foreground mb-1">O elegí un día puntual:</p>
+              <p className="text-xs text-muted-foreground mb-1">O elegí los días: tocá el primero y el último (un solo día: tocalo y aplicá).</p>
               <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(d) => { setSelectedDate(d); if (d) setMonthPickerOpen(false); }}
+                mode="range"
+                numberOfMonths={2}
+                defaultMonth={draftRange?.from ?? daysAgo(30)}
+                selected={draftRange}
+                onSelect={setDraftRange}
                 disabled={(date) => date > new Date()}
+                locale={es}
                 className={cn("p-0 pointer-events-auto")}
               />
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {draftRange?.from ? rangeLabel(draftRange.from, draftRange.to ?? draftRange.from) : 'Ningún día elegido'}
+                </span>
+                <Button size="sm" disabled={!draftRange?.from} onClick={() => draftRange?.from && applyRange(draftRange.from, draftRange.to ?? draftRange.from)}>
+                  Aplicar
+                </Button>
+              </div>
             </div>
           </PopoverContent>
         </Popover>
-        {(selectedDate || selectedMonth.year !== currentMonth.year || selectedMonth.month !== currentMonth.month) && (
-          <Button variant="ghost" size="sm" onClick={() => { setSelectedDate(undefined); setSelectedMonth(currentMonth); }} className="gap-1 text-muted-foreground">
+        {(customRange || selectedMonth.year !== currentMonth.year || selectedMonth.month !== currentMonth.month) && (
+          <Button variant="ghost" size="sm" onClick={() => { setCustomRange(undefined); setSelectedMonth(currentMonth); }} className="gap-1 text-muted-foreground">
             <X className="h-3.5 w-3.5" /> Limpiar filtro
           </Button>
         )}
@@ -883,57 +906,8 @@ export default function AdminAnalytics() {
         )}
       </ExpandableChartCard>
 
-      {/* Elasticity */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Elasticidad precio-demanda</CardTitle>
-          <p className="text-xs text-muted-foreground">
-            <Badge variant="destructive" className="text-[10px] mr-1">Elástica</Badge> |E| &gt; 1
-            <Badge variant="secondary" className="text-[10px] ml-2 mr-1">Inelástica</Badge> |E| &lt; 1
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Producto</TableHead>
-                  <TableHead className="text-right">Precio prom.</TableHead>
-                  <TableHead className="text-right">Cant. vendida</TableHead>
-                  <TableHead className="text-right">Elasticidad</TableHead>
-                  <TableHead>Tipo</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {ordersData?.elasticity?.slice(0, elasticShowAll ? (ordersData?.elasticity?.length ?? 0) : 8).map(p => (
-                  <TableRow key={p.name}>
-                    <TableCell className="font-medium">{p.name}</TableCell>
-                    <TableCell className="text-right">${p.avgPrice.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{p.totalQty}</TableCell>
-                    <TableCell className="text-right font-mono">{p.elasticity !== null ? p.elasticity.toFixed(2) : '—'}</TableCell>
-                    <TableCell>
-                      {p.elasticity !== null ? (
-                        <Badge variant={Math.abs(p.elasticity) > 1 ? 'destructive' : 'secondary'}>
-                          {Math.abs(p.elasticity) > 1 ? 'Elástica' : 'Inelástica'}
-                        </Badge>
-                      ) : <Badge variant="outline">Sin datos</Badge>}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            {ordersData?.elasticity && ordersData.elasticity.length > 8 && (
-              <div className="flex justify-center mt-3">
-                <Button variant="outline" size="sm" onClick={() => setElasticShowAll(v => !v)} className="gap-1">
-                  {elasticShowAll
-                    ? <>Ver menos <ChevronUp className="h-3.5 w-3.5" /></>
-                    : <>Ver más ({ordersData.elasticity.length - 8}) <ChevronDown className="h-3.5 w-3.5" /></>}
-                </Button>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Sensibilidad al precio (antes: elasticidad precio-demanda) */}
+      <PriceSensitivityCard />
 
       {/* Waiter Performance */}
       <Card>

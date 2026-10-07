@@ -24,6 +24,7 @@ import type { FacturaTicketData } from '@/components/cashier/FacturaTicket80mm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useShowMore, ShowMoreButton } from '@/components/ui/show-more';
+import { tableLabel, tableCell } from '@/lib/ownDelivery';
 
 const PAYMENT_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia' };
 
@@ -175,7 +176,7 @@ export default function AdminBilling() {
       const mergedItems = selectedRows.flatMap((inv: any) =>
         (Array.isArray(inv.items) ? inv.items : []).map((it: any) => ({
           ...it,
-          name: `Mesa ${inv.table_number} - ${it?.name ?? it?.product_name ?? 'Item'}`,
+          name: `${tableLabel(inv.table_number)} - ${it?.name ?? it?.product_name ?? 'Item'}`,
         }))
       );
       try {
@@ -341,7 +342,7 @@ export default function AdminBilling() {
                       <TableCell className="text-xs">
                         {format(new Date(inv.created_at), "dd/MM HH:mm", { locale: es })}
                       </TableCell>
-                      <TableCell>{inv.table_number}</TableCell>
+                      <TableCell>{tableCell(inv.table_number)}</TableCell>
                       <TableCell>
                         <Badge variant="secondary">{PAYMENT_LABELS[inv.payment_method] || inv.payment_method}</Badge>
                       </TableCell>

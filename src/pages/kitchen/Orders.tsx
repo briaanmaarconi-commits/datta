@@ -7,10 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, Clock, AlertTriangle, Printer, Info } from 'lucide-react';
+import { CheckCircle, Clock, AlertTriangle, Printer, Info, Settings2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import PrinterSetup from '@/components/shared/PrinterSetup';
 import { toast } from 'sonner';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { KitchenTicket, KitchenTicketData } from '@/components/kitchen/KitchenTicket';
+import { PLATFORM_LABELS, type DeliveryPlatform } from '@/hooks/useDeliverySettings';
 
 function formatElapsed(created: string) {
   const diff = Math.floor((Date.now() - new Date(created).getTime()) / 1000);
@@ -132,6 +135,7 @@ export default function KitchenOrders() {
   const autoKey = `kitchen-autoprint-${establishmentId ?? 'none'}`;
   const printedKey = `kitchen-printed-${establishmentId ?? 'none'}`;
   const [autoPrint, setAutoPrint] = useState(true);
+  const [setupOpen, setSetupOpen] = useState(false);
   const [printJob, setPrintJob] = useState<KitchenTicketData | null>(null);
   const queueRef = useRef<KitchenTicketData[]>([]);
   const busyRef = useRef(false);
@@ -208,7 +212,7 @@ export default function KitchenOrders() {
       establishmentName: establishment?.name,
       tableNumber: isDelivery ? null : order.tables?.number,
       isDelivery,
-      platform: isDelivery ? (order.external_platform ?? null) : null,
+      platform: isDelivery ? (PLATFORM_LABELS[order.external_platform as DeliveryPlatform] ?? order.external_platform ?? null) : null,
       customerName: isDelivery ? (order.customer_name ?? null) : null,
       sectorName: isDelivery ? null : (order.tables?.sectors?.name ?? null),
       createdAt,
@@ -366,6 +370,9 @@ export default function KitchenOrders() {
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <h1 className="text-3xl font-bold tracking-tight">Pedidos activos ({orders.length})</h1>
         <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setSetupOpen(true)}>
+            <Settings2 className="h-4 w-4 mr-2" /> Configurar impresora
+          </Button>
           <Button variant="outline" size="sm" onClick={printTest}>
             <Printer className="h-4 w-4 mr-2" /> Probar impresión
           </Button>
@@ -389,12 +396,18 @@ export default function KitchenOrders() {
       <div className="flex gap-2 rounded-lg border bg-muted/40 p-3 text-xs text-muted-foreground print:hidden">
         <Info className="h-4 w-4 shrink-0" />
         <p>
-          Las comandas salen por la <strong>impresora predeterminada de esta computadora</strong>: configurá acá la
-          impresora de cocina (80mm). Para que no aparezca el cuadro de impresión, abrí Chrome con la opción{' '}
-          <code>--kiosk-printing</code> (clic derecho en el acceso directo → Propiedades → Destino, agregar{' '}
-          <code>--kiosk-printing</code> al final).
+          Las comandas salen por la <strong>impresora predeterminada de esta computadora</strong>. Si es la primera vez o
+          aparece el cuadro de impresión, tocá <strong>Configurar impresora</strong>: te guía paso a paso y crea el acceso
+          directo para imprimir sin cuadro.
         </p>
       </div>
+
+      <Dialog open={setupOpen} onOpenChange={setSetupOpen}>
+        <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
+          <DialogHeader><DialogTitle>Configurar impresora</DialogTitle></DialogHeader>
+          <PrinterSetup />
+        </DialogContent>
+      </Dialog>
 
 
       {orders.length === 0 ? (
@@ -405,7 +418,9 @@ export default function KitchenOrders() {
             <Card key={order.id} className={order.status === 'new' ? 'border-primary border-2 animate-pulse' : ''}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">{order.channel === 'delivery' ? `Delivery${order.external_platform ? ' · ' + order.external_platform : ''}` : `Mesa ${order.tables?.number}`}</CardTitle>
+                  <CardTitle className="text-lg">{order.channel === 'delivery'
+                    ? (order.external_platform === 'propio' ? 'Delivery propio' : `Delivery${order.external_platform ? ' · ' + (PLATFORM_LABELS[order.external_platform as DeliveryPlatform] ?? order.external_platform) : ''}`)
+                    : `Mesa ${order.tables?.number}`}</CardTitle>
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm font-mono text-muted-foreground">{formatElapsed(order.created_at)}</span>

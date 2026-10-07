@@ -11,6 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { FileText, Loader2, CheckCircle, SkipForward } from 'lucide-react';
+import { tableCell } from '@/lib/ownDelivery';
 
 interface ShiftFiscalStepProps {
   onComplete: () => void;
@@ -211,7 +212,7 @@ export default function ShiftFiscalStep({ onComplete, onSkip, shiftOpenedAt }: S
                         />
                       </TableCell>
                       <TableCell className="font-mono text-xs">{inv.invoice_number}</TableCell>
-                      <TableCell>{inv.table_number}</TableCell>
+                      <TableCell>{tableCell(inv.table_number)}</TableCell>
                       <TableCell>
                         <Badge variant="secondary">{PAYMENT_LABELS[inv.payment_method] || inv.payment_method}</Badge>
                       </TableCell>

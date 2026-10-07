@@ -19,7 +19,8 @@ import { argDayRange, toArgDate } from '@/lib/utils';
 import { parseAmount } from '@/lib/parseAmount';
 import { useShowMore, ShowMoreButton } from '@/components/ui/show-more';
 
-const PLATFORMS: DeliveryPlatform[] = ['rappi', 'pedidosya', 'propio'];
+// El delivery propio (pedidos por teléfono) tiene su propia sección: acá solo plataformas.
+const PLATFORMS: DeliveryPlatform[] = ['rappi', 'pedidosya'];
 
 interface CartLine { productId: string; name: string; price: number; qty: number; notes?: string }
 
@@ -64,6 +65,7 @@ export default function CashierDelivery() {
         .select('*, order_items(id, quantity, unit_price, notes, products(name))')
         .eq('establishment_id', establishmentId!)
         .eq('channel', 'delivery')
+        .in('external_platform', PLATFORMS)
         .in('status', ['new', 'preparing', 'ready', 'delivered'])
         .order('created_at', { ascending: true });
       if (error) throw error;
@@ -82,6 +84,7 @@ export default function CashierDelivery() {
         .select('id, total, delivery_fee, platform_commission, external_platform, created_at, customer_name, external_order_id')
         .eq('establishment_id', establishmentId!)
         .eq('channel', 'delivery')
+        .in('external_platform', PLATFORMS)
         .eq('status', 'closed')
         .gte('created_at', from)
         .lte('created_at', to)
@@ -248,7 +251,7 @@ export default function CashierDelivery() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2"><Bike className="h-7 w-7 text-primary" /> Delivery</h1>
-          <p className="text-sm text-muted-foreground mt-1">Pedidos de Rappi, PedidosYa y delivery propio</p>
+          <p className="text-sm text-muted-foreground mt-1">Pedidos de Rappi y PedidosYa. Los pedidos por teléfono van en Delivery propio.</p>
         </div>
         <Button className="gap-2" onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> Nuevo pedido</Button>
       </div>

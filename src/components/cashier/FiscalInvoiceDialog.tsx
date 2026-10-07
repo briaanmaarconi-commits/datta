@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Loader2, FileText } from 'lucide-react';
 import CuitReceptorFields from '@/components/shared/CuitReceptorFields';
+import { tableCell } from '@/lib/ownDelivery';
 
 interface FiscalInvoiceDialogProps {
   open: boolean;
@@ -128,7 +129,7 @@ export default function FiscalInvoiceDialog({ open, onOpenChange, invoice, condi
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Mesa</span>
-              <span>{invoice.table_number}</span>
+              <span>{tableCell(invoice.table_number)}</span>
             </div>
             <div className="flex justify-between font-bold">
               <span>Total</span>

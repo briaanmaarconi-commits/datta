@@ -28,6 +28,7 @@ import FiscalTicketDialog from '@/components/cashier/FiscalTicketDialog';
 import type { FacturaTicketData } from '@/components/cashier/FacturaTicket80mm';
 import { printTicketPortal } from '@/lib/print';
 import { useShowMore, ShowMoreButton } from '@/components/ui/show-more';
+import { tableCell } from '@/lib/ownDelivery';
 
 const STATUS_COLORS: Record<string, string> = {
   free: 'bg-green-500/20 border-green-500 text-green-700',
@@ -397,7 +398,7 @@ export default function CashierInvoices() {
                     return (
                       <TableRow key={inv.id}>
                         <TableCell className="font-mono text-xs">{inv.invoice_number}</TableCell>
-                        <TableCell>{inv.table_number}</TableCell>
+                        <TableCell>{tableCell(inv.table_number)}</TableCell>
                         <TableCell className="text-xs">
                           {format(new Date(inv.created_at), 'HH:mm', { locale: es })}
                         </TableCell>

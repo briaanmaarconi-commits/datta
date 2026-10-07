@@ -11,6 +11,7 @@ import { HandCoins, Users, User, CreditCard, Smartphone, Banknote, Check, Histor
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import TipsSettingsCard from './TipsSettingsCard';
+import { tableLabel, tableCell } from '@/lib/ownDelivery';
 
 type TipInvoice = {
   id: string;
@@ -247,7 +248,7 @@ export default function TipsManagementTab() {
                       return (
                         <div key={inv.id} className="flex items-center gap-2">
                           <Icon className="h-3 w-3" />
-                          <span>#{inv.invoice_number} · Mesa {inv.table_number}</span>
+                          <span>#{inv.invoice_number} · {tableLabel(inv.table_number)}</span>
                           <span className="ml-auto font-medium text-foreground">${Number(inv.tip_amount).toFixed(2)}</span>
                         </div>
                       );
@@ -327,7 +328,7 @@ export default function TipsManagementTab() {
                   <TableRow key={inv.id}>
                     <TableCell className="text-xs">{new Date(inv.created_at).toLocaleString('es')}</TableCell>
                     <TableCell>#{inv.invoice_number}</TableCell>
-                    <TableCell>{inv.table_number}</TableCell>
+                    <TableCell>{tableCell(inv.table_number)}</TableCell>
                     <TableCell>{PM_LABEL[inv.tip_payment_method || ''] || '—'}</TableCell>
                     <TableCell>{inv.tip_mode === 'pool' ? 'Pozo' : waiterName(inv.tip_waiter_id)}</TableCell>
                     <TableCell className="text-right font-semibold">${Number(inv.tip_amount).toFixed(2)}</TableCell>

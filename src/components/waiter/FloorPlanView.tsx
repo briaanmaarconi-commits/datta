@@ -92,7 +92,7 @@ export default function FloorPlanView({ onTableClick, tables, activeOrders }: Fl
   useEffect(() => {
     const updateScale = () => {
       if (containerRef.current) {
-        const containerWidth = containerRef.current.clientWidth;
+        const containerWidth = containerRef.current.clientWidth - 2;
         const planWidth = (floorPlan?.layout_data as unknown as FloorPlanData)?.width || 800;
         setScale(Math.min(1, containerWidth / planWidth));
       }
@@ -130,15 +130,15 @@ export default function FloorPlanView({ onTableClick, tables, activeOrders }: Fl
         </div>
       ) : (
         <div ref={containerRef} className="overflow-auto border rounded-lg bg-muted/20">
+          {/* Caja con el tamaño ya escalado; adentro el plano en su tamaño real, achicado con transform. */}
+          <div style={{ width: (layout?.width || 800) * scale, height: (layout?.height || 600) * scale }}>
           <div
-            className="relative select-none mx-auto"
+            className="relative select-none"
             style={{
-              width: (layout?.width || 800) * scale,
-              height: (layout?.height || 600) * scale,
+              width: layout?.width || 800,
+              height: layout?.height || 600,
               transform: `scale(${scale})`,
               transformOrigin: 'top left',
-              minWidth: layout?.width || 800,
-              minHeight: layout?.height || 600,
             }}
           >
             <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
@@ -229,6 +229,7 @@ export default function FloorPlanView({ onTableClick, tables, activeOrders }: Fl
                 </div>
               );
             })}
+          </div>
           </div>
         </div>
       )}

@@ -3,6 +3,7 @@ import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Printer } from 'lucide-react';
+import { tableLabel } from '@/lib/ownDelivery';
 
 interface InvoiceItem {
   name: string;
@@ -103,7 +104,7 @@ export default function InvoiceTicket({ invoice, establishmentName, establishmen
               </p>
             </>
           )}
-          <p className="text-xs">Mesa {invoice.table_number}</p>
+          <p className="text-xs">{tableLabel(invoice.table_number)}</p>
         </div>
 
         {fiscalData?.receptor_cuit && (
@@ -219,7 +220,7 @@ export default function InvoiceTicket({ invoice, establishmentName, establishmen
             <p className="text-muted-foreground">
               {format(new Date(invoice.created_at), "dd/MM/yyyy HH:mm", { locale: es })}
             </p>
-            <p className="text-muted-foreground">Mesa {invoice.table_number}</p>
+            <p className="text-muted-foreground">{tableLabel(invoice.table_number)}</p>
           </div>
 
           {fiscalData?.receptor_cuit && (

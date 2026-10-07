@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { LayoutDashboard, UtensilsCrossed, Grid3X3, Users, BarChart3, LogOut, Monitor, Wallet, Calculator, ClipboardList, Package, CalendarCheck, Receipt, Bike, MessageSquareWarning, BadgeDollarSign } from 'lucide-react';
+import { LayoutDashboard, UtensilsCrossed, Grid3X3, Users, BarChart3, LogOut, Monitor, Wallet, Calculator, ClipboardList, Package, CalendarCheck, Receipt, Bike, MessageSquareWarning, BadgeDollarSign, PhoneCall, Printer } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
@@ -25,6 +25,7 @@ const items = [
   { title: 'Menú', url: '/admin/menu', icon: UtensilsCrossed },
   { title: 'Mesas', url: '/admin/tables', icon: Grid3X3 },
   { title: 'Reservas', url: '/admin/reservations', icon: CalendarCheck },
+  { title: 'Delivery propio', url: '/admin/delivery-propio', icon: PhoneCall },
   { title: 'Personal', url: '/admin/staff', icon: Users },
   { title: 'Monitoreo', url: '/admin/monitor', icon: Monitor },
   { title: 'Analíticas', url: '/admin/analytics', icon: BarChart3 },
@@ -33,6 +34,7 @@ const items = [
   { title: 'Precios y márgenes', url: '/admin/costs', icon: Calculator },
   { title: 'Stock', url: '/admin/stock', icon: Package },
   { title: 'Historial', url: '/admin/audit', icon: ClipboardList },
+  { title: 'Impresoras', url: '/admin/impresoras', icon: Printer },
 ];
 
 const deliveryItem = { title: 'Delivery', url: '/admin/delivery', icon: Bike };

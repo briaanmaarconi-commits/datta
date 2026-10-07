@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { getTableVisualState } from '@/lib/tableStatus';
 import TableStatusLegend from '@/components/shared/TableStatusLegend';
@@ -63,6 +64,23 @@ const ELEMENT_PRESETS: { type: FloorElement['type']; label: string; icon: any; d
 ];
 
 const TABLE_DEFAULT_SIZE = 50;
+const DEFAULT_PLAN_W = 800;
+const DEFAULT_PLAN_H = 600;
+const PLAN_MIN = 300;
+const PLAN_MAX = 4000;
+
+/** Rectángulo visible de un elemento (contemplando la rotación y los recortes). */
+function elementBounds(el: FloorElement) {
+  if (el.type === 'cutout' && el.points?.length) {
+    const xs = el.points.map(p => p.x), ys = el.points.map(p => p.y);
+    return { left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
+  }
+  const rad = ((el.rotation || 0) * Math.PI) / 180;
+  const rotW = el.width * Math.abs(Math.cos(rad)) + el.height * Math.abs(Math.sin(rad));
+  const rotH = el.width * Math.abs(Math.sin(rad)) + el.height * Math.abs(Math.cos(rad));
+  const cx = el.x + el.width / 2, cy = el.y + el.height / 2;
+  return { left: cx - rotW / 2, top: cy - rotH / 2, right: cx + rotW / 2, bottom: cy + rotH / 2 };
+}
 const BAR_FIRST_NUMBER = 101;
 const BAR_SEAT_COUNT = 6;
 const BAR_SEAT_SIZE = 28;
@@ -112,8 +130,15 @@ export default function FloorPlanEditor() {
   const [dragging, setDragging] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
   const [resizing, setResizing] = useState<{ id: string; edge: string; startX: number; startY: number; startW: number; startH: number; startElX: number; startElY: number; rotation: number } | null>(null);
   const [pointDragging, setPointDragging] = useState<{ elId: string; index: number } | null>(null);
-  const [canvasSize] = useState({ width: 800, height: 600 });
+  const [canvasSize, setCanvasSize] = useState({ width: DEFAULT_PLAN_W, height: DEFAULT_PLAN_H });
+  const [planResizing, setPlanResizing] = useState<{ edge: string; startX: number; startY: number; startW: number; startH: number; scale: number } | null>(null);
   const [tableShape, setTableShape] = useState<'round' | 'rect'>('round');
+  // El plano se dibuja escalado para que entre entero en pantalla; las coordenadas guardadas no cambian.
+  // Mientras se estira el plano la escala queda fija, para que el borde siga al mouse.
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [frameWidth, setFrameWidth] = useState(0);
+  const fitScale = frameWidth > 0 ? Math.min(1, (frameWidth - 20) / canvasSize.width) : 1;
+  const scale = planResizing ? planResizing.scale : fitScale;
 
   const { data: sectors = [] } = useQuery({
     queryKey: ['sectors', establishmentId],
@@ -166,13 +191,63 @@ export default function FloorPlanEditor() {
   });
 
   useEffect(() => {
-    if (floorPlan) {
-      const layout = floorPlan.layout_data as unknown as FloorPlanData;
-      setElements(layout?.elements || []);
-    } else {
-      setElements([]);
-    }
+    const layout = floorPlan?.layout_data as unknown as FloorPlanData | undefined;
+    setElements(layout?.elements || []);
+    setCanvasSize({ width: layout?.width || DEFAULT_PLAN_W, height: layout?.height || DEFAULT_PLAN_H });
   }, [floorPlan]);
+
+  useEffect(() => {
+    const el = frameRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setFrameWidth(el.clientWidth));
+    ro.observe(el);
+    setFrameWidth(el.clientWidth);
+    return () => ro.disconnect();
+  }, [sectors.length]);
+
+  // El plano no puede achicarse por debajo de lo que ya está dibujado.
+  const contentExtent = elements.reduce(
+    (acc, el) => {
+      const b = elementBounds(el);
+      return { width: Math.max(acc.width, Math.ceil(b.right)), height: Math.max(acc.height, Math.ceil(b.bottom)) };
+    },
+    { width: PLAN_MIN, height: PLAN_MIN },
+  );
+  const setPlanSize = (w: number, h: number) => setCanvasSize({
+    width: Math.round(Math.min(PLAN_MAX, Math.max(contentExtent.width, w))),
+    height: Math.round(Math.min(PLAN_MAX, Math.max(contentExtent.height, h))),
+  });
+
+  const nudge = (id: string, dx: number, dy: number) => {
+    setElements(prev => prev.map(el => {
+      if (el.id !== id) return el;
+      const b = elementBounds(el);
+      const mx = Math.max(-b.left, Math.min(canvasSize.width - b.right, dx));
+      const my = Math.max(-b.top, Math.min(canvasSize.height - b.bottom, dy));
+      if (el.type === 'cutout' && el.points) return { ...el, points: el.points.map(p => ({ x: p.x + mx, y: p.y + my })) };
+      return { ...el, x: el.x + mx, y: el.y + my };
+    }));
+  };
+
+  // Flechas para acomodar con precisión (Shift = de a 10) y Suprimir para borrar.
+  useEffect(() => {
+    if (!selectedElement) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.closest('input, textarea, [contenteditable="true"], [role="combobox"]')) return;
+      const step = e.shiftKey ? 10 : 1;
+      const moves: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+      if (moves[e.key]) {
+        e.preventDefault();
+        nudge(selectedElement, ...moves[e.key]);
+      } else if (e.key === 'Delete') {
+        e.preventDefault();
+        removeElement(selectedElement);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   useEffect(() => {
     if (sectors.length > 0 && !selectedSector) setSelectedSector(sectors[0].id);
@@ -349,30 +424,28 @@ export default function FloorPlanEditor() {
     setSelectedElement(prev => prev === elId ? null : elId);
   }, []);
 
+  /** Posición del mouse en coordenadas del plano (descontando la escala de pantalla). */
+  const toCanvas = useCallback((e: { clientX: number; clientY: number }) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    return { x: (e.clientX - rect.left) / scale, y: (e.clientY - rect.top) / scale };
+  }, [scale]);
+
   const handleMouseDown = useCallback((e: React.MouseEvent, elId: string) => {
     e.stopPropagation();
     e.preventDefault();
     const el = elements.find(x => x.id === elId);
-    if (!el) return;
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    const m = toCanvas(e);
+    if (!el || !m) return;
 
     if (el.type === 'cutout' && el.points) {
       // For cutouts, drag from centroid
       const centroid = getPolygonCentroid(el.points);
-      setDragging({
-        id: elId,
-        offsetX: e.clientX - rect.left - centroid.x,
-        offsetY: e.clientY - rect.top - centroid.y,
-      });
+      setDragging({ id: elId, offsetX: m.x - centroid.x, offsetY: m.y - centroid.y });
     } else {
-      setDragging({
-        id: elId,
-        offsetX: e.clientX - rect.left - el.x,
-        offsetY: e.clientY - rect.top - el.y,
-      });
+      setDragging({ id: elId, offsetX: m.x - el.x, offsetY: m.y - el.y });
     }
-  }, [elements]);
+  }, [elements, toCanvas]);
 
   const handlePointDown = useCallback((e: React.MouseEvent, elId: string, index: number) => {
     e.stopPropagation();
@@ -394,13 +467,23 @@ export default function FloorPlanEditor() {
     });
   }, [elements]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
+  const handleMouseMove = useCallback((e: { clientX: number; clientY: number }) => {
+    const m = toCanvas(e);
+    if (!m) return;
+
+    if (planResizing) {
+      const dx = (e.clientX - planResizing.startX) / scale;
+      const dy = (e.clientY - planResizing.startY) / scale;
+      setPlanSize(
+        planResizing.edge.includes('r') ? planResizing.startW + dx : canvasSize.width,
+        planResizing.edge.includes('b') ? planResizing.startH + dy : canvasSize.height,
+      );
+      return;
+    }
 
     if (pointDragging) {
-      const mx = Math.max(0, Math.min(canvasSize.width, e.clientX - rect.left));
-      const my = Math.max(0, Math.min(canvasSize.height, e.clientY - rect.top));
+      const mx = Math.max(0, Math.min(canvasSize.width, m.x));
+      const my = Math.max(0, Math.min(canvasSize.height, m.y));
       setElements(prev => prev.map(el => {
         if (el.id !== pointDragging.elId || !el.points) return el;
         const newPts = [...el.points];
@@ -417,8 +500,8 @@ export default function FloorPlanEditor() {
       if (el.type === 'cutout' && el.points) {
         // Move all points by delta from centroid
         const centroid = getPolygonCentroid(el.points);
-        const newCx = e.clientX - rect.left - dragging.offsetX;
-        const newCy = e.clientY - rect.top - dragging.offsetY;
+        const newCx = m.x - dragging.offsetX;
+        const newCy = m.y - dragging.offsetY;
         const dx = newCx - centroid.x;
         const dy = newCy - centroid.y;
         setElements(prev => prev.map(el2 => {
@@ -440,17 +523,18 @@ export default function FloorPlanEditor() {
         const rotH = w * absSin + h * absCos;
         const offsetX = (rotW - w) / 2;
         const offsetY = (rotH - h) / 2;
-        const rawX = e.clientX - rect.left - dragging.offsetX;
-        const rawY = e.clientY - rect.top - dragging.offsetY;
-        const x = Math.max(-offsetX, Math.min(canvasSize.width - rotW + offsetX, rawX));
-        const y = Math.max(-offsetY, Math.min(canvasSize.height - rotH + offsetY, rawY));
+        const rawX = m.x - dragging.offsetX;
+        const rawY = m.y - dragging.offsetY;
+        // Lo visible (rotado) queda dentro del plano, en cualquier parte del rectángulo.
+        const x = Math.max(offsetX, Math.min(canvasSize.width - rotW + offsetX, rawX));
+        const y = Math.max(offsetY, Math.min(canvasSize.height - rotH + offsetY, rawY));
         setElements(prev => prev.map(el2 => el2.id === dragging.id ? { ...el2, x, y } : el2));
       }
     }
 
     if (resizing) {
-      const rawDx = e.clientX - resizing.startX;
-      const rawDy = e.clientY - resizing.startY;
+      const rawDx = (e.clientX - resizing.startX) / scale;
+      const rawDy = (e.clientY - resizing.startY) / scale;
       const rad = -(resizing.rotation * Math.PI) / 180;
       const dx = rawDx * Math.cos(rad) - rawDy * Math.sin(rad);
       const dy = rawDx * Math.sin(rad) + rawDy * Math.cos(rad);
@@ -472,13 +556,33 @@ export default function FloorPlanEditor() {
         return { ...el, ...updates };
       }));
     }
-  }, [dragging, resizing, pointDragging, canvasSize, elements]);
+  }, [dragging, resizing, pointDragging, planResizing, canvasSize, elements, toCanvas, scale]);
 
   const handleMouseUp = useCallback(() => {
     setDragging(null);
     setResizing(null);
     setPointDragging(null);
+    setPlanResizing(null);
   }, []);
+
+  const handlePlanResizeDown = (e: React.MouseEvent, edge: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setSelectedElement(null);
+    setPlanResizing({ edge, startX: e.clientX, startY: e.clientY, startW: canvasSize.width, startH: canvasSize.height, scale });
+  };
+
+  // Durante un arrastre se escucha toda la ventana: salir del plano con el mouse no corta el movimiento.
+  const anyDrag = !!(dragging || resizing || pointDragging || planResizing);
+  useEffect(() => {
+    if (!anyDrag) return;
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [anyDrag, handleMouseMove, handleMouseUp]);
 
   const getElementColor = (type: FloorElement['type']) => {
     const preset = ELEMENT_PRESETS.find(p => p.type === type);
@@ -509,6 +613,22 @@ export default function FloorPlanEditor() {
               ))}
             </SelectContent>
           </Select>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-sm font-medium">Tamaño:</Label>
+          <Input
+            type="number" aria-label="Ancho del plano" className="h-9 w-[84px]"
+            min={contentExtent.width} max={PLAN_MAX} step={50} value={canvasSize.width}
+            onChange={e => setCanvasSize(s => ({ ...s, width: Number(e.target.value) || s.width }))}
+            onBlur={() => setPlanSize(canvasSize.width, canvasSize.height)}
+          />
+          <span className="text-muted-foreground">×</span>
+          <Input
+            type="number" aria-label="Alto del plano" className="h-9 w-[84px]"
+            min={contentExtent.height} max={PLAN_MAX} step={50} value={canvasSize.height}
+            onChange={e => setCanvasSize(s => ({ ...s, height: Number(e.target.value) || s.height }))}
+            onBlur={() => setPlanSize(canvasSize.width, canvasSize.height)}
+          />
         </div>
         <div className="flex-1" />
         <Button variant="outline" size="sm" onClick={() => { setElements([]); setSelectedElement(null); }} className="gap-1">
@@ -590,15 +710,16 @@ export default function FloorPlanEditor() {
           </div>
         </div>
 
-        {/* Canvas */}
-        <div className="flex-1 overflow-auto border rounded-lg bg-muted/30">
+        {/* Canvas: el rectángulo con borde ES el plano (se escala para entrar entero en pantalla) */}
+        <div ref={frameRef} className="min-w-0 flex-1">
+          <div
+            className="relative pb-4 pr-4"
+            style={{ width: canvasSize.width * scale + 16, height: canvasSize.height * scale + 16 }}
+          >
           <div
             ref={canvasRef}
-            className="relative select-none"
-            style={{ width: canvasSize.width, height: canvasSize.height, minWidth: canvasSize.width }}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
+            className="relative select-none rounded-lg border-2 border-dashed border-primary/40 bg-muted/30"
+            style={{ width: canvasSize.width, height: canvasSize.height, transform: `scale(${scale})`, transformOrigin: 'top left' }}
             onClick={() => setSelectedElement(null)}
           >
             {/* Grid */}
@@ -760,11 +881,32 @@ export default function FloorPlanEditor() {
               );
             })}
           </div>
+          {/* Manijas para estirar el plano (borde derecho, inferior y esquina) */}
+          <div
+            title="Arrastrá para cambiar el ancho del plano"
+            className="absolute top-0 w-3 cursor-ew-resize rounded bg-primary/20 hover:bg-primary/50"
+            style={{ left: canvasSize.width * scale + 2, height: canvasSize.height * scale }}
+            onMouseDown={e => handlePlanResizeDown(e, 'r')}
+          />
+          <div
+            title="Arrastrá para cambiar el alto del plano"
+            className="absolute left-0 h-3 cursor-ns-resize rounded bg-primary/20 hover:bg-primary/50"
+            style={{ top: canvasSize.height * scale + 2, width: canvasSize.width * scale }}
+            onMouseDown={e => handlePlanResizeDown(e, 'b')}
+          />
+          <div
+            title="Arrastrá para cambiar el tamaño del plano"
+            className="absolute h-4 w-4 cursor-nwse-resize rounded-sm bg-primary/60 hover:bg-primary"
+            style={{ left: canvasSize.width * scale, top: canvasSize.height * scale }}
+            onMouseDown={e => handlePlanResizeDown(e, 'rb')}
+          />
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Move className="h-3 w-3" /> Click para seleccionar · Arrastrá para mover · Recortes: mové los puntos para moldear la forma · <Plus className="h-3 w-3 inline" /> para agregar más puntos
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <Move className="h-3 w-3" /> Click para seleccionar · Arrastrá para mover · Flechas para mover de a poco (Shift = más rápido) · Supr para borrar ·
+        Estirá el borde del plano para agrandarlo · Recortes: mové los puntos para moldear la forma · <Plus className="h-3 w-3 inline" /> para agregar más puntos
       </div>
     </div>
   );
