@@ -137,6 +137,24 @@ export const SECTION_HELP: Record<string, SectionHelp> = {
       'Los pedidos entran a cocina como comanda de delivery.',
     ],
   },
+  '/admin/suscripcion': {
+    title: 'Suscripción',
+    what: 'Tu plan de Datta: estado, próximo vencimiento, monto, pagos y facturas.',
+    bullets: [
+      'Mirá cuándo vence el servicio y cuánto tenés que pagar.',
+      'Descargá en PDF las facturas que te emitió Datta.',
+      'Si tenés un link de pago, podés pagar desde acá con Mercado Pago.',
+    ],
+  },
+  '/admin/inconvenientes': {
+    title: 'Inconvenientes',
+    what: 'Reportá al equipo de Datta cualquier problema con el sistema y seguí la respuesta.',
+    bullets: [
+      'Tocá "Nuevo inconveniente", poné un título y explicá en detalle qué pasó.',
+      'Cuando Datta responde, el inconveniente se marca con un punto y lo ves en la barra lateral.',
+      'Podés seguir la conversación agregando información.',
+    ],
+  },
 
   // ---------------- Caja ----------------
   '/cashier': {
@@ -261,6 +279,22 @@ export const SECTION_HELP: Record<string, SectionHelp> = {
     bullets: [
       'Cargá pedidos y mandalos a cocina.',
       'Se imprimen como comanda de delivery.',
+    ],
+  },
+  '/cashier/suscripcion': {
+    title: 'Suscripción',
+    what: 'El plan de Datta del local: vencimiento, monto, pagos y facturas.',
+    bullets: [
+      'Mirá cuándo vence el servicio y cuánto hay que pagar.',
+      'Descargá en PDF las facturas de Datta.',
+    ],
+  },
+  '/cashier/inconvenientes': {
+    title: 'Inconvenientes',
+    what: 'Reportá al equipo de Datta cualquier problema con el sistema.',
+    bullets: [
+      'Poné un título y explicá en detalle qué pasó.',
+      'Las respuestas de Datta aparecen acá.',
     ],
   },
 

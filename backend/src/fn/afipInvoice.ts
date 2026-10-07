@@ -8,56 +8,56 @@ import { loadRoles, requireSession } from "./common.js";
 // Port de la edge function afip-invoice. La lógica fiscal (tipos de comprobante, IVA, fechas, SOAP)
 // se mantiene idéntica; cambian el acceso a datos, la autenticación y el candado del ticket WSAA.
 
-const WSAA_URL_TESTING = "https://wsaahomo.afip.gov.ar/ws/services/LoginCms";
-const WSAA_URL_PRODUCTION = "https://wsaa.afip.gov.ar/ws/services/LoginCms";
-const WSFE_URL_TESTING = "https://wswhomo.afip.gov.ar/wsfev1/service.asmx";
-const WSFE_URL_PRODUCTION = "https://servicios1.afip.gov.ar/wsfev1/service.asmx";
+export const WSAA_URL_TESTING = "https://wsaahomo.afip.gov.ar/ws/services/LoginCms";
+export const WSAA_URL_PRODUCTION = "https://wsaa.afip.gov.ar/ws/services/LoginCms";
+export const WSFE_URL_TESTING = "https://wswhomo.afip.gov.ar/wsfev1/service.asmx";
+export const WSFE_URL_PRODUCTION = "https://servicios1.afip.gov.ar/wsfev1/service.asmx";
 const PADRON_URL_TESTING = "https://awshomo.afip.gov.ar/sr-padron/webservices/personaServiceA5";
 const PADRON_URL_PRODUCTION = "https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA5";
 
 // Los servidores de ARCA usan parámetros DH antiguos que OpenSSL 3 rechaza con el nivel de seguridad por defecto.
 const afipAgent = new Agent({ connect: { ciphers: "DEFAULT@SECLEVEL=1" } });
-const afipFetch = (url: string, init: { method: string; headers: Record<string, string>; body: string }) =>
+export const afipFetch = (url: string, init: { method: string; headers: Record<string, string>; body: string }) =>
   ufetch(url, { ...init, dispatcher: afipAgent });
 
-const TIPO_LABELS: Record<number, string> = {
+export const TIPO_LABELS: Record<number, string> = {
   1: "Factura A", 3: "Nota de Crédito A", 6: "Factura B", 8: "Nota de Crédito B",
   11: "Factura C", 13: "Nota de Crédito C",
 };
 
 // RG 5616 — Condición frente al IVA del receptor
-const COND_IVA_RECEPTOR_ID: Record<string, number> = {
+export const COND_IVA_RECEPTOR_ID: Record<string, number> = {
   responsable_inscripto: 1,
   exento: 4,
   consumidor_final: 5,
   monotributo: 6,
 };
 
-class HttpError extends Error {
+export class HttpError extends Error {
   constructor(public status: number, message: string, public extra: Record<string, unknown> = {}) {
     super(message);
   }
 }
 
-function getTipoCbte(condicionEmisor: string, condicionReceptor: string): number {
+export function getTipoCbte(condicionEmisor: string, condicionReceptor: string): number {
   if (condicionEmisor === "monotributo") return 11; // Factura C
   if (condicionReceptor === "responsable_inscripto") return 1; // Factura A
   return 6; // Factura B
 }
 
-function decodeEntities(s: string): string {
+export function decodeEntities(s: string): string {
   return s
     .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
     .replace(/&amp;/g, "&");
 }
 
-function xmlValue(xml: string, tag: string): string {
+export function xmlValue(xml: string, tag: string): string {
   const m = xml.match(new RegExp(`<(?:\\w+:)?${tag}[^>]*>([\\s\\S]*?)</(?:\\w+:)?${tag}>`, "i"));
   return m?.[1]?.trim() ?? "";
 }
 
-function xmlAll(xml: string, tag: string): string[] {
+export function xmlAll(xml: string, tag: string): string[] {
   const re = new RegExp(`<(?:\\w+:)?${tag}[^>]*>([\\s\\S]*?)</(?:\\w+:)?${tag}>`, "gi");
   const out: string[] = [];
   let m;
@@ -66,7 +66,7 @@ function xmlAll(xml: string, tag: string): string[] {
 }
 
 /** Fecha yyyymmdd en horario de Argentina */
-function fechaAR(): string {
+export function fechaAR(): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Argentina/Buenos_Aires",
     year: "numeric", month: "2-digit", day: "2-digit",
@@ -76,7 +76,7 @@ function fechaAR(): string {
 
 // ---------------------------------------------------------------- WSAA
 
-function buildTRA(service: string): string {
+export function buildTRA(service: string): string {
   const now = Date.now();
   const iso = (d: number) => new Date(d).toISOString().replace(/\.\d{3}Z$/, "Z");
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -90,7 +90,7 @@ function buildTRA(service: string): string {
 </loginTicketRequest>`;
 }
 
-function signTRA(tra: string, certPem: string, keyPem: string): string {
+export function signTRA(tra: string, certPem: string, keyPem: string): string {
   const cert = forge.pki.certificateFromPem(certPem);
   const key = forge.pki.privateKeyFromPem(keyPem);
   const p7 = forge.pkcs7.createSignedData();
@@ -111,7 +111,7 @@ function signTRA(tra: string, certPem: string, keyPem: string): string {
   return forge.util.encode64(der);
 }
 
-function validateCertificateIdentity(certPem: string, keyPem: string, expectedCuit: string) {
+export function validateCertificateIdentity(certPem: string, keyPem: string, expectedCuit: string) {
   const cert = forge.pki.certificateFromPem(certPem);
   const key = forge.pki.privateKeyFromPem(keyPem) as forge.pki.rsa.PrivateKey;
   const serialAttribute = cert.subject.attributes.find((attribute: any) =>
@@ -202,7 +202,7 @@ async function getTicket(
 
 // ---------------------------------------------------------------- WSFEv1
 
-async function callWsfe(url: string, action: string, body: string): Promise<string> {
+export async function callWsfe(url: string, action: string, body: string): Promise<string> {
   const res = await afipFetch(url, {
     method: "POST",
     headers: {
@@ -224,11 +224,11 @@ async function callWsfe(url: string, action: string, body: string): Promise<stri
   return text;
 }
 
-function authXml(token: string, sign: string, cuit: string) {
+export function authXml(token: string, sign: string, cuit: string) {
   return `<ar:Auth><ar:Token>${token}</ar:Token><ar:Sign>${sign}</ar:Sign><ar:Cuit>${cuit}</ar:Cuit></ar:Auth>`;
 }
 
-async function ultimoAutorizado(
+export async function ultimoAutorizado(
   url: string, token: string, sign: string, cuit: string, ptoVta: number, tipoCbte: number,
 ): Promise<number> {
   const envelope = `<?xml version="1.0" encoding="utf-8"?>

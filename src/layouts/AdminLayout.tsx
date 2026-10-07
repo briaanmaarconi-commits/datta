@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { LayoutDashboard, UtensilsCrossed, Grid3X3, Users, BarChart3, LogOut, Monitor, Wallet, Calculator, ClipboardList, Package, CalendarCheck, Receipt, Bike } from 'lucide-react';
+import { LayoutDashboard, UtensilsCrossed, Grid3X3, Users, BarChart3, LogOut, Monitor, Wallet, Calculator, ClipboardList, Package, CalendarCheck, Receipt, Bike, MessageSquareWarning, BadgeDollarSign } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,6 +18,7 @@ import InsightsBell from '@/components/admin/InsightsBell';
 import SectionHelp from '@/components/shared/SectionHelp';
 import ServiceBanner from '@/components/shared/ServiceBanner';
 import { usePrivateTheme } from '@/hooks/usePrivateTheme';
+import SupportNavBadge from '@/components/support/SupportNavBadge';
 
 const items = [
   { title: 'Dashboard', url: '/admin', icon: LayoutDashboard },
@@ -36,6 +37,11 @@ const items = [
 
 const deliveryItem = { title: 'Delivery', url: '/admin/delivery', icon: Bike };
 
+const accountItems = [
+  { title: 'Suscripción', url: '/admin/suscripcion', icon: BadgeDollarSign },
+  { title: 'Inconvenientes', url: '/admin/inconvenientes', icon: MessageSquareWarning },
+];
+
 
 function SidebarNav() {
   const { state } = useSidebar();
@@ -51,24 +57,26 @@ function SidebarNav() {
         {collapsed ? <span className="font-display text-xl font-bold text-sidebar-primary">d</span> : <h1 className="workspace-brand">datta</h1>}
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Administración</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navItems.map(item => (
-
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={location.pathname === item.url}>
-                    <NavLink to={item.url} end>
-                      <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {[{ label: 'Administración', items: navItems }, { label: 'Cuenta Datta', items: accountItems }].map(group => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map(item => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={location.pathname === item.url}>
+                      <NavLink to={item.url} end>
+                        <item.icon className="h-4 w-4" />
+                        {!collapsed && <span>{item.title}</span>}
+                        {item.url === '/admin/inconvenientes' && <SupportNavBadge collapsed={collapsed} />}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
       <SidebarFooter className="p-2">
         <Button variant="ghost" className="w-full justify-start gap-2 text-sidebar-foreground" onClick={signOut}>
@@ -152,7 +160,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <SidebarProvider>
       <div className="workspace-shell flex min-h-screen w-full">
         <SidebarNav />
-        <div className="flex-1 flex flex-col">
+        <div className="flex min-w-0 flex-1 flex-col">
           <ServiceBanner />
           <header className="workspace-header">
             <SidebarTrigger />

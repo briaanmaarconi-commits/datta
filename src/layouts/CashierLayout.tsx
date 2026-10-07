@@ -1,4 +1,4 @@
-import { Grid3X3, Receipt, FileText, DollarSign, LogOut, CalendarCheck, UtensilsCrossed, LayoutGrid, Users, MonitorSpeaker, Wallet, Calculator, Package, ScrollText } from 'lucide-react';
+import { Grid3X3, Receipt, FileText, DollarSign, LogOut, CalendarCheck, UtensilsCrossed, LayoutGrid, Users, MonitorSpeaker, Wallet, Calculator, Package, ScrollText, MessageSquareWarning, BadgeDollarSign } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,6 +16,7 @@ import SectionHelp from '@/components/shared/SectionHelp';
 import ServiceBanner from '@/components/shared/ServiceBanner';
 import ViewAsBanner from '@/components/shared/ViewAsBanner';
 import { usePrivateTheme } from '@/hooks/usePrivateTheme';
+import SupportNavBadge from '@/components/support/SupportNavBadge';
 
 const operationItems = [
   { title: 'Mesas', url: '/cashier', icon: Grid3X3 },
@@ -36,6 +37,11 @@ const managementItems = [
   { title: 'Auditoría', url: '/cashier/audit', icon: ScrollText },
 ];
 
+const accountItems = [
+  { title: 'Suscripción', url: '/cashier/suscripcion', icon: BadgeDollarSign },
+  { title: 'Inconvenientes', url: '/cashier/inconvenientes', icon: MessageSquareWarning },
+];
+
 function SidebarNav() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
@@ -53,7 +59,7 @@ function SidebarNav() {
         {collapsed ? <span className="font-display text-xl font-bold text-sidebar-primary">d</span> : <h1 className="workspace-brand">datta</h1>}
       </SidebarHeader>
       <SidebarContent>
-        {[{ label: 'Operación', items: opItems }, { label: 'Gestión', items: managementItems }].map(group => (
+        {[{ label: 'Operación', items: opItems }, { label: 'Gestión', items: managementItems }, { label: 'Cuenta Datta', items: accountItems }].map(group => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -64,6 +70,7 @@ function SidebarNav() {
                       <NavLink to={item.url} end>
                         <item.icon className="h-4 w-4" />
                         {!collapsed && <span>{item.title}</span>}
+                        {item.url === '/cashier/inconvenientes' && <SupportNavBadge collapsed={collapsed} />}
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -90,7 +97,7 @@ export default function CashierLayout({ children }: { children: React.ReactNode 
     <SidebarProvider>
       <div className="workspace-shell flex min-h-screen w-full">
         <SidebarNav />
-        <div className="flex-1 flex flex-col">
+        <div className="flex min-w-0 flex-1 flex-col">
           <ViewAsBanner />
           <ServiceBanner />
           <header className="workspace-header">

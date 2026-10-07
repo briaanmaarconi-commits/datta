@@ -9,6 +9,7 @@ import {
   MpError, cancelPreapproval, createPreapproval, getPayment, getPreapproval, mpEnabled, updatePreapprovalAmount, verifyWebhookSignature,
 } from "../lib/mercadopago.js";
 import { addDays, artDateString, artMidnight } from "../lib/time.js";
+import { autoIssueForPayment } from "../lib/dattaInvoice.js";
 import { fail, loadRoles, requireSession } from "./common.js";
 
 const uuid = z.string().uuid();
@@ -111,14 +112,16 @@ export async function registerBilling(app: FastifyInstance) {
       })
       .safeParse(req.body);
     if (!b.success) return fail(reply, 400, "Datos de pago inválidos");
-    return withDb(SERVICE, async (c) => {
-      const r = await applyPayment(c, {
+    const r = await withDb(SERVICE, (c) =>
+      applyPayment(c, {
         establishmentId: b.data.establishment_id, amount: b.data.amount, method: b.data.payment_method, paymentDate: b.data.payment_date,
         periodMonth: b.data.period_month, periodYear: b.data.period_year, source: "manual", notes: b.data.notes, createdBy: user.id,
-      });
-      if (!r.inserted) return fail(reply, 409, "Ya existe un pago registrado para ese período");
-      return { ok: true, next_due_date: r.nextDueDate };
-    });
+      }),
+    );
+    if (!r.inserted) return fail(reply, 409, "Ya existe un pago registrado para ese período");
+    // Con el pago ya guardado: factura automática si está activada (si ARCA falla, el pago queda igual).
+    if (r.paymentId) await autoIssueForPayment(r.paymentId, user.id, req.log);
+    return { ok: true, next_due_date: r.nextDueDate, payment_id: r.paymentId };
   });
 
   // Suspender / reactivar / cancelar a mano
@@ -268,18 +271,21 @@ export async function registerBilling(app: FastifyInstance) {
     }
     if (!dataId || !/^[A-Za-z0-9_-]{3,80}$/.test(dataId)) return { ok: true, ignored: "sin id" };
 
+    let newPaymentId: string | undefined;
     try {
       await withDb(SERVICE, async (c) => {
         if (topic === "subscription_preapproval") {
           await syncPreapproval(c, dataId);
         } else if (topic === "subscription_authorized_payment") {
-          await handleAuthorizedPaymentId(c, dataId);
+          const r = await handleAuthorizedPaymentId(c, dataId);
+          if (r.recorded) newPaymentId = r.paymentId;
         } else if (topic === "payment") {
           // pago suelto: solo se toma si pertenece a una suscripción conocida
           const pay = await getPayment(dataId);
           const preId = pay.metadata?.preapproval_id;
           if (preId && pay.status === "approved") {
-            await recordAuthorizedPayment(c, { id: dataId, preapproval_id: preId, payment: { id: pay.id, status: pay.status } });
+            const r = await recordAuthorizedPayment(c, { id: dataId, preapproval_id: preId, payment: { id: pay.id, status: pay.status } });
+            if (r.recorded) newPaymentId = r.paymentId;
           }
         }
       });
@@ -288,6 +294,9 @@ export async function registerBilling(app: FastifyInstance) {
       // 500 para que Mercado Pago reintente
       return fail(reply, 500, "No se pudo procesar");
     }
+    // Fuera de la transacción del cobro y sin demorar la respuesta a Mercado Pago:
+    // la factura nunca hace fallar el registro del pago.
+    if (newPaymentId) void autoIssueForPayment(newPaymentId, null, req.log);
     return { ok: true };
   };
   const hookOpts = { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } };

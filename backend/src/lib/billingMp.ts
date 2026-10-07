@@ -21,7 +21,7 @@ export async function syncPreapproval(c: pg.PoolClient, preapprovalId: string): 
 }
 
 /** Registra un cobro autorizado si está aprobado. Idempotente por id de pago de MP. */
-export async function recordAuthorizedPayment(c: pg.PoolClient, ap: AuthorizedPayment): Promise<{ recorded: boolean; reason?: string }> {
+export async function recordAuthorizedPayment(c: pg.PoolClient, ap: AuthorizedPayment): Promise<{ recorded: boolean; reason?: string; paymentId?: string }> {
   if (!ap.preapproval_id) return { recorded: false, reason: "sin suscripción" };
   const est = (await c.query(`SELECT id FROM public.establishments WHERE mp_preapproval_id = $1`, [ap.preapproval_id])).rows[0];
   if (!est) return { recorded: false, reason: "suscripción desconocida" };
@@ -42,7 +42,7 @@ export async function recordAuthorizedPayment(c: pg.PoolClient, ap: AuthorizedPa
     mpStatus: pay.status,
     nextDueDate: toArtDate(pre?.next_payment_date),
   });
-  return { recorded: res.inserted, reason: res.inserted ? undefined : "ya registrado" };
+  return { recorded: res.inserted, reason: res.inserted ? undefined : "ya registrado", paymentId: res.paymentId };
 }
 
 export async function handleAuthorizedPaymentId(c: pg.PoolClient, id: string) {

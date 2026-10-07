@@ -51,6 +51,10 @@ import CashierDelivery from "./pages/cashier/Delivery";
 import ClientMenu from "./pages/client/Menu";
 import MenuView from "./pages/client/MenuView";
 import Presentation from "./pages/Presentation";
+import ClientSupport from "./pages/support/ClientSupport";
+import Subscription from "./pages/support/Subscription";
+import SuperAdminSupport from "./pages/superadmin/Support";
+import DattaInvoicing from "./pages/superadmin/DattaInvoicing";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -80,6 +84,8 @@ const App = () => (
           <Route path="/superadmin" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminDashboard /></SuperAdminLayout></ProtectedRoute>} />
           <Route path="/superadmin/clients" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminClients /></SuperAdminLayout></ProtectedRoute>} />
           <Route path="/superadmin/billing" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminBilling /></SuperAdminLayout></ProtectedRoute>} />
+          <Route path="/superadmin/inconvenientes" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminSupport /></SuperAdminLayout></ProtectedRoute>} />
+          <Route path="/superadmin/facturacion" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><DattaInvoicing /></SuperAdminLayout></ProtectedRoute>} />
           <Route path="/superadmin/users" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminUsers /></SuperAdminLayout></ProtectedRoute>} />
           <Route path="/superadmin/monitor" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminMonitor /></SuperAdminLayout></ProtectedRoute>} />
           <Route path="/superadmin/analytics" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminAnalytics /></SuperAdminLayout></ProtectedRoute>} />
@@ -100,6 +106,8 @@ const App = () => (
           <Route path="/admin/stock" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminStock /></AdminLayout></ProtectedRoute>} />
           <Route path="/admin/delivery" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminDeliverySettings /></AdminLayout></ProtectedRoute>} />
           <Route path="/admin/audit" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminAuditLog /></AdminLayout></ProtectedRoute>} />
+          <Route path="/admin/inconvenientes" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><ClientSupport /></AdminLayout></ProtectedRoute>} />
+          <Route path="/admin/suscripcion" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><Subscription /></AdminLayout></ProtectedRoute>} />
 
           {/* Waiter */}
           <Route path="/waiter" element={<ProtectedRoute allowedRoles={['waiter']}><WaiterLayout><WaiterTables /></WaiterLayout></ProtectedRoute>} />
@@ -124,6 +132,8 @@ const App = () => (
           <Route path="/cashier/costs" element={<ProtectedRoute allowedRoles={['cashier']}><CashierLayout><AdminCosts /></CashierLayout></ProtectedRoute>} />
           <Route path="/cashier/stock" element={<ProtectedRoute allowedRoles={['cashier']}><CashierLayout><AdminStock /></CashierLayout></ProtectedRoute>} />
           <Route path="/cashier/audit" element={<ProtectedRoute allowedRoles={['cashier']}><CashierLayout><AdminAuditLog /></CashierLayout></ProtectedRoute>} />
+          <Route path="/cashier/inconvenientes" element={<ProtectedRoute allowedRoles={['cashier']}><CashierLayout><ClientSupport /></CashierLayout></ProtectedRoute>} />
+          <Route path="/cashier/suscripcion" element={<ProtectedRoute allowedRoles={['cashier']}><CashierLayout><Subscription /></CashierLayout></ProtectedRoute>} />
 
           {/* Client QR Menu - No auth required */}
           <Route path="/menu/:tableId" element={<ClientMenu />} />

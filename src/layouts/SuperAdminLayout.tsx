@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Users, BarChart3, LogOut, Monitor, Wallet, CreditCard, Receipt } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, BarChart3, LogOut, Monitor, Wallet, CreditCard, Receipt, MessageSquareWarning, FileText } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,11 +9,14 @@ import {
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { usePrivateTheme } from '@/hooks/usePrivateTheme';
+import SupportNavBadge from '@/components/support/SupportNavBadge';
 
 const items = [
   { title: 'Dashboard', url: '/superadmin', icon: LayoutDashboard },
   { title: 'Clientes', url: '/superadmin/clients', icon: Building2 },
   { title: 'Cobranzas', url: '/superadmin/billing', icon: Receipt },
+  { title: 'Facturación Datta', url: '/superadmin/facturacion', icon: FileText },
+  { title: 'Inconvenientes', url: '/superadmin/inconvenientes', icon: MessageSquareWarning },
   { title: 'Usuarios', url: '/superadmin/users', icon: Users },
   { title: 'Monitoreo', url: '/superadmin/monitor', icon: Monitor },
   { title: 'Analíticas', url: '/superadmin/analytics', icon: BarChart3 },
@@ -43,6 +46,7 @@ function SidebarNav() {
                     <NavLink to={item.url} end>
                       <item.icon className="h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
+                      {item.url === '/superadmin/inconvenientes' && <SupportNavBadge collapsed={collapsed} />}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -67,7 +71,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     <SidebarProvider>
       <div className="workspace-shell flex min-h-screen w-full">
         <SidebarNav />
-        <div className="flex-1 flex flex-col">
+        <div className="flex min-w-0 flex-1 flex-col">
           <header className="workspace-header">
             <SidebarTrigger />
             <span className="ml-3 text-sm font-medium text-muted-foreground">Datta</span>

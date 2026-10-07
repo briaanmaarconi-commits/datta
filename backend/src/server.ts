@@ -21,6 +21,7 @@ import { registerChat } from "./fn/chat.js";
 import { registerBilling } from "./fn/billing.js";
 import { registerClients } from "./fn/clients.js";
 import { VIEW_ONLY_ERROR, attachViewAs, dbContextFor, registerViewAs } from "./auth/viewAs.js";
+import { registerDattaBilling } from "./fn/dattaBilling.js";
 import { startCron } from "./cron.js";
 import { registerWeb } from "./web.js";
 
@@ -73,6 +74,7 @@ export async function buildApp() {
   await registerChat(app);
   await registerBilling(app);
   await registerClients(app);
+  await registerDattaBilling(app);
   await registerRealtime(app);
 
   await registerWeb(app);
