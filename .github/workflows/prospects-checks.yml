@@ -1,0 +1,32 @@
+name: Prospects checks
+on:
+  push:
+    branches: [codex/posibles-clientes-agenda]
+  pull_request:
+    paths:
+      - 'src/pages/superadmin/Prospects.tsx'
+      - 'src/lib/prospects*'
+      - 'src/App.tsx'
+      - 'src/layouts/SuperAdminLayout.tsx'
+      - 'src/integrations/supabase/types.ts'
+      - 'supabase/migrations/20261008180000_sales_prospects.sql'
+      - '.github/workflows/prospects-checks.yml'
+permissions:
+  contents: read
+concurrency:
+  group: prospects-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run src/lib/prospects.test.ts
+      - run: npx eslint src/pages/superadmin/Prospects.tsx src/lib/prospects.ts src/lib/prospects.test.ts
+      - run: npm run build

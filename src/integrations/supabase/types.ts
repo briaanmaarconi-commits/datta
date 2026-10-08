@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      sales_prospects: {
+        Row: {
+          id: string
+          name: string
+          phone: string
+          address: string
+          description: string
+          status: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          phone?: string
+          address?: string
+          description?: string
+          status?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          phone?: string
+          address?: string
+          description?: string
+          status?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      sales_prospect_activities: {
+        Row: {
+          id: string
+          prospect_id: string
+          kind: string
+          scheduled_at: string
+          status: string
+          notes: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          prospect_id: string
+          kind?: string
+          scheduled_at: string
+          status?: string
+          notes?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          prospect_id?: string
+          kind?: string
+          scheduled_at?: string
+          status?: string
+          notes?: string
+          created_at?: string
+        }
+        Relationships: [{ foreignKeyName: "sales_prospect_activities_prospect_id_fkey"; columns: ["prospect_id"]; isOneToOne: false; referencedRelation: "sales_prospects"; referencedColumns: ["id"] }]
+      }
       afip_certificates: {
         Row: {
           certificate_pem: string
