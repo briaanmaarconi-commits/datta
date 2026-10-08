@@ -19,6 +19,7 @@ import KitchenLayout from "./layouts/KitchenLayout";
 // Pages
 import SuperAdminDashboard from "./pages/superadmin/Dashboard";
 import SuperAdminClients from "./pages/superadmin/Clients";
+import SuperAdminProspects from "./pages/superadmin/Prospects";
 import SuperAdminUsers from "./pages/superadmin/Users";
 import SuperAdminAnalytics from "./pages/superadmin/Analytics";
 import SuperAdminMonitor from "./pages/superadmin/Monitor";
@@ -84,6 +85,7 @@ const App = () => (
           <Route path="/presentacion" element={<Presentation />} />
 
           {/* Super Admin / Datta */}
+          <Route path="/superadmin/prospects" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminProspects /></SuperAdminLayout></ProtectedRoute>} />
           <Route path="/superadmin" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminDashboard /></SuperAdminLayout></ProtectedRoute>} />
           <Route path="/superadmin/clients" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminClients /></SuperAdminLayout></ProtectedRoute>} />
           <Route path="/superadmin/billing" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminBilling /></SuperAdminLayout></ProtectedRoute>} />

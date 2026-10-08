@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Users, BarChart3, LogOut, Monitor, Wallet, CreditCard, Receipt, MessageSquareWarning, FileText } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, BarChart3, LogOut, Monitor, Wallet, CreditCard, Receipt, MessageSquareWarning, FileText, ContactRound } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import {
   Sidebar, SidebarContent, SidebarProvider, SidebarTrigger, SidebarHeader, SidebarFooter, useSidebar,
@@ -12,6 +12,7 @@ const entries: NavEntry[] = [
   { title: 'Inicio', url: '/superadmin', icon: LayoutDashboard },
   {
     title: 'Clientes', icon: Building2, items: [
+      { title: 'Posibles clientes', url: '/superadmin/prospects', icon: ContactRound },
       { title: 'Clientes', url: '/superadmin/clients', icon: Building2 },
       { title: 'Usuarios', url: '/superadmin/users', icon: Users },
       { title: 'Monitoreo', url: '/superadmin/monitor', icon: Monitor },
