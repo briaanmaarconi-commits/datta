@@ -65,6 +65,8 @@ export default function CashControl() {
 }
 
 /* ==================== SHIFT CONTROL TAB ==================== */
+const money = (n: number) => `$${n.toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
+
 function ShiftControlTab({ establishmentId, userId }: { establishmentId: string | null; userId?: string }) {
   const [detailShift, setDetailShift] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -152,41 +154,45 @@ function ShiftControlTab({ establishmentId, userId }: { establishmentId: string 
 
   return (
     <div className="mt-4 space-y-4">
-      <div className="flex flex-col lg:flex-row gap-4">
-        {/* Calendar */}
-        <Card className="lg:w-fit shrink-0">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Seleccioná un día</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={(date) => setSelectedDate(date)}
-              modifiers={modifiers}
-              modifiersStyles={modifiersStyles}
-              className={cn("p-3 pointer-events-auto")}
-            />
-            {selectedDate && (
-              <Button variant="ghost" size="sm" className="mt-2 w-full" onClick={() => setSelectedDate(undefined)}>
-                Ver todos los turnos
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Table */}
-        <Card className="flex-1 min-w-0">
-          <CardHeader>
+      <div>
+        {/* Tabla a todo el ancho; el calendario queda como filtro compacto */}
+        <Card>
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0">
             <CardTitle>
               {selectedDate
                 ? `Turnos del ${selectedDate.toLocaleDateString('es')}`
                 : 'Todos los turnos'}
             </CardTitle>
+            <div className="flex items-center gap-2">
+              {selectedDate && (
+                <Button variant="ghost" size="sm" onClick={() => setSelectedDate(undefined)}>
+                  Ver todos los turnos
+                </Button>
+              )}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <CalendarIcon className="h-4 w-4" />
+                    {selectedDate ? format(selectedDate, 'dd/MM/yyyy') : 'Filtrar por día'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <p className="px-4 pt-3 text-xs text-muted-foreground">Los días con turnos están marcados.</p>
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => setSelectedDate(date)}
+                    modifiers={modifiers}
+                    modifiersStyles={modifiersStyles}
+                    className={cn('p-3 pointer-events-auto')}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="[&_th]:px-2 [&_td]:px-2 [&_th]:whitespace-nowrap">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Fecha</TableHead>
@@ -209,16 +215,16 @@ function ShiftControlTab({ establishmentId, userId }: { establishmentId: string 
                         <TableCell className="font-medium">{formatShiftDate(s)}</TableCell>
                         <TableCell className="whitespace-nowrap">{formatShiftRange(s)}</TableCell>
                         <TableCell>{s.count}</TableCell>
-                        <TableCell>${s.cash.toFixed(2)}</TableCell>
-                        <TableCell>${s.card.toFixed(2)}</TableCell>
-                        <TableCell>${s.transfer.toFixed(2)}</TableCell>
-                        <TableCell className="font-bold">${s.total.toFixed(2)}</TableCell>
+                        <TableCell className="whitespace-nowrap">{money(s.cash)}</TableCell>
+                        <TableCell className="whitespace-nowrap">{money(s.card)}</TableCell>
+                        <TableCell className="whitespace-nowrap">{money(s.transfer)}</TableCell>
+                        <TableCell className="whitespace-nowrap font-bold">{money(s.total)}</TableCell>
                         <TableCell>
                           {!isClosed
                             ? <Badge variant="secondary">Abierto</Badge>
                             : isControlled
                               ? <Badge className="bg-green-600">Controlado</Badge>
-                              : <Badge variant="outline">Cerrado - Pendiente</Badge>}
+                              : <Badge variant="outline">Pendiente</Badge>}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
