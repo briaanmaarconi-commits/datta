@@ -12,6 +12,7 @@ import GroupedNav, { type NavEntry } from '@/components/shared/GroupedNav';
 import { Button } from '@/components/ui/button';
 import ChatBot from '@/components/admin/ChatBot';
 import InsightsBell from '@/components/admin/InsightsBell';
+import SupportAssistant from '@/components/support/SupportAssistant';
 import SectionHelp from '@/components/shared/SectionHelp';
 import ServiceBanner from '@/components/shared/ServiceBanner';
 import { usePrivateTheme } from '@/hooks/usePrivateTheme';
@@ -167,6 +168,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span className="ml-3 text-sm font-medium text-muted-foreground">Admin</span>
             <span className="ml-2 flex items-center"><SectionHelp /></span>
             <div className="ml-auto flex items-center gap-2">
+              <SupportAssistant base="/admin" />
               <InsightsBell />
             </div>
           </header>

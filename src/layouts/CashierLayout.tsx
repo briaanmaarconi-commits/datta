@@ -7,6 +7,7 @@ import GroupedNav, { type NavEntry } from '@/components/shared/GroupedNav';
 import { Button } from '@/components/ui/button';
 import FloatingCalculator from '@/components/cashier/FloatingCalculator';
 import ChatBot from '@/components/admin/ChatBot';
+import SupportAssistant from '@/components/support/SupportAssistant';
 import { useDeliverySettings } from '@/hooks/useDeliverySettings';
 import { Bike } from 'lucide-react';
 import SectionHelp from '@/components/shared/SectionHelp';
@@ -98,6 +99,7 @@ export default function CashierLayout({ children }: { children: React.ReactNode 
             <SidebarTrigger />
             <span className="ml-3 text-sm font-medium text-muted-foreground">Caja</span>
             <span className="ml-2 flex items-center"><SectionHelp /></span>
+            {!viewAs && <div className="ml-auto flex items-center gap-2"><SupportAssistant base="/cashier" /></div>}
           </header>
           <main className="workspace-main">{children}</main>
         </div>

@@ -13,7 +13,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useLocation, useNavigate } from 'react-router-dom';
 import TicketThread from '@/components/support/TicketThread';
+import { isSupportComposeState, type TicketDraft } from '@/lib/supportAssistant';
 import {
   DESCRIPTION_MAX, DESCRIPTION_MIN, STATUS_CLASS, STATUS_LABEL, SUPPORT_KEY, TITLE_MAX, TITLE_MIN,
   useSupportRealtime, type SupportTicket,
@@ -24,8 +26,19 @@ export default function ClientSupport() {
   const { establishmentId } = useAuth();
   const queryClient = useQueryClient();
   const [composeOpen, setComposeOpen] = useState(false);
+  const [draft, setDraft] = useState<TicketDraft | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
   useSupportRealtime();
+
+  // Si llega desde el asistente de ayuda, se abre el formulario con lo que se habló.
+  useEffect(() => {
+    if (!isSupportComposeState(location.state)) return;
+    setDraft(location.state.compose);
+    setComposeOpen(true);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.state, location.pathname, navigate]);
 
   const listKey = [...SUPPORT_KEY, 'client', establishmentId];
   const { data: tickets = [], isLoading } = useQuery({
@@ -126,7 +139,8 @@ export default function ClientSupport() {
 
       <ComposeDialog
         open={composeOpen}
-        onOpenChange={setComposeOpen}
+        onOpenChange={(o) => { setComposeOpen(o); if (!o) setDraft(null); }}
+        initial={draft}
         establishmentId={establishmentId}
         onSent={(ticket) => {
           // Aparece al instante en la lista; la recarga trae los datos completos.
@@ -139,9 +153,10 @@ export default function ClientSupport() {
   );
 }
 
-function ComposeDialog({ open, onOpenChange, establishmentId, onSent }: {
+function ComposeDialog({ open, onOpenChange, initial, establishmentId, onSent }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initial?: TicketDraft | null;
   establishmentId: string | null;
   onSent: (ticket: SupportTicket) => void;
 }) {
@@ -149,6 +164,14 @@ function ComposeDialog({ open, onOpenChange, establishmentId, onSent }: {
   const [description, setDescription] = useState('');
   const [touched, setTouched] = useState(false);
   const [sending, setSending] = useState(false);
+
+  // Borrador que arma el asistente de ayuda: se puede revisar y editar antes de enviar.
+  useEffect(() => {
+    if (!open || !initial) return;
+    setTitle(initial.title);
+    setDescription(initial.description);
+    setTouched(false);
+  }, [open, initial]);
 
   const titleLen = title.trim().length;
   const descLen = description.trim().length;
