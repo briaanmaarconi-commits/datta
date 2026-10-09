@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useShowMore, ShowMoreButton } from '@/components/ui/show-more';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AllMovements, DeletedMovements } from '@/components/admin/MovementsHistory';
 
 const ACTION_LABELS: Record<string, string> = {
   open_shift: 'Abrió turno',
@@ -27,7 +29,7 @@ const TABLE_LABELS: Record<string, string> = {
 };
 
 export default function AuditLog() {
-  const { establishmentId } = useAuth();
+  const { establishmentId, role } = useAuth();
 
   const { data: logs = [] } = useQuery({
     queryKey: ['audit-logs', establishmentId],
@@ -57,9 +59,7 @@ export default function AuditLog() {
 
   const logsList = useShowMore<any>(logs, 15);
 
-  return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Historial de acciones</h1>
+  const actions = (
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Últimas 100 acciones</CardTitle>
@@ -111,6 +111,30 @@ export default function AuditLog() {
           </div>
         </CardContent>
       </Card>
+  );
+
+  // El cajero ve solo las acciones; el dueño además todos los movimientos y los borrados.
+  if (role !== 'admin') {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold tracking-tight">Historial de acciones</h1>
+        {actions}
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-6 pb-28 lg:pb-0">
+      <h1 className="text-3xl font-bold tracking-tight">Historial</h1>
+      <Tabs defaultValue="movements" className="space-y-4">
+        <TabsList className="h-auto flex-wrap justify-start">
+          <TabsTrigger value="movements">Movimientos</TabsTrigger>
+          <TabsTrigger value="deleted">Movimientos borrados</TabsTrigger>
+          <TabsTrigger value="actions">Acciones</TabsTrigger>
+        </TabsList>
+        <TabsContent value="movements"><AllMovements /></TabsContent>
+        <TabsContent value="deleted"><DeletedMovements /></TabsContent>
+        <TabsContent value="actions">{actions}</TabsContent>
+      </Tabs>
     </div>
   );
 }
