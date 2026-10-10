@@ -227,6 +227,23 @@ export default function KitchenOrders() {
     };
   };
 
+  // Marca los productos como impresos en la base de forma atómica: si la cocina está abierta en
+  // varias pestañas o dispositivos, sólo la que los marca primero los imprime.
+  // Devuelve los ids reclamados, o null si no se pudo registrar (se imprime igual para no perder la comanda).
+  const claimPrint = async (itemIds: string[]): Promise<Set<string> | null> => {
+    const { data, error } = await db
+      .from('order_items')
+      .update({ kitchen_printed_at: new Date().toISOString() })
+      .in('id', itemIds)
+      .is('kitchen_printed_at', null)
+      .select('id');
+    if (error) {
+      console.warn('No se pudo registrar la impresión de la comanda', error);
+      return null;
+    }
+    return new Set(((data as { id: string }[] | null) ?? []).map((r) => r.id));
+  };
+
   const enqueue = (ticket: KitchenTicketData) => {
     queueRef.current.push(ticket);
     processQueue();
@@ -262,29 +279,40 @@ export default function KitchenOrders() {
       return;
     }
 
-    const tickets: KitchenTicketData[] = [];
+    // Incorpora lo que otras pestañas de este navegador ya marcaron como impreso
+    try {
+      JSON.parse(localStorage.getItem(printedKey) || '[]').forEach((id: string) => printedRef.current.add(id));
+    } catch {
+      // ignore
+    }
+
+    const pending: { order: unknown; items: { id: string }[]; isNew: boolean }[] = [];
+    let changed = false;
     for (const o of orders as any[]) {
       const items: any[] = o.order_items ?? [];
       if (items.length === 0) continue; // evita comandas vacías por carrera
-      if (!printedRef.current.has(o.id)) {
-        // pedido nuevo: comanda completa
-        printedRef.current.add(o.id);
-        items.forEach((i) => printedRef.current.add(i.id));
-        tickets.push(buildTicket(o));
-      } else {
-        // pedido ya impreso al que le agregaron productos: comanda "AGREGADO" solo con lo nuevo
-        const added = items.filter((i) => !printedRef.current.has(i.id));
-        if (added.length === 0) continue;
-        added.forEach((i) => printedRef.current.add(i.id));
-        tickets.push(buildTicket(o, false, added));
-      }
+      const isNew = !printedRef.current.has(o.id);
+      // pedido nuevo: comanda completa; pedido ya impreso: comanda "AGREGADO" solo con lo nuevo
+      const toPrint = isNew ? items : items.filter((i) => !printedRef.current.has(i.id));
+      if (toPrint.length === 0) continue;
+      changed = true;
+      printedRef.current.add(o.id);
+      toPrint.forEach((i) => printedRef.current.add(i.id));
+      // Lo que ya imprimió otra pestaña o dispositivo no se vuelve a imprimir
+      const unclaimed = toPrint.filter((i) => !i.kitchen_printed_at);
+      if (unclaimed.length > 0) pending.push({ order: o, items: unclaimed, isNew: isNew && unclaimed.length === items.length });
     }
-    if (tickets.length === 0) return;
+    if (changed) persistPrinted();
+    // El superadmin que mira desde su navegador no imprime (ni reclama) las comandas del local.
+    if (pending.length === 0 || !autoPrint || viewAs) return;
 
-    persistPrinted();
-    // El superadmin que mira desde su navegador no imprime las comandas del local.
-    if (!autoPrint || viewAs) return;
-    tickets.forEach(enqueue);
+    pending.forEach(({ order, items, isNew }) => {
+      claimPrint(items.map((i) => i.id)).then((claimed) => {
+        const mine = claimed ? items.filter((i) => claimed.has(i.id)) : items;
+        if (mine.length === 0) return;
+        enqueue(isNew && mine.length === items.length ? buildTicket(order) : buildTicket(order, false, mine));
+      });
+    });
   }, [orders, ordersLoaded, autoPrint, establishmentId]);
 
 
