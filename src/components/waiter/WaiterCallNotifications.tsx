@@ -10,7 +10,13 @@ interface UseWaiterCallsProps {
 }
 
 export default function WaiterCallNotifications({ establishmentId, tables }: UseWaiterCallsProps) {
-  const [muted, setMuted] = useState(() => sessionStorage.getItem('waiter_calls_muted') === 'true');
+  const [muted, setMuted] = useState(() => {
+    try {
+      return sessionStorage.getItem('waiter_calls_muted') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   const getAudioContext = useCallback((): AudioContext => {
@@ -99,7 +105,11 @@ export default function WaiterCallNotifications({ establishmentId, tables }: Use
   const toggleMute = () => {
     const next = !muted;
     setMuted(next);
-    sessionStorage.setItem('waiter_calls_muted', String(next));
+    try {
+      sessionStorage.setItem('waiter_calls_muted', String(next));
+    } catch {
+      // The toggle still works for this view when browser storage is unavailable.
+    }
     toast.info(next ? 'Notificaciones de llamadas silenciadas' : 'Notificaciones de llamadas activadas');
   };
 
