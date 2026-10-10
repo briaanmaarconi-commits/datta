@@ -1360,6 +1360,7 @@ export type Database = {
           cost_snapshot: number
           created_at: string
           id: string
+          kitchen_printed_at: string | null
           notes: string | null
           order_id: string
           product_id: string
@@ -1371,6 +1372,7 @@ export type Database = {
           cost_snapshot?: number
           created_at?: string
           id?: string
+          kitchen_printed_at?: string | null
           notes?: string | null
           order_id: string
           product_id: string
@@ -1382,6 +1384,7 @@ export type Database = {
           cost_snapshot?: number
           created_at?: string
           id?: string
+          kitchen_printed_at?: string | null
           notes?: string | null
           order_id?: string
           product_id?: string
@@ -1420,6 +1423,7 @@ export type Database = {
           external_order_id: string | null
           external_platform: string | null
           id: string
+          kitchen_printed_at: string | null
           payment_method: string | null
           platform_commission: number
           prepared_at: string | null
@@ -1440,6 +1444,7 @@ export type Database = {
           external_order_id?: string | null
           external_platform?: string | null
           id?: string
+          kitchen_printed_at?: string | null
           payment_method?: string | null
           platform_commission?: number
           prepared_at?: string | null
@@ -1460,6 +1465,7 @@ export type Database = {
           external_order_id?: string | null
           external_platform?: string | null
           id?: string
+          kitchen_printed_at?: string | null
           payment_method?: string | null
           platform_commission?: number
           prepared_at?: string | null
