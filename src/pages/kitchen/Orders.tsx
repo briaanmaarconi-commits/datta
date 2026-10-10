@@ -217,6 +217,23 @@ export default function KitchenOrders() {
     };
   };
 
+  // Marca el pedido como impreso en la base de forma atómica: si la cocina está
+  // abierta en varias pestañas o dispositivos, sólo la que lo marca primero imprime.
+  const claimPrint = async (orderId: string): Promise<boolean> => {
+    const { data, error } = await supabase
+      .from('orders')
+      .update({ kitchen_printed_at: new Date().toISOString() })
+      .eq('id', orderId)
+      .is('kitchen_printed_at', null)
+      .select('id');
+    if (error) {
+      // Sin la columna (migración pendiente) o sin red: imprimir igual antes que perder la comanda
+      console.warn('No se pudo registrar la impresión de la comanda', error);
+      return true;
+    }
+    return (data?.length ?? 0) > 0;
+  };
+
   const enqueue = (ticket: KitchenTicketData) => {
     queueRef.current.push(ticket);
     processQueue();
@@ -249,6 +266,13 @@ export default function KitchenOrders() {
       return;
     }
 
+    // Incorpora lo que otras pestañas de este navegador ya marcaron como impreso
+    try {
+      JSON.parse(localStorage.getItem(printedKey) || '[]').forEach((id: string) => printedRef.current.add(id));
+    } catch {
+      // ignore
+    }
+
     // Sólo pedidos nuevos que ya tengan ítems cargados (evita comandas vacías por carrera)
     const unprinted = orders.filter(
       (o: any) => !printedRef.current.has(o.id) && (o.order_items?.length ?? 0) > 0
@@ -258,7 +282,12 @@ export default function KitchenOrders() {
     unprinted.forEach((o: any) => printedRef.current.add(o.id));
     persistPrinted();
     if (!autoPrint) return;
-    unprinted.forEach((o: any) => enqueue(buildTicket(o)));
+    unprinted.forEach((o: any) => {
+      if (o.kitchen_printed_at) return;
+      claimPrint(o.id).then((claimed) => {
+        if (claimed) enqueue(buildTicket(o));
+      });
+    });
   }, [orders, ordersLoaded, autoPrint, establishmentId]);
 
 
