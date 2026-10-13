@@ -15,6 +15,7 @@ import ServiceBanner from '@/components/shared/ServiceBanner';
 import ViewAsBanner from '@/components/shared/ViewAsBanner';
 import { usePrivateTheme } from '@/hooks/usePrivateTheme';
 import SupportNavBadge from '@/components/support/SupportNavBadge';
+import RemoteSupportButton from '@/components/shared/RemoteSupportButton';
 
 function navEntries(deliveryEnabled: boolean): NavEntry[] {
   return [
@@ -99,7 +100,10 @@ export default function CashierLayout({ children }: { children: React.ReactNode 
             <SidebarTrigger />
             <span className="ml-3 text-sm font-medium text-muted-foreground">Caja</span>
             <span className="ml-2 flex items-center"><SectionHelp /></span>
-            {!viewAs && <div className="ml-auto flex items-center gap-2"><SupportAssistant base="/cashier" /></div>}
+            <div className="ml-auto flex items-center gap-2">
+              <RemoteSupportButton />
+              {!viewAs && <SupportAssistant base="/cashier" />}
+            </div>
           </header>
           <main className="workspace-main">{children}</main>
         </div>

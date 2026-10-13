@@ -14,6 +14,7 @@ import ChatBot from '@/components/admin/ChatBot';
 import InsightsBell from '@/components/admin/InsightsBell';
 import SupportAssistant from '@/components/support/SupportAssistant';
 import SectionHelp from '@/components/shared/SectionHelp';
+import RemoteSupportButton from '@/components/shared/RemoteSupportButton';
 import ServiceBanner from '@/components/shared/ServiceBanner';
 import { usePrivateTheme } from '@/hooks/usePrivateTheme';
 import SupportNavBadge from '@/components/support/SupportNavBadge';
@@ -168,6 +169,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span className="ml-3 text-sm font-medium text-muted-foreground">Admin</span>
             <span className="ml-2 flex items-center"><SectionHelp /></span>
             <div className="ml-auto flex items-center gap-2">
+              <RemoteSupportButton />
               <SupportAssistant base="/admin" />
               <InsightsBell />
             </div>

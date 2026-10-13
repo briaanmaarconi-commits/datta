@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { usePrivateTheme } from '@/hooks/usePrivateTheme';
 import ViewAsBanner from '@/components/shared/ViewAsBanner';
+import RemoteSupportButton from '@/components/shared/RemoteSupportButton';
 
 export default function KitchenLayout({ children }: { children: React.ReactNode }) {
   const { signOut, viewAs } = useAuth();
@@ -17,10 +18,13 @@ export default function KitchenLayout({ children }: { children: React.ReactNode 
           <h1 className="workspace-brand text-2xl">datta</h1>
           <span className="ml-2 text-sm text-muted-foreground">Cocina</span>
         </div>
-        <Button variant="ghost" size="sm" onClick={signOut} className="gap-2">
+        <div className="flex items-center gap-2">
+          <RemoteSupportButton />
+          <Button variant="ghost" size="sm" onClick={signOut} className="gap-2">
           <LogOut className="h-4 w-4" />
           {viewAs ? 'Cerrar vista' : 'Salir'}
         </Button>
+        </div>
       </header>
       <main className="workspace-main">{children}</main>
     </div>
