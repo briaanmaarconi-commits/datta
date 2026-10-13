@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, CreditCard, Users, Gauge, Minus } from 'lucide-react';
 import ExpandableChartCard from '@/components/admin/ExpandableChartCard';
+import { toArgDate } from '@/lib/utils';
 
 function formatCompact(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
@@ -106,10 +107,18 @@ function getComparisonRanges(period: string, customFrom?: string, customTo?: str
       const a = monthA || { month: now.getMonth(), year: now.getFullYear() };
       const prevMonthIdx = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
       const b = monthB || { month: prevMonthIdx, year: now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear() };
-      currentFrom = new Date(a.year, a.month, 1, 0, 0, 0, 0);
-      currentTo = new Date(a.year, a.month + 1, 0, 23, 59, 59, 999);
-      prevFrom = new Date(b.year, b.month, 1, 0, 0, 0, 0);
-      prevTo = new Date(b.year, b.month + 1, 0, 23, 59, 59, 999);
+      // Límites en horario argentino (UTC-3), igual que Explorar
+      const bounds = (m: MonthYear) => {
+        const mm = String(m.month + 1).padStart(2, '0');
+        const last = String(new Date(m.year, m.month + 1, 0).getDate()).padStart(2, '0');
+        return {
+          from: new Date(`${m.year}-${mm}-01T00:00:00-03:00`),
+          to: new Date(`${m.year}-${mm}-${last}T23:59:59.999-03:00`),
+        };
+      };
+      const ba = bounds(a), bb = bounds(b);
+      currentFrom = ba.from; currentTo = ba.to;
+      prevFrom = bb.from; prevTo = bb.to;
       break;
     }
     case 'custom': {
@@ -159,7 +168,7 @@ function ChangeIndicator({ value }: { value: number | null }) {
 }
 
 function getLocalDateStr(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return toArgDate(d);
 }
 
 async function fetchPeriodData(establishmentId: string, from: string, to: string) {
@@ -209,8 +218,8 @@ async function fetchPeriodData(establishmentId: string, from: string, to: string
     expenseByCategory[cat] = (expenseByCategory[cat] || 0) + Number(t.amount);
   });
 
-  // Use finance income as totalSales (it already includes order sales registered in caja)
-  const totalSales = financeIncome > 0 ? financeIncome : orderSales;
+  // Ventas = pedidos cerrados, igual que la pestaña Explorar (así ambas pantallas coinciden)
+  const totalSales = orderSales;
   const avgTicket = totalOrders > 0 ? orderSales / totalOrders : 0;
   const uniqueTables = new Set(orders.map(o => o.table_id)).size;
 
@@ -226,30 +235,16 @@ async function fetchPeriodData(establishmentId: string, from: string, to: string
     productMap[name] = (productMap[name] || 0) + item.quantity * Number(item.unit_price);
   });
 
-  // Sales by day - use finance_transactions income for the daily overlay
-  const startMs = new Date(from).getTime();
+  // Ventas por día: pedidos cerrados agrupados por día argentino (igual que Explorar)
+  const startDay = new Date(toArgDate(from) + 'T12:00:00Z').getTime();
+  const dayOffsetOf = (iso: string) =>
+    Math.round((new Date(toArgDate(iso) + 'T12:00:00Z').getTime() - startDay) / 86400000);
   const dayMap: Record<number, number> = {};
-  
-  // Add finance income by day
-  financeTxs.filter((t: any) => t.type === 'income').forEach((t: any) => {
-    const txDate = new Date(t.date + 'T12:00:00');
-    const dayOffset = Math.floor((txDate.getTime() - startMs) / 86400000);
-    if (dayOffset >= 0) {
-      dayMap[dayOffset] = (dayMap[dayOffset] || 0) + Number(t.amount);
-    }
-  });
-
-  // If no finance data, fall back to orders
-  if (Object.keys(dayMap).length === 0) {
-    orders.forEach(o => {
-      const dayOffset = Math.floor((new Date(o.created_at).getTime() - startMs) / 86400000);
-      dayMap[dayOffset] = (dayMap[dayOffset] || 0) + Number(o.total);
-    });
-  }
-
   const orderDayMap: Record<number, number> = {};
   orders.forEach(o => {
-    const dayOffset = Math.floor((new Date(o.created_at).getTime() - startMs) / 86400000);
+    const dayOffset = dayOffsetOf(o.created_at);
+    if (dayOffset < 0) return;
+    dayMap[dayOffset] = (dayMap[dayOffset] || 0) + Number(o.total);
     orderDayMap[dayOffset] = (orderDayMap[dayOffset] || 0) + 1;
   });
 
@@ -424,7 +419,7 @@ export default function AnalyticsComparison() {
           <p key={p.dataKey} className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.color }} />
             <span className="text-muted-foreground">{p.name}:</span>
-            <span className="font-medium">{typeof p.value === 'number' && p.dataKey.includes('actual') ? `$${formatCompact(p.value)}` : p.value}</span>
+            <span className="font-medium">{typeof p.value === 'number' ? `$${formatCompact(p.value)}` : p.value}</span>
           </p>
         ))}
       </div>
