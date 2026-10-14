@@ -16,6 +16,7 @@ import {
 
 type Row = { printer_name: string; paper_width: 58 | 80; is_active: boolean };
 const EMPTY: Row = { printer_name: '', paper_width: 80, is_active: true };
+const emptyRows = () => Object.fromEntries(PREP_AREAS.map((a) => [a, EMPTY])) as Record<PrepArea, Row>;
 
 /**
  * Impresoras por sector de preparación (entrada / plato principal / postre). Se configura una vez por local;
@@ -24,7 +25,7 @@ const EMPTY: Row = { printer_name: '', paper_width: 80, is_active: true };
 export default function StationsSetup() {
   const { establishmentId } = useAuth();
   const qc = useQueryClient();
-  const [rows, setRows] = useState<Record<PrepArea, Row>>({ entrada: EMPTY, principal: EMPTY, postre: EMPTY });
+  const [rows, setRows] = useState<Record<PrepArea, Row>>(emptyRows);
 
   const { data: stations = [] } = useQuery({
     queryKey: ['print-stations', establishmentId],
@@ -39,7 +40,7 @@ export default function StationsSetup() {
   const { data: winPrinters = [] } = useQuery({ queryKey: ['agent-printers'], queryFn: agentPrinters, enabled: online, retry: false });
 
   useEffect(() => {
-    const next: Record<PrepArea, Row> = { entrada: EMPTY, principal: EMPTY, postre: EMPTY };
+    const next = emptyRows();
     for (const s of stations) next[s.prep_area] = { printer_name: s.printer_name, paper_width: s.paper_width, is_active: s.is_active };
     setRows(next);
   }, [stations]);
