@@ -16,11 +16,21 @@ VALUES ('00000000-0000-0000-0000-0000000000a1', '018b04a8-18d9-49f7-86f8-b30be93
 SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT caja FROM ids), 'role', 'authenticated')::text, true);
 SET LOCAL ROLE authenticated;
 
-DO $$ BEGIN
+DO $$ DECLARE n int; BEGIN
+  INSERT INTO public.company_accounts (establishment_id, name) VALUES ('018b04a8-18d9-49f7-86f8-b30be9307dd7', 'Empresa de caja');
+  RAISE NOTICE 'OK  caja crea una empresa nueva';
+  UPDATE public.company_accounts SET name = 'Hackeada' WHERE name = 'Empresa de caja';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'FALLA: la caja edito una empresa'; END IF;
+  RAISE NOTICE 'OK  caja NO edita empresas';
+  DELETE FROM public.company_accounts WHERE name = 'Empresa de caja';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'FALLA: la caja borro una empresa'; END IF;
+  RAISE NOTICE 'OK  caja NO borra empresas';
   BEGIN
-    INSERT INTO public.company_accounts (establishment_id, name) VALUES ('018b04a8-18d9-49f7-86f8-b30be9307dd7', 'Intento caja');
-    RAISE EXCEPTION 'FALLA: la caja pudo crear una empresa';
-  EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'OK  caja NO crea empresas'; END;
+    INSERT INTO public.company_accounts (establishment_id, name) VALUES ('00000000-0000-0000-0000-00000000dead', 'Fuera de local');
+    RAISE EXCEPTION 'FALLA: la caja creo una empresa en otro local';
+  EXCEPTION WHEN insufficient_privilege OR foreign_key_violation THEN RAISE NOTICE 'OK  caja NO crea empresas en otro local'; END;
 END $$;
 
 INSERT INTO public.company_vouchers (establishment_id, account_id, voucher_number, diners, signed_by, amount)
@@ -50,7 +60,7 @@ DO $$ DECLARE n int; BEGIN
   IF n <> 0 THEN RAISE EXCEPTION 'FALLA: la caja borro un vale'; END IF;
   RAISE NOTICE 'OK  caja NO borra vales';
   SELECT count(*) INTO n FROM public.company_accounts;
-  IF n <> 1 THEN RAISE EXCEPTION 'FALLA: la caja no ve la empresa (n=%)', n; END IF;
+  IF n <> 2 THEN RAISE EXCEPTION 'FALLA: la caja no ve las empresas (n=%)', n; END IF;
   RAISE NOTICE 'OK  caja lee empresas y vales de su local';
 END $$;
 

@@ -59,6 +59,7 @@ import DattaInvoicing from "./pages/superadmin/DattaInvoicing";
 import OwnDelivery from "./pages/delivery/OwnDelivery";
 import PrinterSettings from "./pages/support/PrinterSettings";
 import CostsExpenses from "./pages/support/CostsExpenses";
+import CompanyAccounts from "./pages/support/CompanyAccounts";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -113,6 +114,7 @@ const App = () => (
           <Route path="/admin/audit" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminAuditLog /></AdminLayout></ProtectedRoute>} />
           <Route path="/admin/inconvenientes" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><ClientSupport /></AdminLayout></ProtectedRoute>} />
           <Route path="/admin/costos-gastos" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><CostsExpenses /></AdminLayout></ProtectedRoute>} />
+          <Route path="/admin/cuentas-corrientes" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><CompanyAccounts /></AdminLayout></ProtectedRoute>} />
           <Route path="/admin/impresoras" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><PrinterSettings /></AdminLayout></ProtectedRoute>} />
           <Route path="/admin/delivery-propio" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><OwnDelivery /></AdminLayout></ProtectedRoute>} />
           <Route path="/admin/suscripcion" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><Subscription /></AdminLayout></ProtectedRoute>} />
@@ -142,6 +144,7 @@ const App = () => (
           <Route path="/cashier/audit" element={<ProtectedRoute allowedRoles={['cashier']}><CashierLayout><AdminAuditLog /></CashierLayout></ProtectedRoute>} />
           <Route path="/cashier/inconvenientes" element={<ProtectedRoute allowedRoles={['cashier']}><CashierLayout><ClientSupport /></CashierLayout></ProtectedRoute>} />
           <Route path="/cashier/costos-gastos" element={<ProtectedRoute allowedRoles={['cashier']}><CashierLayout><CostsExpenses /></CashierLayout></ProtectedRoute>} />
+          <Route path="/cashier/cuentas-corrientes" element={<ProtectedRoute allowedRoles={['cashier']}><CashierLayout><CompanyAccounts /></CashierLayout></ProtectedRoute>} />
           <Route path="/cashier/impresoras" element={<ProtectedRoute allowedRoles={['cashier']}><CashierLayout><PrinterSettings /></CashierLayout></ProtectedRoute>} />
           <Route path="/cashier/delivery-propio" element={<ProtectedRoute allowedRoles={['cashier']}><CashierLayout><OwnDelivery /></CashierLayout></ProtectedRoute>} />
           <Route path="/cashier/suscripcion" element={<ProtectedRoute allowedRoles={['cashier']}><CashierLayout><Subscription /></CashierLayout></ProtectedRoute>} />

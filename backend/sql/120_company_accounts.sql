@@ -115,6 +115,11 @@ CREATE POLICY "Superadmin full access company_settlements" ON public.company_set
 DROP POLICY IF EXISTS "Managers read company_accounts" ON public.company_accounts;
 CREATE POLICY "Managers read company_accounts" ON public.company_accounts
   FOR SELECT TO authenticated USING (public.is_establishment_manager(auth.uid(), establishment_id));
+-- La caja también da de alta una empresa nueva (cuando llega un cliente con vale de una empresa que no está);
+-- editarla, desactivarla o borrarla queda para el administrador.
+DROP POLICY IF EXISTS "Managers insert company_accounts" ON public.company_accounts;
+CREATE POLICY "Managers insert company_accounts" ON public.company_accounts
+  FOR INSERT TO authenticated WITH CHECK (public.is_establishment_manager(auth.uid(), establishment_id));
 DROP POLICY IF EXISTS "Managers read company_vouchers" ON public.company_vouchers;
 CREATE POLICY "Managers read company_vouchers" ON public.company_vouchers
   FOR SELECT TO authenticated USING (public.is_establishment_manager(auth.uid(), establishment_id));
