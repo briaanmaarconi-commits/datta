@@ -13,6 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PrepAreaSelect } from '@/components/admin/PrepAreaSelect';
+import type { PrepArea } from '@/lib/printAgent';
 import { toast } from 'sonner';
 import MenuCombosTab, { ComboLine } from '@/components/menu/MenuCombosTab';
 import { groupFromCategoryName } from '@/lib/menuGroups';
@@ -38,6 +40,7 @@ export default function CashierMenu() {
   const [editCatId, setEditCatId] = useState<string | null>(null);
   const [editProdId, setEditProdId] = useState<string | null>(null);
   const [catName, setCatName] = useState('');
+  const [catPrepArea, setCatPrepArea] = useState<PrepArea | null>(null);
   const [prodName, setProdName] = useState('');
   const [prodDesc, setProdDesc] = useState('');
   const [prodPrice, setProdPrice] = useState('');
@@ -88,6 +91,7 @@ export default function CashierMenu() {
     setCatOpen(false);
     setEditCatId(null);
     setCatName('');
+    setCatPrepArea(null);
   };
 
   const resetProdForm = () => {
@@ -112,13 +116,14 @@ export default function CashierMenu() {
   const upsertCategory = useMutation({
     mutationFn: async () => {
       if (editCatId) {
-        const { error } = await db.from('categories').update({ name: catName }).eq('id', editCatId);
+        const { error } = await db.from('categories').update({ name: catName, prep_area: catPrepArea }).eq('id', editCatId);
         if (error) throw error;
       } else {
         const { error } = await db.from('categories').insert({
           name: catName,
           establishment_id: establishmentId!,
           sort_order: categories.length,
+          prep_area: catPrepArea,
         });
         if (error) throw error;
       }
@@ -426,6 +431,7 @@ export default function CashierMenu() {
                   <Label>Nombre</Label>
                   <Input value={catName} onChange={e => setCatName(e.target.value)} required />
                 </div>
+                <PrepAreaSelect value={catPrepArea} onChange={setCatPrepArea} />
                 <Button type="submit" className="w-full" disabled={upsertCategory.isPending}>Guardar</Button>
               </form>
             </DialogContent>
@@ -441,7 +447,7 @@ export default function CashierMenu() {
                   </div>
                   <div className="flex gap-2 items-center">
                     <Switch checked={cat.is_active} onCheckedChange={() => toggleCategory.mutate({ id: cat.id, is_active: cat.is_active })} />
-                    <Button variant="ghost" size="icon" onClick={() => { setEditCatId(cat.id); setCatName(cat.name); setCatOpen(true); }}>
+                    <Button variant="ghost" size="icon" onClick={() => { setEditCatId(cat.id); setCatName(cat.name); setCatPrepArea(((cat as { prep_area?: PrepArea | null }).prep_area) ?? null); setCatOpen(true); }}>
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="icon" onClick={() => {

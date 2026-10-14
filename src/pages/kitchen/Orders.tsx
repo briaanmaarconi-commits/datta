@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { KitchenTicket, KitchenTicketData } from '@/components/kitchen/KitchenTicket';
 import { PLATFORM_LABELS, type DeliveryPlatform } from '@/hooks/useDeliverySettings';
+import { agentOnline, agentPrint, groupByStation, PREP_AREAS, PREP_AREA_LABEL, type PrepArea, type PrintStation } from '@/lib/printAgent';
 
 function formatElapsed(created: string) {
   const diff = Math.floor((Date.now() - new Date(created).getTime()) / 1000);
@@ -44,7 +45,7 @@ export default function KitchenOrders() {
     queryFn: async () => {
       const { data, error } = await db
         .from('orders')
-        .select('*, tables(number, sectors(name)), order_items(*, products(name))')
+        .select('*, tables(number, sectors(name)), order_items(*, products(name, categories(prep_area)))')
         .eq('establishment_id', establishmentId!)
         .in('status', ['new', 'preparing'])
         .order('created_at', { ascending: true });
@@ -55,6 +56,27 @@ export default function KitchenOrders() {
     refetchInterval: 10000,
     staleTime: 5000,
   });
+
+  // Comandas por sector: mapeo sector → impresora del local y estado del agente de impresión de esta PC.
+  const { data: stations = [] } = useQuery({
+    queryKey: ['print-stations', establishmentId],
+    queryFn: async () => {
+      const { data, error } = await db.from('print_stations').select('*').eq('establishment_id', establishmentId!);
+      if (error) throw error;
+      return (data ?? []) as PrintStation[];
+    },
+    enabled: !!establishmentId,
+    staleTime: 60 * 1000,
+  });
+  const hasStations = stations.some((s) => s.is_active);
+  const { data: agentUp = false } = useQuery({
+    queryKey: ['print-agent-status'],
+    queryFn: agentOnline,
+    enabled: hasStations,
+    refetchInterval: 15000,
+  });
+  const routeRef = useRef({ stations, hasStations, agentUp });
+  routeRef.current = { stations, hasStations, agentUp };
 
   // Realtime: instant updates when orders/items change
   useEffect(() => {
@@ -223,6 +245,7 @@ export default function KitchenOrders() {
         quantity: i.quantity,
         name: i.products?.name ?? 'Producto',
         notes: i.notes,
+        area: i.products?.categories?.prep_area ?? null,
       })),
     };
   };
@@ -244,17 +267,53 @@ export default function KitchenOrders() {
     return new Set(((data as { id: string }[] | null) ?? []).map((r) => r.id));
   };
 
-  const enqueue = (ticket: KitchenTicketData) => {
+  // Impresión en el navegador (impresora predeterminada de esta PC).
+  const enqueueBrowser = (ticket: KitchenTicketData) => {
     queueRef.current.push(ticket);
     processQueue();
   };
 
+  // Con sectores configurados y el agente activo: una comanda por sector, cada una a su impresora.
+  // Si el agente falla o el sector no tiene impresora, sale por la impresora de esta PC: nunca se pierde un ítem.
+  const sendToStations = async (ticket: KitchenTicketData) => {
+    const { groups, rest, active } = groupByStation(ticket.items, routeRef.current.stations);
+    for (const [area, items] of groups) {
+      const station = active.get(area)!;
+      try {
+        await agentPrint(station, { ...ticket, area, items });
+      } catch {
+        toast.error(`No se pudo imprimir ${PREP_AREA_LABEL[area]} en "${station.printer_name}"; sale por la impresora de esta PC`);
+        enqueueBrowser({ ...ticket, areaName: PREP_AREA_LABEL[area], items });
+      }
+    }
+    if (rest.length) enqueueBrowser({ ...ticket, items: rest });
+  };
+
+  const enqueue = (ticket: KitchenTicketData) => {
+    const r = routeRef.current;
+    if (r.hasStations && r.agentUp) {
+      void sendToStations(ticket);
+      return;
+    }
+    if (r.hasStations) toast.warning('El agente de impresión no responde: la comanda sale por la impresora de esta PC');
+    enqueueBrowser(ticket);
+  };
+
   const printTest = () => {
+    const base = { establishmentName: establishment?.name, tableNumber: 'DEMO', sectorName: 'Prueba', createdAt: new Date().toISOString() };
+    if (hasStations && agentUp) {
+      // Una prueba por sector: confirma que cada comandera recibe lo suyo.
+      enqueue({
+        ...base,
+        items: PREP_AREAS.map((a: PrepArea, n) => ({
+          id: `test-${a}`, quantity: n + 1, name: `Prueba ${PREP_AREA_LABEL[a]}`, notes: 'Si ves esto, la comandera está OK', area: a,
+        })),
+      });
+      toast.info('Enviando una comanda de prueba a cada sector');
+      return;
+    }
     enqueue({
-      establishmentName: establishment?.name,
-      tableNumber: 'DEMO',
-      sectorName: 'Prueba',
-      createdAt: new Date().toISOString(),
+      ...base,
       items: [
         { id: 'test-1', quantity: 1, name: 'Prueba de impresión', notes: 'Si ves esto, la comandera está OK' },
         { id: 'test-2', quantity: 2, name: 'Ítem de ejemplo', notes: null },

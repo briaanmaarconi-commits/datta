@@ -5,6 +5,8 @@ export interface KitchenTicketItem {
   quantity: number;
   name: string;
   notes?: string | null;
+  /** Sector de preparación (entrada / principal / postre). */
+  area?: 'entrada' | 'principal' | 'postre' | null;
 }
 
 export interface KitchenTicketData {
@@ -17,6 +19,8 @@ export interface KitchenTicketData {
   createdAt: string;
   isAddition?: boolean;
   reprint?: boolean;
+  /** Nombre del sector cuando la comanda es de un solo sector (ej. ENTRADA). */
+  areaName?: string | null;
   items: KitchenTicketItem[];
 }
 
@@ -29,6 +33,7 @@ export function KitchenTicketBody({ data }: { data: KitchenTicketData }) {
         <p className="font-bold text-base border-y border-dashed border-foreground py-0.5 my-1">
           {data.isDelivery ? 'COMANDA - DELIVERY' : data.isAddition ? 'COMANDA - AGREGADO' : 'COMANDA'}
         </p>
+        {data.areaName && <p className="text-xl font-bold leading-tight">{data.areaName.toUpperCase()}</p>}
         {data.reprint && <p className="text-xs font-bold">*** REIMPRESIÓN ***</p>}
         {data.isDelivery ? (
           <>

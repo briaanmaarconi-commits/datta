@@ -13,6 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PrepAreaSelect } from '@/components/admin/PrepAreaSelect';
+import { PREP_AREA_LABEL, type PrepArea } from '@/lib/printAgent';
 import { toast } from 'sonner';
 import AdminReviewsSection from '@/components/admin/AdminReviewsSection';
 import MenuQRCodes from '@/components/admin/MenuQRCodes';
@@ -43,6 +45,7 @@ export default function AdminMenu() {
   const [editCatId, setEditCatId] = useState<string | null>(null);
   const [editProdId, setEditProdId] = useState<string | null>(null);
   const [catName, setCatName] = useState('');
+  const [catPrepArea, setCatPrepArea] = useState<PrepArea | null>(null);
   const [catImageFile, setCatImageFile] = useState<File | null>(null);
   const [catImagePreview, setCatImagePreview] = useState<string | null>(null);
   const [prodName, setProdName] = useState('');
@@ -98,7 +101,7 @@ export default function AdminMenu() {
         imageUrl = await uploadImage(catImageFile, `categories/${establishmentId}`);
       }
       if (editCatId) {
-        const update: any = { name: catName };
+        const update: any = { name: catName, prep_area: catPrepArea };
         if (imageUrl) update.image_url = imageUrl;
         const { error } = await db.from('categories').update(update).eq('id', editCatId);
         if (error) throw error;
@@ -107,6 +110,7 @@ export default function AdminMenu() {
           name: catName,
           establishment_id: establishmentId!,
           sort_order: categories.length,
+          prep_area: catPrepArea,
         };
         if (imageUrl) insert.image_url = imageUrl;
         const { error } = await db.from('categories').insert(insert);
@@ -243,6 +247,7 @@ export default function AdminMenu() {
     setCatOpen(false);
     setEditCatId(null);
     setCatName('');
+    setCatPrepArea(null);
     setCatImageFile(null);
     setCatImagePreview(null);
   };
@@ -335,6 +340,7 @@ export default function AdminMenu() {
                   <Label>Nombre</Label>
                   <Input value={catName} onChange={e => setCatName(e.target.value)} required />
                 </div>
+                <PrepAreaSelect value={catPrepArea} onChange={setCatPrepArea} />
                 <div className="space-y-2">
                   <Label>Imagen (opcional)</Label>
                   {catImagePreview && (
@@ -365,11 +371,14 @@ export default function AdminMenu() {
                       <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-display text-lg font-bold">{cat.name?.charAt(0)?.toUpperCase()}</div>
                     )}
                     <span className="font-display font-semibold text-lg">{cat.name}</span>
+                    {(cat as { prep_area?: PrepArea | null }).prep_area && (
+                      <Badge variant="secondary" className="text-xs">{PREP_AREA_LABEL[(cat as { prep_area?: PrepArea | null }).prep_area as PrepArea]}</Badge>
+                    )}
                     {!cat.is_active && <Badge variant="secondary">Inactiva</Badge>}
                   </div>
                   <div className="flex items-center gap-2">
                     <Switch checked={cat.is_active} onCheckedChange={() => toggleCategory.mutate({ id: cat.id, is_active: cat.is_active })} />
-                    <Button variant="ghost" size="icon" className="rounded-lg text-muted-foreground hover:text-primary transition-colors" onClick={() => { setEditCatId(cat.id); setCatName(cat.name); setCatImagePreview((cat as any).image_url || null); setCatOpen(true); }}>
+                    <Button variant="ghost" size="icon" className="rounded-lg text-muted-foreground hover:text-primary transition-colors" onClick={() => { setEditCatId(cat.id); setCatName(cat.name); setCatPrepArea(((cat as { prep_area?: PrepArea | null }).prep_area) ?? null); setCatImagePreview((cat as any).image_url || null); setCatOpen(true); }}>
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="icon" className="rounded-lg transition-colors hover:bg-destructive/10" onClick={() => {
