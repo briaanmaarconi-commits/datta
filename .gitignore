@@ -32,3 +32,8 @@ coverage
 *.njsproj
 *.sln
 *.sw?
+
+# Paquete del agente de impresion (se genera con agent/build-installer.ps1)
+agent/dist/
+agent/.smoke-out/
+agent/agent.log

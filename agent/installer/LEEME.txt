@@ -1,0 +1,31 @@
+AGENTE DE IMPRESION DE DATTA
+=============================
+
+Que es: un programa chico que corre en la PC de cocina y manda cada comanda a la
+impresora de su sector (Entrada / Plato principal / Postre / Bebidas).
+
+Instalacion (una sola vez, en la PC de cocina, Windows 10):
+  1. Instalar las comanderas en Windows y ponerles nombres claros, por ejemplo:
+       Datta-Entrada, Datta-Principal, Datta-Postres (y Datta-Bebidas si se usa).
+     Verificar que imprimen una pagina de prueba desde Windows.
+  2. Descomprimir este ZIP en cualquier carpeta.
+  3. Doble clic en  Instalar-Agente-Datta.bat  (no hace falta ser administrador).
+     Tiene que decir "LISTO: el agente esta funcionando".
+  4. En Datta, con usuario de caja o admin, entrar a  Impresoras  y en
+     "Impresoras por sector" elegir la impresora de cada sector, tocar
+     "Imprimir prueba" en cada una y "Guardar".
+  5. En la pantalla de Cocina, dejar activada la "Impresion automatica".
+
+Archivos:
+  Instalar-Agente-Datta.bat     Instala y arranca el agente (tambien actualiza).
+  Probar-Agente-Datta.bat       Muestra si funciona y las impresoras que ve Windows.
+  Desinstalar-Agente-Datta.bat  Lo quita por completo.
+
+Notas:
+  - El agente arranca solo cada vez que se inicia sesion en Windows.
+  - Escucha unicamente en esta PC (127.0.0.1) y solo acepta ordenes de Datta.
+  - Registro de errores: %LOCALAPPDATA%\DattaAgente\agent.log
+  - Si una comandera falla, la comanda sale por la impresora predeterminada de la PC
+    y Datta avisa en pantalla: no se pierde ningun pedido.
+  - Un sector sin impresora configurada sale por Plato principal; las bebidas sin
+    impresora propia no se imprimen.
