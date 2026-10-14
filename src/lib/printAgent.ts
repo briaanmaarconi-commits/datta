@@ -1,12 +1,13 @@
 // Cliente del Agente de impresión de Datta (programa local de la PC de cocina, ver /agent).
 // El agente escucha solo en 127.0.0.1 y reparte cada comanda a la impresora de su sector.
 
-export type PrepArea = 'entrada' | 'principal' | 'postre';
-export const PREP_AREAS: PrepArea[] = ['entrada', 'principal', 'postre'];
+export type PrepArea = 'entrada' | 'principal' | 'postre' | 'bebida';
+export const PREP_AREAS: PrepArea[] = ['entrada', 'principal', 'postre', 'bebida'];
 export const PREP_AREA_LABEL: Record<PrepArea, string> = {
   entrada: 'Entrada',
   principal: 'Plato principal',
   postre: 'Postre',
+  bebida: 'Bebidas',
 };
 /** Sector donde sale lo que no tiene sector asignado: nada se pierde. */
 export const DEFAULT_PREP_AREA: PrepArea = 'principal';
@@ -75,12 +76,16 @@ export async function agentPrint(station: Pick<PrintStation, 'printer_name' | 'p
   );
 }
 
-/** Reparte los ítems por sector. Un sector sin impresora activa cae en el principal; sin ninguno, en `rest`. */
+/**
+ * Reparte los ítems por sector. Un sector sin impresora activa cae en el principal; sin ninguno, en `rest`.
+ * Excepción: las bebidas sin impresora propia no se imprimen (no tienen comanda de cocina que preparar).
+ */
 export function groupByStation<T extends { area?: PrepArea | null }>(items: T[], stations: PrintStation[]) {
   const active = new Map(stations.filter((s) => s.is_active).map((s) => [s.prep_area, s]));
   const groups = new Map<PrepArea, T[]>();
   const rest: T[] = [];
   for (const it of items) {
+    if (it.area === 'bebida' && !active.has('bebida')) continue;
     let area: PrepArea = it.area ?? DEFAULT_PREP_AREA;
     if (!active.has(area)) area = DEFAULT_PREP_AREA;
     if (!active.has(area)) {

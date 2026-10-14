@@ -6,13 +6,13 @@ ALTER TABLE public.categories
   ADD COLUMN IF NOT EXISTS prep_area text;
 ALTER TABLE public.categories DROP CONSTRAINT IF EXISTS categories_prep_area_check;
 ALTER TABLE public.categories
-  ADD CONSTRAINT categories_prep_area_check CHECK (prep_area IS NULL OR prep_area IN ('entrada', 'principal', 'postre'));
+  ADD CONSTRAINT categories_prep_area_check CHECK (prep_area IS NULL OR prep_area IN ('entrada', 'principal', 'postre', 'bebida'));
 
 -- Una impresora (por nombre en Windows) por sector y por local.
 CREATE TABLE IF NOT EXISTS public.print_stations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   establishment_id uuid NOT NULL REFERENCES public.establishments(id) ON DELETE CASCADE,
-  prep_area text NOT NULL CHECK (prep_area IN ('entrada', 'principal', 'postre')),
+  prep_area text NOT NULL CHECK (prep_area IN ('entrada', 'principal', 'postre', 'bebida')),
   printer_name text NOT NULL CHECK (char_length(btrim(printer_name)) BETWEEN 1 AND 200),
   paper_width integer NOT NULL DEFAULT 80 CHECK (paper_width IN (58, 80)),
   is_active boolean NOT NULL DEFAULT true,
