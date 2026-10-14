@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import SectionHelp from '@/components/shared/SectionHelp';
+import RemoteSupportButton from '@/components/shared/RemoteSupportButton';
 import { usePrivateTheme } from '@/hooks/usePrivateTheme';
 import ViewAsBanner from '@/components/shared/ViewAsBanner';
 
@@ -70,6 +71,7 @@ export default function WaiterLayout({ children }: { children: React.ReactNode }
             <SidebarTrigger />
             <span className="ml-3 text-sm font-medium text-muted-foreground">Mesero</span>
             <span className="ml-2 flex items-center"><SectionHelp /></span>
+            <div className="ml-auto flex items-center gap-2"><RemoteSupportButton /></div>
           </header>
           <main className="workspace-main">{children}</main>
         </div>
