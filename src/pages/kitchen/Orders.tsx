@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { KitchenTicket, KitchenTicketData } from '@/components/kitchen/KitchenTicket';
 import { PLATFORM_LABELS, type DeliveryPlatform } from '@/hooks/useDeliverySettings';
-import { agentOnline, agentPrint, groupByStation, PREP_AREAS, PREP_AREA_LABEL, type PrepArea, type PrintStation } from '@/lib/printAgent';
+import { agentOnline, agentPrint, DEFAULT_PREP_AREA, groupByStation, PREP_AREAS, PREP_AREA_LABEL, type PrepArea, type PrintStation } from '@/lib/printAgent';
 
 function formatElapsed(created: string) {
   const diff = Math.floor((Date.now() - new Date(created).getTime()) / 1000);
@@ -296,7 +296,19 @@ export default function KitchenOrders() {
       return;
     }
     if (r.hasStations) toast.warning('El agente de impresión no responde: la comanda sale por la impresora de esta PC');
-    enqueueBrowser(ticket);
+    splitBySector(ticket).forEach(enqueueBrowser);
+  };
+
+  // Impresión por el navegador (una sola impresora): una comanda por sector, cada una con su título.
+  // Si ninguna categoría tiene sector asignado, sale una sola comanda como siempre.
+  const splitBySector = (ticket: KitchenTicketData): KitchenTicketData[] => {
+    if (!ticket.items.some((i) => i.area)) return [ticket];
+    const byArea = new Map<PrepArea, KitchenTicketData['items']>();
+    for (const it of ticket.items) {
+      const area = it.area ?? DEFAULT_PREP_AREA;
+      byArea.set(area, [...(byArea.get(area) ?? []), it]);
+    }
+    return PREP_AREAS.filter((a) => byArea.has(a)).map((a) => ({ ...ticket, areaName: PREP_AREA_LABEL[a], items: byArea.get(a)! }));
   };
 
   const printTest = () => {
