@@ -13,6 +13,7 @@ export interface ShiftReportData {
   cash: number;
   card: number;
   transfer: number;
+  account?: number;
   initialCash: number;
   cashIncome: number;
   cashExpenses: number;
@@ -84,6 +85,7 @@ export function ShiftReportBody({ data, reprint }: { data: ShiftReportData; repr
         <Row label="Efectivo" value={fmt(data.cash)} />
         <Row label="Tarjeta" value={fmt(data.card)} />
         <Row label="Transferencia" value={fmt(data.transfer)} />
+        {(data.account ?? 0) > 0 && <Row label="A cuenta corriente" value={fmt(data.account ?? 0)} />}
       </div>
 
       <div className="border-t border-dashed border-foreground my-1" />

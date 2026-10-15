@@ -377,6 +377,8 @@ function FinanceTab({ establishmentId, userId }: { establishmentId: string | nul
       );
 
       const salesTx = (closedOrders || [])
+        // Lo cargado a cuenta corriente entra como ingreso recién cuando la empresa paga.
+        .filter((o: any) => o.payment_method !== 'account')
         .filter((o: any) => !salesKeys.has(`${toArgDate(o.created_at)}|${Number(o.total).toFixed(2)}`))
         .map((o: any) => ({
           id: `sale-${o.id}`,

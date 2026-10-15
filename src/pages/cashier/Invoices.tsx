@@ -43,7 +43,7 @@ const PAYMENT_METHODS = [
   { value: 'transfer', label: 'Transferencia', icon: Smartphone },
 ];
 
-const PAYMENT_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia' };
+const PAYMENT_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', account: 'Cuenta corriente' };
 
 export default function CashierInvoices() {
   const { establishmentId, session } = useAuth();

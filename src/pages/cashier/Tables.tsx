@@ -27,7 +27,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { DollarSign, CreditCard, Banknote, Smartphone, AlertTriangle, Gift, HandCoins, Receipt, Plus, X, Utensils, Sparkles } from 'lucide-react';
+import { DollarSign, CreditCard, Banknote, Smartphone, AlertTriangle, Gift, HandCoins, Receipt, Plus, X, Utensils, Sparkles, Building2 } from 'lucide-react';
 import CourtesyDialog from '@/components/shared/CourtesyDialog';
 import { useCloseTableAsCourtesy, CourtesyType } from '@/hooks/useCloseTableAsCourtesy';
 import PreBillTicket from '@/components/cashier/PreBillTicket';
@@ -49,6 +49,7 @@ const PAYMENT_METHODS = [
   { value: 'cash', label: 'Efectivo', icon: Banknote },
   { value: 'card', label: 'Tarjeta', icon: CreditCard },
   { value: 'transfer', label: 'Transferencia', icon: Smartphone },
+  { value: 'account', label: 'Cuenta corriente', icon: Building2 },
 ];
 
 export default function CashierTables() {
@@ -84,6 +85,11 @@ export default function CashierTables() {
   const [excludedItemIds, setExcludedItemIds] = useState<string[]>([]);
   // Motivo obligatorio cuando la mesa se cierra en $0
   const [zeroReason, setZeroReason] = useState('');
+  // Cuenta corriente: empresa a la que se carga la mesa y datos del vale
+  const [companyId, setCompanyId] = useState('');
+  const [voucherNumber, setVoucherNumber] = useState('');
+  const [voucherDiners, setVoucherDiners] = useState('1');
+  const [voucherSignedBy, setVoucherSignedBy] = useState('');
 
 
   const { data: tables = [] } = useQuery({
@@ -325,8 +331,28 @@ export default function CashierTables() {
     return (sorted[0] as any)?.created_by || '';
   }, [tableOrders]);
 
+  // Empresas con cuenta corriente activas (para cargarles la mesa)
+  const { data: companies = [] } = useQuery({
+    queryKey: ['company-accounts', 'active', establishmentId],
+    queryFn: async () => {
+      const { data, error } = await db
+        .from('company_accounts')
+        .select('id, name')
+        .eq('establishment_id', establishmentId!)
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return (data ?? []) as { id: string; name: string }[];
+    },
+    enabled: !!establishmentId && !!selectedTable,
+  });
+
   // Tip rules: in 'individual' mode, only card/transfer accept tips. In 'pool', any method.
-  const canRegisterTip = tipMode === 'pool' || paymentMethod === 'card' || paymentMethod === 'transfer';
+  // Los vales de cuenta corriente no llevan propina.
+  const canRegisterTip = paymentMethod !== 'account' && (tipMode === 'pool' || paymentMethod === 'card' || paymentMethod === 'transfer');
+  const isAccount = paymentMethod === 'account';
+  const pmLabel = (m: string) =>
+    m === 'cash' ? 'Efectivo' : m === 'card' ? 'Tarjeta' : m === 'transfer' ? 'Transferencia' : m === 'account' ? 'Cuenta corriente' : m;
   const tipNum = parseFloat(tipAmount) || 0;
 
   const closeAllOrders = useMutation({
@@ -342,8 +368,26 @@ export default function CashierTables() {
       if (!isZeroClose && paymentMethod === 'cash' && (isNaN(paid) || paid < cashRequired)) {
         throw new Error('El monto pagado debe cubrir el total + propina en efectivo');
       }
-      if (tipMode === 'individual' && tipNum > 0 && !tipWaiterId) {
+      if (tipMode === 'individual' && canRegisterTip && tipNum > 0 && !tipWaiterId) {
         throw new Error('Seleccioná el mozo que recibe la propina');
+      }
+      const company = isAccount ? companies.find(c => c.id === companyId) : undefined;
+      const voucherNo = voucherNumber.trim();
+      const diners = parseInt(voucherDiners, 10);
+      if (isAccount) {
+        if (isZeroClose) throw new Error('La mesa está en $0: no hay nada para cargar a la cuenta corriente');
+        if (!company) throw new Error('Elegí la empresa');
+        if (!voucherNo) throw new Error('Cargá el número de vale');
+        if (!Number.isInteger(diners) || diners < 1) throw new Error('Indicá cuántas personas comieron');
+        // Se revisa antes de cerrar para no dejar la mesa cerrada sin vale.
+        const { data: dup, error: dupErr } = await db
+          .from('company_vouchers')
+          .select('id')
+          .eq('account_id', company.id)
+          .ilike('voucher_number', voucherNo.replace(/[\\%_]/g, '\\$&'))
+          .limit(1);
+        if (dupErr) throw dupErr;
+        if (dup && dup.length > 0) throw new Error(`El vale ${voucherNo} ya está cargado para ${company.name}`);
       }
 
 
@@ -384,13 +428,14 @@ export default function CashierTables() {
         salesCat = newCat;
       }
 
-      if (salesCat) {
+      // Lo cargado a cuenta corriente no entra a caja: el ingreso se registra cuando la empresa paga.
+      if (salesCat && !isAccount) {
         await db.from('finance_transactions').insert({
           establishment_id: establishmentId!,
           category_id: salesCat.id,
           type: 'income',
           amount: grandTotal,
-          description: `Mesa ${selectedTable!.number} - ${paymentMethod === 'cash' ? 'Efectivo' : paymentMethod === 'card' ? 'Tarjeta' : 'Transferencia'}`,
+          description: `Mesa ${selectedTable!.number} - ${pmLabel(paymentMethod)}`,
           date: new Date().toISOString().split('T')[0],
           created_by: session?.user?.id || null,
         });
@@ -495,6 +540,21 @@ export default function CashierTables() {
         if (stockErr) console.error('apply_sale_stock', stockErr);
       }
 
+      // El vale queda pendiente en la cuenta de la empresa hasta que se cobre.
+      if (isAccount && company) {
+        const { error: voucherErr } = await db.from('company_vouchers').insert({
+          establishment_id: establishmentId!,
+          account_id: company.id,
+          voucher_number: voucherNo,
+          diners,
+          signed_by: voucherSignedBy.trim() || null,
+          table_number: selectedTable!.number,
+          order_ids: tableOrders.map((o: any) => o.id),
+          invoice_id: (invoiceRow as any)?.id ?? null,
+          amount: grandTotal,
+        } as any);
+        if (voucherErr) throw new Error(`La mesa se cerró pero no se pudo cargar el vale: ${voucherErr.message}`);
+      }
 
       if (isZeroClose || excludedSnapshot.length > 0) {
         await db.from('audit_logs').insert({
@@ -541,13 +601,21 @@ export default function CashierTables() {
       queryClient.invalidateQueries({ queryKey: ['direct-stock-products'] });
 
 
-      if (change > 0) {
+      if (isAccount) {
+        const name = companies.find(c => c.id === companyId)?.name ?? 'la empresa';
+        toast.success(`Mesa cargada a la cuenta corriente de ${name}`);
+        queryClient.invalidateQueries({ queryKey: ['company-accounts'] });
+      } else if (change > 0) {
         toast.success(`Mesa cerrada. Vuelto: $${change.toFixed(2)}`);
       } else {
         toast.success('Mesa cerrada correctamente');
       }
       setSelectedTable(null);
       setPaymentMethod('cash');
+      setCompanyId('');
+      setVoucherNumber('');
+      setVoucherDiners('1');
+      setVoucherSignedBy('');
       setAmountPaid('');
       setTipAmount('');
       setTipWaiterId('');
@@ -727,7 +795,7 @@ export default function CashierTables() {
         })}
       </div>
 
-      <Dialog open={!!selectedTable} onOpenChange={v => { if (!v) { setSelectedTable(null); setAmountPaid(''); setTipAmount(''); setTipWaiterId(''); setAdjustments([]); setExcludedItemIds([]); setZeroReason(''); } }}>
+      <Dialog open={!!selectedTable} onOpenChange={v => { if (!v) { setSelectedTable(null); setAmountPaid(''); setTipAmount(''); setTipWaiterId(''); setAdjustments([]); setExcludedItemIds([]); setZeroReason(''); setPaymentMethod('cash'); setCompanyId(''); setVoucherNumber(''); setVoucherDiners('1'); setVoucherSignedBy(''); } }}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Mesa {selectedTable?.number} — Detalle de cuenta</DialogTitle>
@@ -971,7 +1039,7 @@ export default function CashierTables() {
               {/* Payment section */}
               <div className="space-y-3 border-t pt-4">
                 <Label className="text-sm font-semibold">Método de pago</Label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {PAYMENT_METHODS.map(pm => (
                     <Button
                       key={pm.value}
@@ -1011,9 +1079,54 @@ export default function CashierTables() {
                     )}
                   </div>
                 )}
+
+                {isAccount && (
+                  <div className="space-y-3 rounded-lg border p-3">
+                    <p className="text-xs text-muted-foreground">
+                      La mesa no se cobra ahora: queda como vale pendiente en la cuenta de la empresa y no entra a la caja.
+                    </p>
+                    {companies.length === 0 ? (
+                      <Alert>
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertDescription className="text-xs">
+                          No hay empresas cargadas. Agregalas en "Cuentas corrientes".
+                        </AlertDescription>
+                      </Alert>
+                    ) : (
+                      <div className="space-y-1">
+                        <Label className="text-xs">Empresa *</Label>
+                        <Select value={companyId} onValueChange={setCompanyId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="¿De qué empresa es?" />
+                          </SelectTrigger>
+                          <SelectContent position="popper" className="z-[100]">
+                            {companies.map(c => (
+                              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="voucherNumber" className="text-xs">N° de vale *</Label>
+                        <Input id="voucherNumber" value={voucherNumber} onChange={e => setVoucherNumber(e.target.value)} maxLength={40} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="voucherDiners" className="text-xs">Personas</Label>
+                        <Input id="voucherDiners" type="number" min={1} step={1} value={voucherDiners} onChange={e => setVoucherDiners(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="voucherSignedBy" className="text-xs">Firma (opcional)</Label>
+                      <Input id="voucherSignedBy" value={voucherSignedBy} onChange={e => setVoucherSignedBy(e.target.value)} maxLength={120} placeholder="Nombre de quien firma el vale" />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Tip section */}
+              {!isAccount && (
               <div className="space-y-3 border-t pt-4">
                 <div className="flex items-center gap-2">
                   <HandCoins className="h-4 w-4 text-primary" />
@@ -1071,19 +1184,21 @@ export default function CashierTables() {
                   </>
                 )}
               </div>
+              )}
 
               <Button
                 className="w-full gap-2"
                 onClick={() => closeAllOrders.mutate()}
                 disabled={
                   closeAllOrders.isPending ||
+                  (isAccount && (!companyId || !voucherNumber.trim() || isZeroClose)) ||
                   (isZeroClose && !zeroReason.trim()) ||
                   (!isZeroClose && paymentMethod === 'cash' && (paidNum < cashRequired || paidNum === 0)) ||
                   (tipMode === 'individual' && canRegisterTip && tipNum > 0 && !tipWaiterId && waiters.length > 0)
                 }
               >
                 <DollarSign className="h-4 w-4" />
-                Cerrar mesa — ${(grandTotal + (canRegisterTip ? tipNum : 0)).toFixed(2)}
+                {isAccount ? 'Cargar a cuenta corriente' : 'Cerrar mesa'} — ${(grandTotal + (canRegisterTip ? tipNum : 0)).toFixed(2)}
               </Button>
 
               <Button

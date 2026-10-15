@@ -23,6 +23,7 @@ const PAYMENT_LABELS: Record<string, string> = {
   cash: 'Efectivo',
   card: 'Tarjeta',
   transfer: 'Transferencia',
+  account: 'Cuenta corriente',
 };
 
 export default function ShiftFiscalStep({ onComplete, onSkip, shiftOpenedAt }: ShiftFiscalStepProps) {
@@ -76,7 +77,8 @@ export default function ShiftFiscalStep({ onComplete, onSkip, shiftOpenedAt }: S
     enabled: !!establishmentId,
   });
 
-  const pendingInvoices = unfiscaledInvoices.filter((inv: any) => !inv.hasFiscal);
+  // Lo cargado a cuenta corriente se factura después a la empresa, no al cerrar el turno.
+  const pendingInvoices = unfiscaledInvoices.filter((inv: any) => !inv.hasFiscal && inv.payment_method !== 'account');
   const filteredInvoices = paymentFilter === 'all'
     ? pendingInvoices
     : pendingInvoices.filter((inv: any) => inv.payment_method === paymentFilter);

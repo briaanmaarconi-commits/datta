@@ -174,6 +174,7 @@ export default function ShiftSummary() {
       cash: cashSales,
       card: sumBy('card'),
       transfer: sumBy('transfer'),
+      account: sumBy('account'),
       initialCash: initial,
       cashIncome: cashSales + manualIncome,
       cashExpenses: manualExpenses,
@@ -221,6 +222,7 @@ export default function ShiftSummary() {
         cash: sumBy('cash'),
         card: sumBy('card'),
         transfer: sumBy('transfer'),
+        account: sumBy('account'),
       };
     },
     enabled: !!establishmentId,
@@ -576,6 +578,12 @@ export default function ShiftSummary() {
                     <TableCell>Transferencia</TableCell>
                     <TableCell className="text-right font-bold">${(stats?.transfer ?? 0).toFixed(2)}</TableCell>
                   </TableRow>
+                  {(stats?.account ?? 0) > 0 && (
+                    <TableRow>
+                      <TableCell>A cuenta corriente</TableCell>
+                      <TableCell className="text-right font-bold">${(stats?.account ?? 0).toFixed(2)}</TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>

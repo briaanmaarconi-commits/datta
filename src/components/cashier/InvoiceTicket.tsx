@@ -47,6 +47,7 @@ const PAYMENT_LABELS: Record<string, string> = {
   cash: 'Efectivo',
   card: 'Tarjeta',
   transfer: 'Transferencia',
+  account: 'Cuenta corriente',
 };
 
 const TIPO_LABELS: Record<number, string> = {

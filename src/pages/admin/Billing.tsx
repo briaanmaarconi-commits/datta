@@ -26,7 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useShowMore, ShowMoreButton } from '@/components/ui/show-more';
 import { tableLabel, tableCell } from '@/lib/ownDelivery';
 
-const PAYMENT_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia' };
+const PAYMENT_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', account: 'Cuenta corriente' };
 
 export default function AdminBilling() {
   const { establishmentId, session } = useAuth();

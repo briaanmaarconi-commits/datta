@@ -157,6 +157,8 @@ export default function CashierExpenses() {
       const usedKeys = new Set<string>();
 
       const salesTx = (closedOrders || [])
+        // Lo cargado a cuenta corriente entra como ingreso recién cuando la empresa paga.
+        .filter((o: any) => o.payment_method !== 'account')
         .filter((o: any) => {
           const key = `${toArgDate(o.created_at)}|${Number(o.total).toFixed(2)}`;
           if (salesKeys.has(key) && !usedKeys.has(`${key}|${o.id}`)) {
