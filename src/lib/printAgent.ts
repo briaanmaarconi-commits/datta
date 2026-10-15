@@ -1,10 +1,11 @@
 // Cliente del Agente de impresión de Datta (programa local de la PC de cocina, ver /agent).
 // El agente escucha solo en 127.0.0.1 y reparte cada comanda a la impresora de su sector.
 
-export type PrepArea = 'entrada' | 'principal' | 'postre' | 'bebida';
-export const PREP_AREAS: PrepArea[] = ['entrada', 'principal', 'postre', 'bebida'];
+export type PrepArea = 'entrada' | 'fiambreria' | 'principal' | 'postre' | 'bebida';
+export const PREP_AREAS: PrepArea[] = ['entrada', 'fiambreria', 'principal', 'postre', 'bebida'];
 export const PREP_AREA_LABEL: Record<PrepArea, string> = {
   entrada: 'Entrada',
+  fiambreria: 'Fiambrería',
   principal: 'Plato principal',
   postre: 'Postre',
   bebida: 'Bebidas',

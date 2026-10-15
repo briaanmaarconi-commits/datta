@@ -6,6 +6,7 @@ import {
 import GroupedNav, { type NavEntry } from '@/components/shared/GroupedNav';
 import { Button } from '@/components/ui/button';
 import FloatingCalculator from '@/components/cashier/FloatingCalculator';
+import CashierComandaPrinter from '@/components/cashier/CashierComandaPrinter';
 import ChatBot from '@/components/admin/ChatBot';
 import SupportAssistant from '@/components/support/SupportAssistant';
 import { useDeliverySettings } from '@/hooks/useDeliverySettings';
@@ -112,6 +113,7 @@ export default function CashierLayout({ children }: { children: React.ReactNode 
       {/* el asistente queda arriba de la calculadora para no taparse */}
       {!viewAs && <ChatBot bottomClass="bottom-24" />}
       <FloatingCalculator />
+      <CashierComandaPrinter />
     </SidebarProvider>
   );
 }

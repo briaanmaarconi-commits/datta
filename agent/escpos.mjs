@@ -20,7 +20,7 @@ export function encodeText(text, plain = false) {
   return out;
 }
 
-const AREA_LABEL = { entrada: 'ENTRADA', principal: 'PLATO PRINCIPAL', postre: 'POSTRE', bebida: 'BEBIDAS' };
+const AREA_LABEL = { entrada: 'ENTRADA', fiambreria: 'FIAMBRERIA', principal: 'PLATO PRINCIPAL', postre: 'POSTRE', bebida: 'BEBIDAS' };
 export const areaLabel = (a) => AREA_LABEL[a] ?? String(a ?? '').toUpperCase();
 
 function wrap(text, width) {

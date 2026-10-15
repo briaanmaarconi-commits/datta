@@ -6,7 +6,7 @@ export interface KitchenTicketItem {
   name: string;
   notes?: string | null;
   /** Sector de preparación (entrada / principal / postre). */
-  area?: 'entrada' | 'principal' | 'postre' | 'bebida' | null;
+  area?: 'entrada' | 'fiambreria' | 'principal' | 'postre' | 'bebida' | null;
 }
 
 export interface KitchenTicketData {
