@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { getTableVisualState } from '@/lib/tableStatus';
 import TableStatusLegend from '@/components/shared/TableStatusLegend';
+import { PlanVariant, PlanLayout, StoredFloorPlan, VARIANT_LABEL, getLayout, hasWeekendLayout, weekendPlanEnabled } from '@/lib/floorPlanVariant';
 import {
   Save, RotateCcw, Trash2, RotateCw,
   Move, UtensilsCrossed, Bath, DoorOpen, Wine, Armchair,
@@ -190,11 +191,53 @@ export default function FloorPlanEditor() {
     enabled: !!establishmentId && !!selectedSector,
   });
 
-  useEffect(() => {
-    const layout = floorPlan?.layout_data as unknown as FloorPlanData | undefined;
+  // Versión del plano que se está editando (semana / fin de semana). Lo que se edita en una
+  // versión queda en borrador al pasar a la otra, y "Guardar plano" guarda las dos juntas.
+  const [variant, setVariant] = useState<PlanVariant>('weekday');
+  const draftsRef = useRef<Partial<Record<PlanVariant, PlanLayout | null>>>({});
+  const stored = floorPlan?.layout_data as unknown as StoredFloorPlan | undefined;
+
+  const loadLayout = (layout: PlanLayout | null | undefined) => {
     setElements(layout?.elements || []);
     setCanvasSize({ width: layout?.width || DEFAULT_PLAN_W, height: layout?.height || DEFAULT_PLAN_H });
+    setSelectedElement(null);
+  };
+
+  useEffect(() => {
+    // Al recargar (p. ej. después de guardar) se queda en la versión que se estaba viendo.
+    draftsRef.current = {};
+    const keep: PlanVariant = variant === 'weekend' && hasWeekendLayout(stored) ? 'weekend' : 'weekday';
+    setVariant(keep);
+    loadLayout(getLayout(stored, keep));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [floorPlan]);
+
+  const currentLayout = (): PlanLayout => ({ elements, ...canvasSize });
+
+  const switchVariant = (next: PlanVariant) => {
+    if (next === variant) return;
+    draftsRef.current[variant] = currentLayout();
+    const draft = draftsRef.current[next];
+    if (draft !== undefined && draft !== null) loadLayout(draft);
+    else if (next === 'weekend' && !hasWeekendLayout(stored)) {
+      // Primera vez: arranca como copia del plano de semana, sólo hay que mover mesas.
+      const base = draftsRef.current.weekday ?? getLayout(stored, 'weekday');
+      loadLayout(base ? { ...base, elements: base.elements.map(el => ({ ...el })) } : null);
+    } else loadLayout(getLayout(stored, next));
+    setVariant(next);
+  };
+
+  // ¿Este sector tiene (o va a tener al guardar) versión de fin de semana?
+  const weekendDraft = draftsRef.current.weekend;
+  const weekendEnabled = variant === 'weekend' || (weekendDraft !== undefined ? weekendDraft !== null : hasWeekendLayout(stored));
+
+  const removeWeekend = () => {
+    draftsRef.current.weekend = null;
+    const base = draftsRef.current.weekday ?? getLayout(stored, 'weekday');
+    loadLayout(base);
+    setVariant('weekday');
+    toast.info('Se quitará el plano de fin de semana al guardar');
+  };
 
   useEffect(() => {
     const el = frameRef.current;
@@ -259,7 +302,10 @@ export default function FloorPlanEditor() {
 
   const savePlan = useMutation({
     mutationFn: async () => {
-      const layoutData: FloorPlanData = { elements, ...canvasSize };
+      const drafts = { ...draftsRef.current, [variant]: currentLayout() };
+      const weekday = drafts.weekday ?? getLayout(stored, 'weekday') ?? { elements: [], ...canvasSize };
+      const weekend = drafts.weekend !== undefined ? drafts.weekend : (hasWeekendLayout(stored) ? stored!.weekend! : null);
+      const layoutData: StoredFloorPlan = { ...weekday, ...(weekend ? { weekend } : {}) };
       if (floorPlan) {
         const { error } = await db.from('floor_plans').update({ layout_data: layoutData as any }).eq('id', floorPlan.id);
         if (error) throw error;
@@ -614,6 +660,26 @@ export default function FloorPlanEditor() {
             </SelectContent>
           </Select>
         </div>
+        {weekendPlanEnabled(establishmentId) && (
+        <div className="flex items-center gap-2">
+          <Label className="text-sm font-medium">Distribución:</Label>
+          <div className="inline-flex rounded-md border p-0.5">
+            {(['weekday', 'weekend'] as const).map(v => (
+              <Button
+                key={v} size="sm" variant={variant === v ? 'default' : 'ghost'} className="h-8"
+                onClick={() => switchVariant(v)}
+              >
+                {VARIANT_LABEL[v]}
+              </Button>
+            ))}
+          </div>
+          {variant === 'weekend' && weekendEnabled && (
+            <Button size="sm" variant="ghost" className="h-8 text-xs text-muted-foreground" onClick={removeWeekend}>
+              Usar el mismo de semana
+            </Button>
+          )}
+        </div>
+        )}
         <div className="flex items-center gap-2">
           <Label className="text-sm font-medium">Tamaño:</Label>
           <Input
@@ -638,6 +704,12 @@ export default function FloorPlanEditor() {
           <Save className="h-3 w-3" /> Guardar plano
         </Button>
       </div>
+
+      {variant === 'weekend' && (
+        <p className="text-sm text-muted-foreground">
+          Estás editando la distribución de <strong>fin de semana / feriado</strong>. Las mozas la ven sola los sábados y domingos, y la pueden elegir a mano los feriados. Guardá para aplicar los cambios.
+        </p>
+      )}
 
       <TableStatusLegend />
 

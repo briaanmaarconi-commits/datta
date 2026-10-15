@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { getTableVisualState } from '@/lib/tableStatus';
+import { PlanVariant, StoredFloorPlan, getLayout, hasWeekendLayout, weekendPlanEnabled, getTodayVariant, setTodayVariant } from '@/lib/floorPlanVariant';
 
 interface FloorElement {
   id: string;
@@ -68,6 +69,9 @@ export default function FloorPlanView({ onTableClick, tables, activeOrders }: Fl
   const [selectedSector, setSelectedSector] = useState<string>('');
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
+  // Distribución del día (semana / fin de semana); los feriados la cambia el mozo a mano.
+  const [variant, setVariantState] = useState<PlanVariant>(getTodayVariant);
+  const setVariant = (v: PlanVariant) => { setVariantState(v); setTodayVariant(v); };
 
   const { data: sectors = [] } = useQuery({
     queryKey: ['sectors', establishmentId],
@@ -97,7 +101,9 @@ export default function FloorPlanView({ onTableClick, tables, activeOrders }: Fl
     if (sectors.length > 0 && !selectedSector) setSelectedSector(sectors[0].id);
   }, [sectors, selectedSector]);
 
-  const layout = floorPlan?.layout_data as unknown as FloorPlanData;
+  const stored = floorPlan?.layout_data as unknown as StoredFloorPlan | undefined;
+  const hasWeekend = weekendPlanEnabled(establishmentId) && hasWeekendLayout(stored);
+  const layout = getLayout(stored, hasWeekend ? variant : 'weekday') as FloorPlanData | null;
   const elements = layout?.elements || [];
   const hasFloorPlan = elements.length > 0;
 
@@ -164,7 +170,7 @@ export default function FloorPlanView({ onTableClick, tables, activeOrders }: Fl
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [floorPlan, hasFloorPlan]);
+  }, [floorPlan, hasFloorPlan, variant]);
 
   // Tocar "cerca" de una mesa la abre: se elige la mesa más próxima al dedo (hasta
   // TAP_SLOP px de pantalla), así un toque impreciso no abre la mesa de al lado.
@@ -228,6 +234,19 @@ export default function FloorPlanView({ onTableClick, tables, activeOrders }: Fl
           </div>
         )}
       </div>
+
+      {hasWeekend && (
+        <div className="grid grid-cols-2 gap-1 rounded-lg border p-1 sm:inline-grid sm:w-auto">
+          {([['weekday', 'Día de semana'], ['weekend', 'Finde / feriado']] as const).map(([v, label]) => (
+            <Button
+              key={v} variant={variant === v ? 'default' : 'ghost'} className="h-10"
+              onClick={() => setVariant(v)}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+      )}
 
       {!hasFloorPlan ? (
         <div className="text-center py-8 text-muted-foreground border rounded-lg bg-muted/20">
