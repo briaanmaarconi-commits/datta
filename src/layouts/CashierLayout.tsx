@@ -36,6 +36,7 @@ function navEntries(deliveryEnabled: boolean): NavEntry[] {
         { title: 'Cuentas corrientes', url: '/cashier/cuentas-corrientes', icon: Building2 },
         { title: 'Salidas e ingresos', url: '/cashier/expenses', icon: DollarSign },
         { title: 'Facturación', url: '/cashier/invoices', icon: FileText },
+        { title: 'Facturar varias', url: '/cashier/billing', icon: FileText },
         { title: 'Resumen de turno', url: '/cashier/shift', icon: Receipt },
         { title: 'Caja', url: '/cashier/cash', icon: Wallet },
       ],

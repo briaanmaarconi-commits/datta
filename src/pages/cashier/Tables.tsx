@@ -34,6 +34,21 @@ import PreBillTicket from '@/components/cashier/PreBillTicket';
 import CloseTicket, { CloseTicketData } from '@/components/cashier/CloseTicket';
 import AddProductsDialog, { CartLine } from '@/components/cashier/AddProductsDialog';
 import { printTicketPortal } from '@/lib/print';
+import { invokeAfip } from '@/lib/afipInvoke';
+import FiscalTicketDialog from '@/components/cashier/FiscalTicketDialog';
+import type { FacturaTicketData } from '@/components/cashier/FacturaTicket80mm';
+import CuitReceptorFields from '@/components/shared/CuitReceptorFields';
+import { Switch } from '@/components/ui/switch';
+
+interface FiscalConfig {
+  name: string | null;
+  razon_social: string | null;
+  cuit: string | null;
+  domicilio_comercial: string | null;
+  condicion_iva: string | null;
+  punto_venta_afip: number | null;
+}
+type AuthResult = Pick<FacturaTicketData, 'tipo_cbte' | 'punto_venta' | 'cbte_numero' | 'cae' | 'cae_vto' | 'neto_gravado' | 'iva_amount'> & { total?: number };
 import { getOrdersCutoff } from '@/lib/shiftScope';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import {
@@ -69,6 +84,12 @@ export default function CashierTables() {
   const [ticketReprint, setTicketReprint] = useState(false);
   const [printingClose, setPrintingClose] = useState(false);
   const [addProductsOpen, setAddProductsOpen] = useState(false);
+  // Facturación electrónica al cerrar la mesa (opcional, la elige la cajera en cada cobro).
+  const [emitFiscal, setEmitFiscal] = useState(false);
+  const [fiscalCondicion, setFiscalCondicion] = useState('consumidor_final');
+  const [fiscalCuit, setFiscalCuit] = useState('');
+  const [fiscalRazon, setFiscalRazon] = useState('');
+  const [fiscalTicket, setFiscalTicket] = useState<FacturaTicketData | null>(null);
   const { log: auditLog } = useAuditLog();
 
   useEffect(() => {
@@ -126,6 +147,24 @@ export default function CashierTables() {
     },
     enabled: !!establishmentId,
   });
+
+  const { data: fiscalConfig } = useQuery({
+    queryKey: ['fiscal-config-close', establishmentId],
+    queryFn: async () => {
+      const { data } = await db
+        .from('establishments')
+        .select('name, razon_social, cuit, domicilio_comercial, condicion_iva, punto_venta_afip')
+        .eq('id', establishmentId!)
+        .single();
+      return data as FiscalConfig | null;
+    },
+    enabled: !!establishmentId,
+    staleTime: 5 * 60 * 1000,
+  });
+  const hasFiscalConfig = !!(fiscalConfig?.cuit && fiscalConfig?.punto_venta_afip);
+  const fiscalIsRI = fiscalConfig?.condicion_iva === 'responsable_inscripto';
+  const fiscalNeedsReceptor = fiscalIsRI && fiscalCondicion === 'responsable_inscripto'; // Factura A
+  const fiscalIncomplete = emitFiscal && paymentMethod !== 'account' && fiscalNeedsReceptor && (!fiscalCuit.trim() || !fiscalRazon.trim());
 
   // Realtime subscription
   useEffect(() => {
@@ -586,9 +625,52 @@ export default function CashierTables() {
         createdAt: (invoiceRow as any)?.created_at || new Date().toISOString(),
         establishmentName: establishment?.name,
       };
-      return ticket;
+
+      // Factura electrónica en el mismo paso. Si ARCA falla, la mesa YA quedó cobrada: no se pierde nada
+      // y la factura se puede emitir después desde Facturación.
+      let fiscal: FacturaTicketData | null = null;
+      let fiscalError: string | null = null;
+      const closedInvoiceId = (invoiceRow as { id?: string } | null)?.id;
+      if (emitFiscal && !isAccount && !isZeroClose && closedInvoiceId) {
+        const rcuit = fiscalNeedsReceptor ? fiscalCuit.replace(/[^0-9]/g, '') : null;
+        const rrazon = fiscalNeedsReceptor ? fiscalRazon.trim() : null;
+        try {
+          const res = (await invokeAfip({
+            action: 'authorize',
+            establishment_id: establishmentId,
+            invoice_id: closedInvoiceId,
+            total: grandTotal,
+            items: itemsSnapshot,
+            payment_method: paymentMethod,
+            receptor_condicion_iva: fiscalCondicion,
+            receptor_cuit: rcuit,
+            receptor_razon_social: rrazon,
+            is_credit_note: false,
+            created_by: session?.user?.id,
+          })) as AuthResult;
+          fiscal = {
+            tipo_cbte: res.tipo_cbte,
+            punto_venta: res.punto_venta,
+            cbte_numero: res.cbte_numero,
+            cae: res.cae,
+            cae_vto: res.cae_vto,
+            created_at: new Date().toISOString(),
+            total: Number(res.total ?? grandTotal),
+            neto_gravado: res.neto_gravado,
+            iva_amount: res.iva_amount,
+            payment_method: paymentMethod,
+            receptor_cuit: rcuit,
+            receptor_razon_social: rrazon,
+            receptor_condicion_iva: fiscalCondicion,
+            items: itemsSnapshot as FacturaTicketData['items'],
+          };
+        } catch (e) {
+          fiscalError = e instanceof Error && e.message ? e.message : 'No se pudo emitir la factura';
+        }
+      }
+      return { ticket, fiscal, fiscalError };
     },
-    onSuccess: (ticket: CloseTicketData) => {
+    onSuccess: ({ ticket, fiscal, fiscalError }: { ticket: CloseTicketData; fiscal: FacturaTicketData | null; fiscalError: string | null }) => {
       const paid = parseFloat(amountPaid);
       const cashTipPart = paymentMethod === 'cash' && tipMode === 'pool' ? tipNum : 0;
       const change = paymentMethod === 'cash' ? Math.max(0, paid - (grandTotal + cashTipPart)) : 0;
@@ -610,6 +692,16 @@ export default function CashierTables() {
       } else {
         toast.success('Mesa cerrada correctamente');
       }
+      if (fiscal) {
+        toast.success('Factura emitida - CAE: ' + fiscal.cae);
+        setFiscalTicket(fiscal);
+      } else if (fiscalError) {
+        toast.error('La mesa se cerró, pero no se pudo facturar: ' + fiscalError + '. Facturala desde Facturación.', { duration: 12000 });
+      }
+      setEmitFiscal(false);
+      setFiscalCondicion('consumidor_final');
+      setFiscalCuit('');
+      setFiscalRazon('');
       setSelectedTable(null);
       setPaymentMethod('cash');
       setCompanyId('');
@@ -1186,12 +1278,47 @@ export default function CashierTables() {
               </div>
               )}
 
+              {hasFiscalConfig && !isZeroClose && !isAccount && (
+                <div className="rounded-lg border p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label htmlFor="emit-fiscal" className="text-sm font-medium">Emitir factura electrónica (ARCA)</Label>
+                    <Switch id="emit-fiscal" checked={emitFiscal} onCheckedChange={setEmitFiscal} />
+                  </div>
+                  {emitFiscal && (
+                    fiscalIsRI ? (
+                      <div className="space-y-3">
+                        <Select value={fiscalCondicion} onValueChange={setFiscalCondicion}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="consumidor_final">Consumidor final (Factura B)</SelectItem>
+                            <SelectItem value="responsable_inscripto">Empresa / Responsable inscripto (Factura A)</SelectItem>
+                            <SelectItem value="monotributo">Monotributista (Factura B)</SelectItem>
+                            <SelectItem value="exento">Exento (Factura B)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {fiscalNeedsReceptor && (
+                          <CuitReceptorFields
+                            cuit={fiscalCuit}
+                            razonSocial={fiscalRazon}
+                            onCuitChange={setFiscalCuit}
+                            onRazonSocialChange={setFiscalRazon}
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Como Monotributista, se emite Factura C.</p>
+                    )
+                  )}
+                </div>
+              )}
+
               <Button
                 className="w-full gap-2"
                 onClick={() => closeAllOrders.mutate()}
                 disabled={
                   closeAllOrders.isPending ||
                   (isAccount && (!companyId || !voucherNumber.trim() || isZeroClose)) ||
+                  fiscalIncomplete ||
                   (isZeroClose && !zeroReason.trim()) ||
                   (!isZeroClose && paymentMethod === 'cash' && (paidNum < cashRequired || paidNum === 0)) ||
                   (tipMode === 'individual' && canRegisterTip && tipNum > 0 && !tipWaiterId && waiters.length > 0)
@@ -1214,6 +1341,20 @@ export default function CashierTables() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Ticket fiscal de la factura emitida al cerrar la mesa */}
+      <FiscalTicketDialog
+        open={!!fiscalTicket}
+        onOpenChange={(v) => { if (!v) setFiscalTicket(null); }}
+        data={fiscalTicket}
+        emisor={{
+          nombre: fiscalConfig?.name,
+          razon_social: fiscalConfig?.razon_social,
+          cuit: fiscalConfig?.cuit,
+          domicilio: fiscalConfig?.domicilio_comercial,
+          condicion_iva: fiscalConfig?.condicion_iva,
+        }}
+      />
 
       {/* Pre-bill dialog */}
       <Dialog open={preBillOpen} onOpenChange={setPreBillOpen}>

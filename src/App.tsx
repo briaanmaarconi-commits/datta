@@ -131,6 +131,7 @@ const App = () => (
           <Route path="/cashier" element={<ProtectedRoute allowedRoles={['cashier']}><CashierLayout><CashierTables /></CashierLayout></ProtectedRoute>} />
           <Route path="/cashier/reservations" element={<ProtectedRoute allowedRoles={['cashier']}><CashierLayout><Reservations /></CashierLayout></ProtectedRoute>} />
           <Route path="/cashier/invoices" element={<ProtectedRoute allowedRoles={['cashier']}><CashierLayout><CashierInvoices /></CashierLayout></ProtectedRoute>} />
+          <Route path="/cashier/billing" element={<ProtectedRoute allowedRoles={['cashier']}><CashierLayout><AdminBilling /></CashierLayout></ProtectedRoute>} />
           <Route path="/cashier/expenses" element={<ProtectedRoute allowedRoles={['cashier']}><CashierLayout><CashierExpenses /></CashierLayout></ProtectedRoute>} />
           <Route path="/cashier/shift" element={<ProtectedRoute allowedRoles={['cashier']}><CashierLayout><ShiftSummary /></CashierLayout></ProtectedRoute>} />
           <Route path="/cashier/delivery" element={<ProtectedRoute allowedRoles={['cashier']}><CashierLayout><CashierDelivery /></CashierLayout></ProtectedRoute>} />
