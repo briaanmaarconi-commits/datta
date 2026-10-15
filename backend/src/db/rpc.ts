@@ -28,6 +28,7 @@ const RPCS: Record<string, RpcDef> = {
   pending_recurring_expenses: { runAs: "authenticated" },
   get_afip_cert_status: { runAs: "authenticated" },
   get_delivery_integration_status: { runAs: "authenticated" },
+  ensure_daily_special_category: { runAs: "authenticated" },
 };
 
 const ARG_NAME = /^[a-z_][a-z0-9_]*$/;

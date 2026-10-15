@@ -267,13 +267,14 @@ export default function WaiterTables() {
     } catch {}
   }, [establishmentId]);
 
-  // Realtime: refresh products when availability changes
+  // Realtime: refresh products when availability changes (o cuando otra moza carga un plato del día)
   useEffect(() => {
     if (!establishmentId) return;
     const channel = db
       .channel('products-availability')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'products', filter: `establishment_id=eq.${establishmentId}` }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `establishment_id=eq.${establishmentId}` }, () => {
         queryClient.invalidateQueries({ queryKey: ['products', establishmentId] });
+        queryClient.invalidateQueries({ queryKey: ['daily-special-category', establishmentId] });
       })
       .subscribe();
     return () => { db.removeChannel(channel); };

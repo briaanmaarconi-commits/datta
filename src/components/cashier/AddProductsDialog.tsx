@@ -9,9 +9,11 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { Search, Plus, Minus, ShoppingCart, X, UtensilsCrossed } from 'lucide-react';
+import { Search, Plus, Minus, ShoppingCart, X, UtensilsCrossed, Pencil, ChefHat } from 'lucide-react';
 import ComboPickerDialog from '@/components/menu/ComboPickerDialog';
 import { useActiveCombos, ComboExpandedLine } from '@/hooks/useMenuCombos';
+import DailySpecialDialog from '@/components/menu/DailySpecialDialog';
+import { useDailySpecials, isDailySpecial } from '@/hooks/useDailySpecials';
 
 export interface CartLine {
   /** Clave única de la línea (los productos de un combo llevan clave propia). */
@@ -48,18 +50,22 @@ export default function AddProductsDialog({
   const [comboOpen, setComboOpen] = useState(false);
 
   const { data: combos = [] } = useActiveCombos(establishmentId, open);
+  const { categoryId: dailyCategoryId } = useDailySpecials(establishmentId);
+  const [dailyDialog, setDailyDialog] = useState<{ open: boolean; product: any | null }>({ open: false, product: null });
+  const showingDaily = categoryId === 'daily';
 
   const { data: categories = [] } = useQuery({
     queryKey: ['cashier-add-categories', establishmentId],
     queryFn: async () => {
       const { data, error } = await db
         .from('categories')
-        .select('id, name')
+        .select('id, name, is_daily_special_category')
         .eq('establishment_id', establishmentId!)
         .eq('is_active', true)
         .order('sort_order');
       if (error) throw error;
-      return data;
+      // La categoría interna de platos del día tiene su propio botón.
+      return (data as any[]).filter(c => !c.is_daily_special_category);
     },
     enabled: !!establishmentId && open,
   });
@@ -69,7 +75,7 @@ export default function AddProductsDialog({
     queryFn: async () => {
       const { data, error } = await db
         .from('products')
-        .select('id, name, price, promo_price, promo_active, category_id, is_available')
+        .select('id, name, price, promo_price, promo_active, category_id, is_available, is_daily_special')
         .eq('establishment_id', establishmentId!)
         .eq('is_available', true)
         .order('name');
@@ -85,11 +91,13 @@ export default function AddProductsDialog({
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return (products as any[]).filter(p => {
-      if (categoryId !== 'all' && p.category_id !== categoryId) return false;
+      if (categoryId === 'daily') {
+        if (!isDailySpecial(p, dailyCategoryId)) return false;
+      } else if (categoryId !== 'all' && p.category_id !== categoryId) return false;
       if (q && !p.name.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [products, search, categoryId]);
+  }, [products, search, categoryId, dailyCategoryId]);
 
   const addProduct = (p: any) => {
     setCart(prev => {
@@ -169,6 +177,16 @@ export default function AddProductsDialog({
             >
               Todas
             </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={showingDaily ? 'default' : 'outline'}
+              className="gap-1.5"
+              onClick={() => setCategoryId('daily')}
+            >
+              <ChefHat className="h-3.5 w-3.5" />
+              Plato del día
+            </Button>
             {(categories as any[]).map(c => (
               <Button
                 key={c.id}
@@ -194,24 +212,51 @@ export default function AddProductsDialog({
             </Button>
           )}
 
+          {showingDaily && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full gap-2 border-dashed"
+              onClick={() => setDailyDialog({ open: true, product: null })}
+            >
+              <Plus className="h-4 w-4" />
+              Agregar plato del día
+            </Button>
+          )}
+
           <ScrollArea className="h-56 rounded-md border">
             <div className="divide-y">
               {filtered.length === 0 && (
-                <p className="p-4 text-sm text-muted-foreground text-center">Sin resultados</p>
+                <p className="p-4 text-sm text-muted-foreground text-center">
+                  {showingDaily ? 'Todavía no hay platos del día cargados' : 'Sin resultados'}
+                </p>
               )}
               {filtered.map((p: any) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className="w-full flex items-center justify-between gap-3 px-3 py-2 text-left hover:bg-muted/60 transition-colors"
-                  onClick={() => addProduct(p)}
-                >
-                  <span className="text-sm">{p.name}</span>
-                  <span className="flex items-center gap-2">
-                    <span className="text-sm font-medium">${effectivePrice(p).toFixed(2)}</span>
-                    <Plus className="h-4 w-4 text-muted-foreground" />
-                  </span>
-                </button>
+                <div key={p.id} className="flex items-center hover:bg-muted/60 transition-colors">
+                  <button
+                    type="button"
+                    className="flex-1 flex items-center justify-between gap-3 px-3 py-2 text-left"
+                    onClick={() => addProduct(p)}
+                  >
+                    <span className="text-sm">{p.name}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="text-sm font-medium">${effectivePrice(p).toFixed(2)}</span>
+                      <Plus className="h-4 w-4 text-muted-foreground" />
+                    </span>
+                  </button>
+                  {showingDaily && p.category_id === dailyCategoryId && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 mr-1 text-muted-foreground"
+                      onClick={() => setDailyDialog({ open: true, product: p })}
+                      aria-label="Editar plato del día"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
               ))}
             </div>
           </ScrollArea>
@@ -297,6 +342,13 @@ export default function AddProductsDialog({
         open={comboOpen}
         onOpenChange={setComboOpen}
         onConfirm={addCombo}
+      />
+
+      <DailySpecialDialog
+        open={dailyDialog.open}
+        onOpenChange={o => setDailyDialog(d => ({ ...d, open: o }))}
+        establishmentId={establishmentId}
+        product={dailyDialog.product}
       />
     </Dialog>
   );

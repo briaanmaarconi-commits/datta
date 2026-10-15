@@ -2,9 +2,15 @@ import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Search, Plus, Minus, ShoppingCart, Send, X, StickyNote, UtensilsCrossed } from 'lucide-react';
+import { ArrowLeft, Search, Plus, Minus, ShoppingCart, Send, X, StickyNote, UtensilsCrossed, Pencil, ChefHat } from 'lucide-react';
 import ComboPickerDialog from '@/components/menu/ComboPickerDialog';
 import { ComboExpandedLine } from '@/hooks/useMenuCombos';
+import DailySpecialDialog from '@/components/menu/DailySpecialDialog';
+import { useDailySpecials, isDailySpecial } from '@/hooks/useDailySpecials';
+import { useAuth } from '@/hooks/useAuth';
+
+/** Chip especial "Plato del día" (no es una categoría real). */
+const DAILY = '__daily__';
 
 interface CartItem {
   /** Clave única de la línea (los productos de un combo llevan clave propia). */
@@ -48,10 +54,18 @@ export default function OrderingView({
   const [editingNote, setEditingNote] = useState<string | null>(null);
   const [comboOpen, setComboOpen] = useState(false);
   const productListRef = useRef<HTMLDivElement>(null);
+  const { establishmentId } = useAuth();
+  const { categoryId: dailyCategoryId } = useDailySpecials(establishmentId);
+  const [dailyDialog, setDailyDialog] = useState<{ open: boolean; product: any | null }>({ open: false, product: null });
+
+  // La categoría interna de platos del día no va como chip: tiene el suyo propio.
+  const visibleCategories = categories.filter(c => !c.is_daily_special_category && c.id !== dailyCategoryId);
+  const showingDaily = activeCategory === DAILY;
 
   const filteredProducts = products.filter(p => {
     const matchesSearch = !search || p.name.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = !activeCategory || p.category_id === activeCategory;
+    const matchesCategory = !activeCategory
+      || (showingDaily ? isDailySpecial(p, dailyCategoryId) : p.category_id === activeCategory);
     return matchesSearch && matchesCategory;
   });
 
@@ -138,7 +152,16 @@ export default function OrderingView({
           >
             Todos
           </button>
-          {categories.map(cat => (
+          <button
+            onClick={() => { setActiveCategory(DAILY); setSearch(''); }}
+            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+              showingDaily ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'
+            }`}
+          >
+            <ChefHat className="h-4 w-4" />
+            Plato del día
+          </button>
+          {visibleCategories.map(cat => (
             <button
               key={cat.id}
               onClick={() => { setActiveCategory(cat.id); setSearch(''); }}
@@ -168,8 +191,20 @@ export default function OrderingView({
 
       {/* Product list */}
       <div ref={productListRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-2 pb-28">
+        {showingDaily && (
+          <Button
+            variant="outline"
+            className="w-full h-11 gap-2 my-2 border-dashed"
+            onClick={() => setDailyDialog({ open: true, product: null })}
+          >
+            <Plus className="h-4 w-4" />
+            Agregar plato del día
+          </Button>
+        )}
         {filteredProducts.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">No se encontraron productos</p>
+          <p className="text-center text-muted-foreground py-8">
+            {showingDaily ? 'Todavía no hay platos del día cargados' : 'No se encontraron productos'}
+          </p>
         ) : (
           <div className="space-y-1">
             {filteredProducts.map(p => {
@@ -180,6 +215,17 @@ export default function OrderingView({
                     <p className="font-medium text-sm truncate">{p.name}</p>
                     <p className="text-sm text-muted-foreground">${Number(p.price).toFixed(2)}</p>
                   </div>
+                  {showingDaily && p.category_id === dailyCategoryId && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-11 w-11 shrink-0 text-muted-foreground"
+                      onClick={() => setDailyDialog({ open: true, product: p })}
+                      aria-label="Editar plato del día"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
                   {inCart ? (
                     <div className="flex items-center gap-1 shrink-0">
                       <Button
@@ -290,6 +336,13 @@ export default function OrderingView({
         open={comboOpen}
         onOpenChange={setComboOpen}
         onConfirm={lines => addCombo(lines)}
+      />
+
+      <DailySpecialDialog
+        open={dailyDialog.open}
+        onOpenChange={open => setDailyDialog(d => ({ ...d, open }))}
+        establishmentId={establishmentId}
+        product={dailyDialog.product}
       />
     </div>
   );
