@@ -103,6 +103,16 @@
   h1, h2, h3 {
     @apply font-display;
   }
+
+  /* En celulares, un campo con letra menor a 16px hace que el navegador agrande la
+     pantalla al tocarlo y quede agrandada (hay que deslizar para ver todo). */
+  @media (max-width: 767px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
 }
 
 @layer components {

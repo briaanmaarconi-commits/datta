@@ -96,7 +96,7 @@ export default function OrderingView({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+    <div className="fixed inset-0 z-50 bg-background flex flex-col overflow-hidden overscroll-none">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b bg-background shrink-0">
         <Button variant="ghost" size="icon" onClick={onClose} className="h-10 w-10">
@@ -167,7 +167,7 @@ export default function OrderingView({
       )}
 
       {/* Product list */}
-      <div ref={productListRef} className="flex-1 overflow-y-auto px-4 py-2 pb-28">
+      <div ref={productListRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-2 pb-28">
         {filteredProducts.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">No se encontraron productos</p>
         ) : (
@@ -242,7 +242,7 @@ export default function OrderingView({
                       <Button size="icon" variant="outline" className="h-9 w-9 rounded-full" onClick={() => updateQuantity(lineKey(item), 1)}>
                         <Plus className="h-3 w-3" />
                       </Button>
-                      <span className="text-sm font-medium w-16 text-right">${(item.price * item.quantity).toFixed(2)}</span>
+                      <span className="text-sm font-medium min-w-[4.5rem] text-right">${(item.price * item.quantity).toFixed(2)}</span>
                     </div>
                   </div>
                   {editingNote === lineKey(item) && (

@@ -65,7 +65,7 @@ export default function WaiterLayout({ children }: { children: React.ReactNode }
     <SidebarProvider>
       <div className="workspace-shell flex min-h-screen w-full">
         <SidebarNav />
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0">
           <ViewAsBanner />
           <header className="workspace-header">
             <SidebarTrigger />

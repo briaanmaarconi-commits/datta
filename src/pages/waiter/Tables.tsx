@@ -434,11 +434,11 @@ export default function WaiterTables() {
       {pendingOrder && pendingOrder.cart?.length > 0 && !ordering && (
         <Alert className="border-yellow-500 bg-yellow-500/10">
           <AlertTriangle className="h-4 w-4 text-yellow-600" />
-          <AlertDescription className="flex items-center justify-between">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
             <span>
               Tenés un pedido pendiente para Mesa {pendingOrder.ordering.tableNumber} ({pendingOrder.cart.length} producto{pendingOrder.cart.length > 1 ? 's' : ''}).
             </span>
-            <div className="flex gap-2 ml-3">
+            <div className="flex gap-2">
               <Button
                 size="sm"
                 variant="outline"
@@ -605,7 +605,7 @@ export default function WaiterTables() {
           <h2 className="text-xl font-semibold text-primary">🔔 Pedidos listos para entregar</h2>
           {activeOrders.filter(o => o.status === 'ready').map(order => (
             <Card key={order.id} className="border-primary">
-              <CardContent className="py-4 flex items-center justify-between">
+              <CardContent className="py-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <span className="font-semibold">Mesa {tables.find(t => t.id === order.table_id)?.number}</span>
                   <span className="text-sm text-muted-foreground ml-2">
