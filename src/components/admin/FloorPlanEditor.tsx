@@ -882,13 +882,9 @@ export default function FloorPlanEditor() {
                     : '#9CA3AF')
                 : getElementColor(el.type);
               const isRound = isTable && (el.shape ?? 'round') === 'round';
-              const chairs = el.chairs || 0;
 
               return (
                 <div key={el.id} style={{ position: 'absolute', left: el.x, top: el.y }}>
-                  {isTable && chairs > 0 && (
-                    <ChairsAroundTable cx={el.width / 2} cy={el.height / 2} w={el.width} h={el.height} count={chairs} rotation={el.rotation} isRound={isRound} />
-                  )}
                   {isSelected && (
                     <div
                       className="absolute flex items-center gap-1 bg-background border rounded-lg shadow-lg px-2 py-1 z-30"
@@ -996,52 +992,6 @@ function FullResizeHandles({ elId, onResizeDown }: { elId: string; onResizeDown:
       <div className={`${s} cursor-s-resize`} style={{ left: '50%', bottom: -5, transform: 'translateX(-50%)' }} onMouseDown={e => onResizeDown(e, elId, 'b')} />
       <div className={`${s} cursor-w-resize`} style={{ left: -5, top: '50%', transform: 'translateY(-50%)' }} onMouseDown={e => onResizeDown(e, elId, 'l')} />
       <div className={`${s} cursor-e-resize`} style={{ right: -5, top: '50%', transform: 'translateY(-50%)' }} onMouseDown={e => onResizeDown(e, elId, 'r')} />
-    </>
-  );
-}
-
-function ChairsAroundTable({ cx, cy, w, h, count, rotation, isRound }: {
-  cx: number; cy: number; w: number; h: number; count: number; rotation: number; isRound: boolean;
-}) {
-  const chairSize = 10;
-  const gap = 6;
-  const chairs: { x: number; y: number }[] = [];
-
-  if (isRound) {
-    const radius = Math.max(w, h) / 2 + gap + chairSize / 2;
-    for (let i = 0; i < count; i++) {
-      const angle = (2 * Math.PI * i) / count - Math.PI / 2;
-      chairs.push({ x: cx + radius * Math.cos(angle) - chairSize / 2, y: cy + radius * Math.sin(angle) - chairSize / 2 });
-    }
-  } else {
-    const perimeter = 2 * (w + h);
-    const spacing = perimeter / count;
-    for (let i = 0; i < count; i++) {
-      let d = i * spacing;
-      let px = 0, py = 0;
-      if (d < w) { px = d; py = -gap - chairSize; }
-      else if (d < w + h) { px = w + gap; py = d - w; }
-      else if (d < 2 * w + h) { px = w - (d - w - h); py = h + gap; }
-      else { px = -gap - chairSize; py = h - (d - 2 * w - h); }
-      chairs.push({
-        x: px - chairSize / 2 + (d < w || (d >= w + h && d < 2 * w + h) ? 0 : chairSize / 2),
-        y: py - chairSize / 2 + (d < w || (d >= w + h && d < 2 * w + h) ? chairSize / 2 : 0),
-      });
-    }
-  }
-
-  const rad = (rotation * Math.PI) / 180;
-  const rotatedChairs = chairs.map(c => {
-    const dx = c.x + chairSize / 2 - cx;
-    const dy = c.y + chairSize / 2 - cy;
-    return { x: cx + dx * Math.cos(rad) - dy * Math.sin(rad) - chairSize / 2, y: cy + dx * Math.sin(rad) + dy * Math.cos(rad) - chairSize / 2 };
-  });
-
-  return (
-    <>
-      {rotatedChairs.map((c, i) => (
-        <div key={i} className="absolute rounded-full pointer-events-none" style={{ left: c.x, top: c.y, width: chairSize, height: chairSize, backgroundColor: '#A1A1AA', border: '1px solid #71717A' }} />
-      ))}
     </>
   );
 }

@@ -315,15 +315,9 @@ export default function FloorPlanView({ onTableClick, tables, activeOrders }: Fl
                 ? (table ? getTableVisualState(table, tableOrders).color : '#9CA3AF')
                 : ELEMENT_COLORS[el.type] || '#6B7280';
               const isRound = isTable && (el.shape ?? 'round') === 'round';
-              const chairs = el.chairs || 0;
 
               return (
                 <div key={el.id} style={{ position: 'absolute', left: el.x, top: el.y }}>
-                  {/* Chairs */}
-                  {isTable && chairs > 0 && (
-                    <ViewChairs cx={el.width / 2} cy={el.height / 2} w={el.width} h={el.height} count={chairs} rotation={el.rotation} isRound={isRound} />
-                  )}
-
                   <div
                     className={`flex items-center justify-center ${isTable ? 'cursor-pointer [@media(hover:hover)]:hover:scale-110 active:scale-95 transition-transform' : ''}`}
                     style={{
@@ -366,48 +360,5 @@ export default function FloorPlanView({ onTableClick, tables, activeOrders }: Fl
         </div>
       )}
     </div>
-  );
-}
-
-function ViewChairs({ cx, cy, w, h, count, rotation, isRound }: {
-  cx: number; cy: number; w: number; h: number; count: number; rotation: number; isRound: boolean;
-}) {
-  const chairSize = 8;
-  const gap = 5;
-  const chairs: { x: number; y: number }[] = [];
-
-  if (isRound) {
-    const radius = Math.max(w, h) / 2 + gap + chairSize / 2;
-    for (let i = 0; i < count; i++) {
-      const angle = (2 * Math.PI * i) / count - Math.PI / 2;
-      chairs.push({ x: cx + radius * Math.cos(angle) - chairSize / 2, y: cy + radius * Math.sin(angle) - chairSize / 2 });
-    }
-  } else {
-    const perimeter = 2 * (w + h);
-    const spacing = perimeter / count;
-    for (let i = 0; i < count; i++) {
-      let d = i * spacing;
-      let px = 0, py = 0;
-      if (d < w) { px = d; py = -gap - chairSize; }
-      else if (d < w + h) { px = w + gap; py = d - w; }
-      else if (d < 2 * w + h) { px = w - (d - w - h); py = h + gap; }
-      else { px = -gap - chairSize; py = h - (d - 2 * w - h); }
-      chairs.push({ x: px - chairSize / 2, y: py - chairSize / 2 });
-    }
-  }
-
-  const rad = (rotation * Math.PI) / 180;
-  const rotated = chairs.map(c => {
-    const dx = c.x + chairSize / 2 - cx;
-    const dy = c.y + chairSize / 2 - cy;
-    return { x: cx + dx * Math.cos(rad) - dy * Math.sin(rad) - chairSize / 2, y: cy + dx * Math.sin(rad) + dy * Math.cos(rad) - chairSize / 2 };
-  });
-
-  return (
-    <>
-      {rotated.map((c, i) => (
-        <div key={i} className="absolute rounded-full pointer-events-none" style={{ left: c.x, top: c.y, width: chairSize, height: chairSize, backgroundColor: '#D4D4D8', border: '1px solid #A1A1AA' }} />
-      ))}
-    </>
   );
 }
