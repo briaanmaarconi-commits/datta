@@ -64,6 +64,7 @@ const PAYMENT_LABELS: Record<string, string> = {
   cash: 'EFECTIVO',
   card: 'TARJETA',
   transfer: 'TRANSFERENCIA',
+  mixed: 'VARIOS MEDIOS',
 };
 
 const money = (n: number) =>

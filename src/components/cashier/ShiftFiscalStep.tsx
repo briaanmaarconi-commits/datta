@@ -24,6 +24,7 @@ const PAYMENT_LABELS: Record<string, string> = {
   card: 'Tarjeta',
   transfer: 'Transferencia',
   account: 'Cuenta corriente',
+  mixed: 'Combinado',
 };
 
 export default function ShiftFiscalStep({ onComplete, onSkip, shiftOpenedAt }: ShiftFiscalStepProps) {

@@ -22,6 +22,7 @@ import {
   BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell, Legend,
 } from 'recharts';
 import { DollarSign, TrendingUp, TrendingDown, ShoppingCart, Clock, Users, CreditCard, Banknote, ArrowRightLeft, BarChart3, GitCompareArrows, CalendarIcon, X, Download, FileText, FileSpreadsheet, Wallet, Bike, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { MIXED, PAYMENT_LABELS, parsePayments } from '@/lib/payments';
 import AnalyticsComparison from '@/components/admin/AnalyticsComparison';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { exportAnalyticsPDF, exportAnalyticsExcel } from '@/lib/exportAnalytics';
@@ -182,7 +183,7 @@ export default function AdminAnalytics() {
     queryFn: async () => {
       const [ordersRes, itemsRes] = await Promise.all([
         db.from('orders')
-          .select('id, total, status, created_at, prepared_at, delivered_at, payment_method, table_id, created_by')
+          .select('id, total, status, created_at, prepared_at, delivered_at, payment_method, payments, table_id, created_by')
           .eq('establishment_id', establishmentId!)
           .eq('status', 'closed')
           .gte('created_at', range.fromISO)
@@ -260,6 +261,14 @@ export default function AdminAnalytics() {
 
       const paymentMap: Record<string, number> = {};
       orders.forEach(o => {
+        // Pago combinado: cada medio suma su parte.
+        if (o.payment_method === MIXED) {
+          for (const p of parsePayments((o as any).payments)) {
+            const label = PAYMENT_LABELS[p.method];
+            paymentMap[label] = (paymentMap[label] || 0) + p.amount;
+          }
+          return;
+        }
         const pm = (o.payment_method || '').toLowerCase();
         let label = 'Otro';
         if (pm.includes('efectivo') || pm.includes('cash')) label = 'Efectivo';

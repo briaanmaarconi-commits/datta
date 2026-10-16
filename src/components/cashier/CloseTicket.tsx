@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { PAYMENT_LABELS, type PaymentPart } from '@/lib/payments';
 
 export interface CloseTicketItem {
   name: string;
@@ -17,18 +18,14 @@ export interface CloseTicketData {
   total: number;
   tipAmount?: number;
   paymentMethod: string;
+  /** Detalle del pago combinado (paymentMethod = 'mixed'). */
+  payments?: PaymentPart[];
   amountPaid?: number;
   changeAmount?: number;
   createdAt?: string;
   establishmentName?: string;
 }
 
-const PAYMENT_LABELS: Record<string, string> = {
-  cash: 'Efectivo',
-  card: 'Tarjeta',
-  transfer: 'Transferencia',
-  account: 'Cuenta corriente',
-};
 
 function TicketCopy({
   data,
@@ -97,6 +94,12 @@ function TicketCopy({
           <span>Pago</span>
           <span>{PAYMENT_LABELS[data.paymentMethod] || data.paymentMethod}</span>
         </div>
+        {data.payments?.map((p, i) => (
+          <div key={i} className="flex justify-between pl-2">
+            <span>{PAYMENT_LABELS[p.method] || p.method}</span>
+            <span>${p.amount.toFixed(2)}</span>
+          </div>
+        ))}
         {isCash && (
           <>
             <div className="flex justify-between">

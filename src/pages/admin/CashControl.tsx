@@ -26,6 +26,7 @@ import FiscalSettingsCard from '@/components/admin/FiscalSettingsCard';
 import CourtesyAccountsTab from '@/components/admin/CourtesyAccountsTab';
 import { toast } from 'sonner';
 import { SALES_CATEGORY_RE, isTipTx } from '@/lib/cashReconciliation';
+import { amountForMethod } from '@/lib/payments';
 
 export default function CashControl() {
   const { establishmentId, session, role } = useAuth();
@@ -88,12 +89,12 @@ function ShiftControlTab({ establishmentId, userId }: { establishmentId: string 
         const to = shift.closed_at ?? new Date().toISOString();
         const { data: invs } = await db
           .from('invoices')
-          .select('id, total, payment_method')
+          .select('id, total, payment_method, payments')
           .eq('establishment_id', establishmentId!)
           .gte('created_at', from)
           .lte('created_at', to);
         const rows = invs || [];
-        const sum = (m: string) => rows.filter((o: any) => o.payment_method === m).reduce((s: number, o: any) => s + Number(o.total), 0);
+        const sum = (m: string) => rows.reduce((s: number, o: any) => s + amountForMethod(o, m), 0);
         const cash = sum('cash');
         const card = sum('card');
         const transfer = sum('transfer');
@@ -385,7 +386,7 @@ function FinanceTab({ establishmentId, userId }: { establishmentId: string | nul
           type: 'income',
           amount: Number(o.total),
           date: toArgDate(o.created_at),
-          description: `Venta - ${o.payment_method === 'cash' ? 'Efectivo' : o.payment_method === 'card' ? 'Tarjeta' : o.payment_method === 'transfer' ? 'Transferencia' : 'Sin método'}`,
+          description: `Venta - ${o.payment_method === 'cash' ? 'Efectivo' : o.payment_method === 'card' ? 'Tarjeta' : o.payment_method === 'transfer' ? 'Transferencia' : o.payment_method === 'mixed' ? 'Combinado' : 'Sin método'}`,
           finance_categories: { name: 'Ventas' },
           created_at: o.created_at,
           _isSale: true,

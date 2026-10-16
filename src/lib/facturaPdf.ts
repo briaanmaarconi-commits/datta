@@ -25,6 +25,7 @@ const PAYMENT_LABELS: Record<string, string> = {
   card: 'Tarjeta',
   transfer: 'Transferencia',
   account: 'Cuenta corriente',
+  mixed: 'Combinado',
 };
 
 const money = (n: number) =>

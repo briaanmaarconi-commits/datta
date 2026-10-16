@@ -157,7 +157,7 @@ export async function closeTableAsCourtesy(params: CloseAsCourtesyParams) {
       payment_method: 'courtesy',
     } as any).eq('id', orderId);
   }
-  await db.from('tables').update({ status: 'free' as any }).eq('id', tableId);
+  await db.from('tables').update({ status: 'free' as any, payment_request: null } as any).eq('id', tableId);
 
   return { totalCost, saleAmount, financeTxId };
 }

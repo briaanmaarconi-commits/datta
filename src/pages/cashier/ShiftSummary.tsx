@@ -17,6 +17,7 @@ import ShiftReportTicket, { ShiftReportBody, ShiftReportData } from '@/component
 import { summarizeManualMovements, computeExpectedCash } from '@/lib/cashReconciliation';
 import { getOrdersCutoff, getShiftDisplayDate, formatShiftDate, formatShiftRange } from '@/lib/shiftScope';
 import { toArgDate } from '@/lib/utils';
+import { amountForMethod } from '@/lib/payments';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,7 +70,7 @@ export default function ShiftSummary() {
       // Ventas del turno = comprobantes emitidos (momento del cobro)
       db
         .from('invoices')
-        .select('total, payment_method')
+        .select('total, payment_method, payments')
         .eq('establishment_id', establishmentId!)
         .gte('created_at', from)
         .lte('created_at', to),
@@ -131,7 +132,7 @@ export default function ShiftSummary() {
     const orders = ordersRes.data ?? [];
     const totalSales = orders.reduce((s, o) => s + Number(o.total), 0);
     const sumBy = (m: string) =>
-      orders.filter(o => o.payment_method === m).reduce((s, o) => s + Number(o.total), 0);
+      orders.reduce((s, o) => s + amountForMethod(o, m), 0);
     const cashSales = sumBy('cash');
     const txs = ((expensesRes as any).data ?? []).map((t: any) => ({
       type: t.type,
@@ -200,7 +201,7 @@ export default function ShiftSummary() {
     queryFn: async () => {
       let query = db
         .from('invoices')
-        .select('id, total, payment_method')
+        .select('id, total, payment_method, payments')
         .eq('establishment_id', establishmentId!);
 
       if (activeShift?.opened_at) {
@@ -214,7 +215,7 @@ export default function ShiftSummary() {
       const totalSales = rows.reduce((s, o) => s + Number(o.total), 0);
       const avgTicket = rows.length > 0 ? totalSales / rows.length : 0;
       const sumBy = (m: string) =>
-        rows.filter(o => o.payment_method === m).reduce((s, o) => s + Number(o.total), 0);
+        rows.reduce((s, o) => s + amountForMethod(o, m), 0);
       return {
         totalSales,
         closedOrders: rows.length,

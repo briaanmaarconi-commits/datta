@@ -43,7 +43,7 @@ const PAYMENT_METHODS = [
   { value: 'transfer', label: 'Transferencia', icon: Smartphone },
 ];
 
-const PAYMENT_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', account: 'Cuenta corriente' };
+const PAYMENT_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', account: 'Cuenta corriente', mixed: 'Combinado' };
 
 export default function CashierInvoices() {
   const { establishmentId, session } = useAuth();
@@ -208,7 +208,7 @@ export default function CashierInvoices() {
       }
 
       // Free table
-      await db.from('tables').update({ status: 'free' as any }).eq('id', selectedTable!.id);
+      await db.from('tables').update({ status: 'free' as any, payment_request: null } as any).eq('id', selectedTable!.id);
 
       // Finance transaction
       let { data: salesCat } = await db

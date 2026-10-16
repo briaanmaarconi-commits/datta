@@ -23,6 +23,8 @@ import { useCloseTableAsCourtesy, CourtesyType } from '@/hooks/useCloseTableAsCo
 import { getOrdersCutoff } from '@/lib/shiftScope';
 import { getTableVisualState } from '@/lib/tableStatus';
 import TableStatusLegend from '@/components/shared/TableStatusLegend';
+import BillRequestDialog from '@/components/waiter/BillRequestDialog';
+import { describePayments, parsePayments, type PaymentPart } from '@/lib/payments';
 
 interface OrderingState {
   type: 'new' | 'existing';
@@ -40,6 +42,7 @@ export default function WaiterTables() {
   const [guestDialog, setGuestDialog] = useState<any>(null);
   const [guestCount, setGuestCount] = useState('');
   const [courtesyTable, setCourtesyTable] = useState<any>(null);
+  const [billTable, setBillTable] = useState<{ id: string; number: number } | null>(null);
 
   const courtesyMutation = useCloseTableAsCourtesy({
     onSuccess: ({ totalCost }) => {
@@ -370,15 +373,18 @@ export default function WaiterTables() {
     onError: () => toast.error('Error al cancelar pedido'),
   });
 
+  // Al pedir la cuenta se anota cómo paga el cliente (payment_request); en cualquier otro estado se borra.
   const changeTableStatus = useMutation({
-    mutationFn: async ({ tableId, status }: { tableId: string; status: string }) => {
-      const { error } = await db.from('tables').update({ status: status as any }).eq('id', tableId);
+    mutationFn: async ({ tableId, status, paymentRequest = null }: { tableId: string; status: string; paymentRequest?: PaymentPart[] | null }) => {
+      const { error } = await db.from('tables').update({ status: status as any, payment_request: paymentRequest } as any).eq('id', tableId);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tables'] });
+      setBillTable(null);
       toast.success('Estado de mesa actualizado');
     },
+    onError: () => toast.error('No se pudo actualizar la mesa'),
   });
 
   const handleTableClick = (table: any) => {
@@ -536,6 +542,9 @@ export default function WaiterTables() {
                         )}
                       </div>
                     )}
+                    {table.status === 'billing' && parsePayments((table as any).payment_request).length > 0 && (
+                      <p className="text-xs mt-1 font-medium">{describePayments(parsePayments((table as any).payment_request))}</p>
+                    )}
                     <div className="flex gap-1 mt-2 justify-center">
                       {(['free', 'occupied', 'billing'] as const).map(s => (
                         <button
@@ -545,7 +554,8 @@ export default function WaiterTables() {
                           title={s === 'free' ? 'Libre' : s === 'occupied' ? 'Ocupada' : 'Pidió la cuenta'}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (table.status !== s) changeTableStatus.mutate({ tableId: table.id, status: s });
+                            if (s === 'billing') setBillTable(table);
+                            else if (table.status !== s) changeTableStatus.mutate({ tableId: table.id, status: s });
                           }}
                         />
                       ))}
@@ -586,6 +596,14 @@ export default function WaiterTables() {
           />
         </TabsContent>
       </Tabs>
+
+      <BillRequestDialog
+        table={billTable}
+        ordersCutoff={ordersCutoff}
+        onClose={() => setBillTable(null)}
+        saving={changeTableStatus.isPending}
+        onConfirm={(paymentRequest) => changeTableStatus.mutate({ tableId: billTable!.id, status: 'billing', paymentRequest })}
+      />
 
       {/* Guest count dialog */}
       <Dialog open={!!guestDialog} onOpenChange={v => { if (!v) setGuestDialog(null); }}>

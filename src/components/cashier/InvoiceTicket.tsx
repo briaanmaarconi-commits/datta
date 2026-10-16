@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Printer } from 'lucide-react';
 import { tableLabel } from '@/lib/ownDelivery';
+import { parsePayments } from '@/lib/payments';
 
 interface InvoiceItem {
   name: string;
@@ -33,6 +34,7 @@ interface InvoiceTicketProps {
     items: InvoiceItem[];
     total: number;
     payment_method: string;
+    payments?: unknown;
     amount_paid: number;
     change_amount: number;
     created_at: string;
@@ -48,6 +50,7 @@ const PAYMENT_LABELS: Record<string, string> = {
   card: 'Tarjeta',
   transfer: 'Transferencia',
   account: 'Cuenta corriente',
+  mixed: 'Combinado',
 };
 
 const TIPO_LABELS: Record<number, string> = {
@@ -166,6 +169,12 @@ export default function InvoiceTicket({ invoice, establishmentName, establishmen
             <span>Pago</span>
             <span>{PAYMENT_LABELS[invoice.payment_method] || invoice.payment_method}</span>
           </div>
+          {parsePayments(invoice.payments).map((p, i) => (
+            <div key={i} className="flex justify-between pl-2">
+              <span>{PAYMENT_LABELS[p.method] || p.method}</span>
+              <span>${p.amount.toFixed(2)}</span>
+            </div>
+          ))}
           {invoice.payment_method === 'cash' && (
             <>
               <div className="flex justify-between">
@@ -284,6 +293,12 @@ export default function InvoiceTicket({ invoice, establishmentName, establishmen
               <span>Método</span>
               <span>{PAYMENT_LABELS[invoice.payment_method] || invoice.payment_method}</span>
             </div>
+            {parsePayments(invoice.payments).map((p, i) => (
+              <div key={i} className="flex justify-between pl-2">
+                <span>{PAYMENT_LABELS[p.method] || p.method}</span>
+                <span>${p.amount.toFixed(2)}</span>
+              </div>
+            ))}
             {invoice.payment_method === 'cash' && (
               <>
                 <div className="flex justify-between text-xs">

@@ -27,7 +27,9 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { DollarSign, CreditCard, Banknote, Smartphone, AlertTriangle, Gift, HandCoins, Receipt, Plus, X, Utensils, Sparkles, Building2 } from 'lucide-react';
+import { DollarSign, CreditCard, Banknote, Smartphone, AlertTriangle, Gift, HandCoins, Receipt, Plus, X, Utensils, Sparkles, Building2, Split } from 'lucide-react';
+import SplitPaymentEditor, { defaultSplit, splitSum } from '@/components/shared/SplitPaymentEditor';
+import { MIXED, describePayments, parsePayments, splitAcrossOrders, type PaymentPart } from '@/lib/payments';
 import CourtesyDialog from '@/components/shared/CourtesyDialog';
 import { useCloseTableAsCourtesy, CourtesyType } from '@/hooks/useCloseTableAsCourtesy';
 import PreBillTicket from '@/components/cashier/PreBillTicket';
@@ -65,6 +67,7 @@ const PAYMENT_METHODS = [
   { value: 'card', label: 'Tarjeta', icon: CreditCard },
   { value: 'transfer', label: 'Transferencia', icon: Smartphone },
   { value: 'account', label: 'Cuenta corriente', icon: Building2 },
+  { value: MIXED, label: 'Combinado', icon: Split },
 ];
 
 export default function CashierTables() {
@@ -75,6 +78,7 @@ export default function CashierTables() {
   const queryClient = useQueryClient();
   const [selectedTable, setSelectedTable] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [splitParts, setSplitParts] = useState<PaymentPart[]>([]);
   const [amountPaid, setAmountPaid] = useState('');
   const [tipAmount, setTipAmount] = useState('');
   const [tipWaiterId, setTipWaiterId] = useState<string>('');
@@ -388,10 +392,13 @@ export default function CashierTables() {
 
   // Tip rules: in 'individual' mode, only card/transfer accept tips. In 'pool', any method.
   // Los vales de cuenta corriente no llevan propina.
-  const canRegisterTip = paymentMethod !== 'account' && (tipMode === 'pool' || paymentMethod === 'card' || paymentMethod === 'transfer');
+  const canRegisterTip = paymentMethod !== 'account' && (tipMode === 'pool' || paymentMethod === 'card' || paymentMethod === 'transfer' || paymentMethod === MIXED);
   const isAccount = paymentMethod === 'account';
+  const isMixed = paymentMethod === MIXED;
+  // En un pago combinado la propina va con el primer medio que no es efectivo (si lo hay).
+  const tipMethod = isMixed ? (splitParts.find(p => p.method !== 'cash')?.method ?? 'cash') : paymentMethod;
   const pmLabel = (m: string) =>
-    m === 'cash' ? 'Efectivo' : m === 'card' ? 'Tarjeta' : m === 'transfer' ? 'Transferencia' : m === 'account' ? 'Cuenta corriente' : m;
+    m === 'cash' ? 'Efectivo' : m === 'card' ? 'Tarjeta' : m === 'transfer' ? 'Transferencia' : m === 'account' ? 'Cuenta corriente' : m === MIXED ? describePayments(splitParts) : m;
   const tipNum = parseFloat(tipAmount) || 0;
 
   const closeAllOrders = useMutation({
@@ -406,6 +413,11 @@ export default function CashierTables() {
       const cashRequired = grandTotal + cashTipPart;
       if (!isZeroClose && paymentMethod === 'cash' && (isNaN(paid) || paid < cashRequired)) {
         throw new Error('El monto pagado debe cubrir el total + propina en efectivo');
+      }
+      const parts = isMixed ? splitParts.filter(p => p.amount > 0) : [];
+      if (isMixed && !isZeroClose) {
+        if (parts.length < 2) throw new Error('Cargá al menos dos medios de pago');
+        if (splitSum(parts) !== Math.round(grandTotal * 100) / 100) throw new Error('Los montos del pago combinado tienen que sumar el total de la mesa');
       }
       if (tipMode === 'individual' && canRegisterTip && tipNum > 0 && !tipWaiterId) {
         throw new Error('Seleccioná el mozo que recibe la propina');
@@ -432,22 +444,28 @@ export default function CashierTables() {
 
       // Cada pedido queda con el monto REALMENTE cobrado (sin ítems excluidos/eliminados).
       // Los ajustes manuales se imputan al primer pedido para que la suma coincida con la factura.
-      for (let idx = 0; idx < tableOrders.length; idx++) {
-        const order: any = tableOrders[idx];
+      const chargedTotals = tableOrders.map((order: any, idx: number) => {
         const orderItemsTotal = (order.order_items || [])
           .filter((i: any) => !excludedItemIds.includes(i.id))
           .reduce((s: number, i: any) => s + Number(i.unit_price) * Number(i.quantity), 0);
-        const chargedTotal = orderItemsTotal + (idx === 0 ? adjustmentsTotal : 0);
+        return orderItemsTotal + (idx === 0 ? adjustmentsTotal : 0);
+      });
+      // Pago combinado: cada pedido lleva su parte de cada medio, así los resúmenes por medio suman exacto.
+      const orderPayments = isMixed ? splitAcrossOrders(parts, chargedTotals) : null;
+      for (let idx = 0; idx < tableOrders.length; idx++) {
+        const order: any = tableOrders[idx];
+        const chargedTotal = chargedTotals[idx];
         await db.from('orders').update({
           status: 'closed' as any,
           payment_method: paymentMethod,
+          payments: orderPayments ? orderPayments[idx] : null,
           total: chargedTotal,
           amount_paid: paymentMethod === 'cash' && idx === 0 ? paid : chargedTotal,
         } as any).eq('id', order.id);
       }
 
 
-      await db.from('tables').update({ status: 'free' as any }).eq('id', selectedTable!.id);
+      await db.from('tables').update({ status: 'free' as any, payment_request: null } as any).eq('id', selectedTable!.id);
 
       // Auto-register SALES income (separate from tips)
       let { data: salesCat } = await db
@@ -494,7 +512,7 @@ export default function CashierTables() {
         const waiterLabel = tipMode === 'individual' && tipWaiterId
           ? (waiters.find((w: any) => w.user_id === tipWaiterId)?.profiles?.full_name || 'Mozo')
           : 'Pozo común';
-        const pmLabel = paymentMethod === 'cash' ? 'Efectivo' : paymentMethod === 'card' ? 'Tarjeta' : 'Transferencia';
+        const pmLabel = tipMethod === 'cash' ? 'Efectivo' : tipMethod === 'card' ? 'Tarjeta' : 'Transferencia';
         const today = new Date().toISOString().split('T')[0];
 
         // Income
@@ -561,11 +579,12 @@ export default function CashierTables() {
         items: itemsSnapshot,
         total: grandTotal,
         payment_method: paymentMethod,
+        payments: isMixed ? parts : null,
         amount_paid: actualPaid,
         change_amount: changeAmt,
         created_by: session?.user?.id || null,
         tip_amount: tipToRegister,
-        tip_payment_method: tipToRegister > 0 ? paymentMethod : null,
+        tip_payment_method: tipToRegister > 0 ? tipMethod : null,
         tip_waiter_id: tipMode === 'individual' && tipToRegister > 0 ? tipWaiterId : null,
         tip_mode: tipToRegister > 0 ? tipMode : null,
       } as any).select('id, invoice_number, created_at').maybeSingle();
@@ -620,6 +639,7 @@ export default function CashierTables() {
         total: grandTotal,
         tipAmount: tipToRegister,
         paymentMethod,
+        payments: isMixed ? parts : undefined,
         amountPaid: actualPaid,
         changeAmount: changeAmt,
         createdAt: (invoiceRow as any)?.created_at || new Date().toISOString(),
@@ -704,6 +724,7 @@ export default function CashierTables() {
       setFiscalRazon('');
       setSelectedTable(null);
       setPaymentMethod('cash');
+      setSplitParts([]);
       setCompanyId('');
       setVoucherNumber('');
       setVoucherDiners('1');
@@ -870,7 +891,10 @@ export default function CashierTables() {
                 return;
               }
               setSelectedTable(table);
-              setPaymentMethod('cash');
+              // Lo que anotó la moza al pedir la cuenta llega precargado.
+              const request = parsePayments((table as any).payment_request);
+              setPaymentMethod(request.length > 1 ? MIXED : request[0]?.method ?? 'cash');
+              setSplitParts(request.length > 1 ? request : []);
               setAmountPaid('');
               setTipAmount('');
               setTipWaiterId('');
@@ -887,7 +911,7 @@ export default function CashierTables() {
         })}
       </div>
 
-      <Dialog open={!!selectedTable} onOpenChange={v => { if (!v) { setSelectedTable(null); setAmountPaid(''); setTipAmount(''); setTipWaiterId(''); setAdjustments([]); setExcludedItemIds([]); setZeroReason(''); setPaymentMethod('cash'); setCompanyId(''); setVoucherNumber(''); setVoucherDiners('1'); setVoucherSignedBy(''); } }}>
+      <Dialog open={!!selectedTable} onOpenChange={v => { if (!v) { setSelectedTable(null); setAmountPaid(''); setTipAmount(''); setTipWaiterId(''); setAdjustments([]); setExcludedItemIds([]); setZeroReason(''); setPaymentMethod('cash'); setSplitParts([]); setCompanyId(''); setVoucherNumber(''); setVoucherDiners('1'); setVoucherSignedBy(''); } }}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Mesa {selectedTable?.number} — Detalle de cuenta</DialogTitle>
@@ -1140,6 +1164,7 @@ export default function CashierTables() {
                       onClick={() => {
                         setPaymentMethod(pm.value);
                         if (pm.value !== 'cash') setAmountPaid('');
+                        if (pm.value === MIXED && splitParts.length === 0) setSplitParts(defaultSplit(grandTotal));
                       }}
                     >
                       <pm.icon className="h-4 w-4" />
@@ -1169,6 +1194,15 @@ export default function CashierTables() {
                     {paidNum > 0 && paidNum < cashRequired && (
                       <p className="text-sm text-destructive">Monto insuficiente (faltan ${(cashRequired - paidNum).toFixed(2)})</p>
                     )}
+                  </div>
+                )}
+
+                {isMixed && (
+                  <div className="space-y-2 rounded-lg border p-3">
+                    {parsePayments(selectedTable?.payment_request).length > 1 && (
+                      <p className="text-xs text-muted-foreground">Precargado por la moza. Revisalo antes de cerrar.</p>
+                    )}
+                    <SplitPaymentEditor parts={splitParts} onChange={setSplitParts} total={grandTotal} />
                   </div>
                 )}
 
@@ -1321,6 +1355,7 @@ export default function CashierTables() {
                   fiscalIncomplete ||
                   (isZeroClose && !zeroReason.trim()) ||
                   (!isZeroClose && paymentMethod === 'cash' && (paidNum < cashRequired || paidNum === 0)) ||
+                  (!isZeroClose && isMixed && (splitParts.filter(p => p.amount > 0).length < 2 || splitSum(splitParts) !== Math.round(grandTotal * 100) / 100)) ||
                   (tipMode === 'individual' && canRegisterTip && tipNum > 0 && !tipWaiterId && waiters.length > 0)
                 }
               >

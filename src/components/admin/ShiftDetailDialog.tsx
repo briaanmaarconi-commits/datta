@@ -19,6 +19,7 @@ interface ShiftDetailDialogProps {
 
 import { isAutomaticSaleTx, isTipTx, summarizeManualMovements, computeExpectedCash } from '@/lib/cashReconciliation';
 import { formatShiftDate, formatShiftRange } from '@/lib/shiftScope';
+import { amountForMethod } from '@/lib/payments';
 
 const money = (n: number) => `$${(n ?? 0).toFixed(2)}`;
 
@@ -35,7 +36,7 @@ export default function ShiftDetailDialog({ open, onOpenChange, shift, establish
       const [invoicesRes, txRes, fiscalRes] = await Promise.all([
         db
           .from('invoices')
-          .select('id, total, payment_method, order_ids, tip_amount, tip_waiter_id, tip_payment_method')
+          .select('id, total, payment_method, payments, order_ids, tip_amount, tip_waiter_id, tip_payment_method')
           .eq('establishment_id', establishmentId)
           .gte('created_at', from)
           .lte('created_at', to),
@@ -76,8 +77,8 @@ export default function ShiftDetailDialog({ open, onOpenChange, shift, establish
 
       // Payment methods
       const byMethod = (m: string) => {
-        const list = invoiceRows.filter((i: any) => i.payment_method === m);
-        return { amount: list.reduce((s: number, i: any) => s + Number(i.total), 0), count: list.length };
+        const amounts = invoiceRows.map((i: any) => amountForMethod(i, m)).filter((a: number) => a > 0);
+        return { amount: amounts.reduce((s: number, a: number) => s + a, 0), count: amounts.length };
       };
       const payments = {
         cash: byMethod('cash'),
