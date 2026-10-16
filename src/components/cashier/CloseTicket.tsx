@@ -49,10 +49,8 @@ function TicketCopy({
           {copy === 'cliente' ? 'COPIA CLIENTE' : 'COPIA CONTROL'}
         </p>
         {reprint && <p className="text-xs font-bold">*** REIMPRESIÓN ***</p>}
-        <p className="text-xs">
-          Mesa {data.tableNumber}
-          {data.invoiceNumber ? `   Ticket #${data.invoiceNumber}` : ''}
-        </p>
+        {data.invoiceNumber ? <p className="text-xl font-bold leading-tight">RECIBO Nº {data.invoiceNumber}</p> : null}
+        <p className="text-xs">Mesa {data.tableNumber}</p>
         <p className="text-xs">{format(new Date(ts), 'dd/MM/yyyy HH:mm', { locale: es })}</p>
       </div>
 

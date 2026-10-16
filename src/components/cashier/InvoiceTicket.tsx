@@ -102,7 +102,7 @@ export default function InvoiceTicket({ invoice, establishmentName, establishmen
             </>
           ) : (
             <>
-              <p className="text-xs">Comprobante #{invoice.invoice_number}</p>
+              <p className="text-xl font-bold leading-tight">RECIBO Nº {invoice.invoice_number}</p>
               <p className="text-xs">
                 {format(new Date(invoice.created_at), "dd/MM/yyyy HH:mm", { locale: es })}
               </p>
@@ -225,7 +225,7 @@ export default function InvoiceTicket({ invoice, establishmentName, establishmen
                 Nº {formatCbteNumero(fiscalData.punto_venta, fiscalData.cbte_numero)}
               </p>
             ) : (
-              <p className="text-muted-foreground">Comprobante #{invoice.invoice_number}</p>
+              <p className="text-lg font-bold">RECIBO Nº {invoice.invoice_number}</p>
             )}
             <p className="text-muted-foreground">
               {format(new Date(invoice.created_at), "dd/MM/yyyy HH:mm", { locale: es })}
