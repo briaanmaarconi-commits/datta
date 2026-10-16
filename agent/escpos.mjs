@@ -67,6 +67,7 @@ export function buildTicket(job, opts = {}) {
     size(2, 2); bold(true); line('DELIVERY'); size(1, 1); bold(false);
     if (job.platform) line(job.platform);
     if (job.customerName) line('Cliente: ' + job.customerName);
+    if (job.deliveryAddress) { bold(true); for (const l of wrap('Direccion: ' + job.deliveryAddress.replace(/·/g, '-'), cols)) line(l); bold(false); }
   } else {
     size(2, 2); bold(true); line('MESA ' + (job.tableNumber ?? '-')); size(1, 1); bold(false);
     if (job.sectorName) line('Sector: ' + job.sectorName);

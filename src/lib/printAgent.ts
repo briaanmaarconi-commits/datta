@@ -30,6 +30,7 @@ export interface AgentJob {
   isDelivery?: boolean;
   platform?: string | null;
   customerName?: string | null;
+  deliveryAddress?: string | null;
   sectorName?: string | null;
   createdAt: string;
   isAddition?: boolean;

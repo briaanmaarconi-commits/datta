@@ -54,6 +54,14 @@ export function formatAddress(a: { street_address?: string | null; address?: str
   return `${street || 'Sin dirección'} · Depto${unit ? ` ${unit}` : ''}`;
 }
 
+/** Dirección de entrega para la comanda (con depto y referencias), o null si el pedido no la tiene. */
+export function deliveryAddressLine(d: unknown): string | null {
+  const info = (d ?? {}) as DeliveryInfo;
+  if (!info.address?.trim()) return null;
+  const addr = formatAddress(info);
+  return info.notes?.trim() ? `${addr} (${info.notes.trim()})` : addr;
+}
+
 /** Link de WhatsApp (asume Argentina si el número no trae código de país). */
 export function whatsappUrl(phone: string, text?: string) {
   let d = onlyDigits(phone);

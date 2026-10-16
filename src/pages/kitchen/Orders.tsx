@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { KitchenTicket, KitchenTicketData } from '@/components/kitchen/KitchenTicket';
 import { PLATFORM_LABELS, type DeliveryPlatform } from '@/hooks/useDeliverySettings';
+import { deliveryAddressLine } from '@/lib/ownDelivery';
 import { agentOnline, agentPrint, DEFAULT_PREP_AREA, groupByStation, PREP_AREAS, PREP_AREA_LABEL, type PrepArea, type PrintStation } from '@/lib/printAgent';
 
 function formatElapsed(created: string) {
@@ -236,6 +237,7 @@ export default function KitchenOrders() {
       isDelivery,
       platform: isDelivery ? (PLATFORM_LABELS[order.external_platform as DeliveryPlatform] ?? order.external_platform ?? null) : null,
       customerName: isDelivery ? (order.customer_name ?? null) : null,
+      deliveryAddress: isDelivery ? deliveryAddressLine(order.delivery_address) : null,
       sectorName: isDelivery ? null : (order.tables?.sectors?.name ?? null),
       createdAt,
       isAddition,

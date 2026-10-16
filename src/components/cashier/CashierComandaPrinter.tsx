@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { KitchenTicket, type KitchenTicketData } from '@/components/kitchen/KitchenTicket';
 import { PLATFORM_LABELS, type DeliveryPlatform } from '@/hooks/useDeliverySettings';
 import { DEFAULT_PREP_AREA, PREP_AREAS, PREP_AREA_LABEL, type PrepArea } from '@/lib/printAgent';
+import { deliveryAddressLine } from '@/lib/ownDelivery';
 import { COMANDA_PRINT_EVENT, COMANDA_TEST_EVENT, isCashierComandaPrintOn } from '@/lib/comandaPrint';
 
 // Solo se imprimen ítems recientes: al encender la función no se reimprime lo viejo.
@@ -25,6 +26,7 @@ interface OrderRow {
   channel?: string | null;
   external_platform?: string | null;
   customer_name?: string | null;
+  delivery_address?: unknown;
   created_at: string;
   tables?: { number?: number; sectors?: { name?: string } | null } | null;
   order_items?: OrderItemRow[];
@@ -156,6 +158,7 @@ export default function CashierComandaPrinter() {
       isDelivery,
       platform: isDelivery ? (PLATFORM_LABELS[order.external_platform as DeliveryPlatform] ?? order.external_platform ?? null) : null,
       customerName: isDelivery ? (order.customer_name ?? null) : null,
+      deliveryAddress: isDelivery ? deliveryAddressLine(order.delivery_address) : null,
       sectorName: isDelivery ? null : (order.tables?.sectors?.name ?? null),
       createdAt,
       isAddition,

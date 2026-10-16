@@ -15,6 +15,8 @@ export interface KitchenTicketData {
   isDelivery?: boolean;
   platform?: string | null;
   customerName?: string | null;
+  /** Dirección de entrega (solo delivery). */
+  deliveryAddress?: string | null;
   sectorName?: string | null;
   createdAt: string;
   isAddition?: boolean;
@@ -40,6 +42,7 @@ export function KitchenTicketBody({ data }: { data: KitchenTicketData }) {
             <p className="text-2xl font-bold leading-tight">DELIVERY</p>
             {data.platform && <p className="text-sm font-bold">{data.platform}</p>}
             {data.customerName && <p className="text-xs">Cliente: {data.customerName}</p>}
+            {data.deliveryAddress && <p className="text-sm font-bold">Dirección: {data.deliveryAddress}</p>}
           </>
         ) : (
           <>
