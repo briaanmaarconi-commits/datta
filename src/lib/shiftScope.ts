@@ -28,7 +28,34 @@ export function getOrdersCutoff(activeShift?: { opened_at?: string | null; creat
 
 const AR_TZ = 'America/Argentina/Buenos_Aires';
 
-type ShiftLike = { shift_date?: string | null; opened_at?: string | null; closed_at?: string | null } | null | undefined;
+type ShiftLike = {
+  shift_date?: string | null;
+  opened_at?: string | null;
+  closed_at?: string | null;
+  created_at?: string | null;
+} | null | undefined;
+
+/**
+ * Momento real de apertura del turno. `created_at` lo pone el servidor; `opened_at` en turnos
+ * viejos venía del reloj de la PC de caja, que puede estar adelantado. Tomamos el más temprano
+ * para que ningún cobro hecho apenas abierto el turno quede afuera del resumen.
+ */
+export function getShiftStart(shift: ShiftLike): string | null {
+  if (!shift) return null;
+  const candidates = [shift.opened_at, shift.created_at]
+    .filter(Boolean)
+    .map(v => new Date(v as string).getTime());
+  if (candidates.length === 0) return shift.shift_date ? `${shift.shift_date}T00:00:00.000Z` : null;
+  return new Date(Math.min(...candidates)).toISOString();
+}
+
+/** Ventana [desde, hasta] para buscar los movimientos de un turno (abierto o cerrado). */
+export function getShiftWindow(shift: ShiftLike): { from: string; to: string } {
+  return {
+    from: getShiftStart(shift) ?? new Date(0).toISOString(),
+    to: shift?.closed_at ?? new Date().toISOString(),
+  };
+}
 
 /**
  * Fecha (YYYY-MM-DD, hora Argentina) que le corresponde al turno: la de su apertura.
@@ -36,7 +63,7 @@ type ShiftLike = { shift_date?: string | null; opened_at?: string | null; closed
  */
 export function getShiftDisplayDate(shift: ShiftLike): string | null {
   if (!shift) return null;
-  if (shift.opened_at) return toArgDate(shift.opened_at);
+  if (shift.opened_at || shift.created_at) return toArgDate(getShiftStart(shift)!);
   return shift.shift_date ?? null;
 }
 
@@ -59,11 +86,12 @@ function argTime(iso?: string | null): string {
 /** Rango horario del turno, marcando cuando el cierre cae en el día siguiente. */
 export function formatShiftRange(shift: ShiftLike): string {
   if (!shift) return '-';
-  const start = argTime(shift.opened_at);
+  const openedAt = shift.opened_at || shift.created_at ? getShiftStart(shift) : null;
+  const start = argTime(openedAt);
   const end = argTime(shift.closed_at);
   let suffix = '';
-  if (shift.opened_at && shift.closed_at) {
-    const openDay = toArgDate(shift.opened_at);
+  if (openedAt && shift.closed_at) {
+    const openDay = toArgDate(openedAt);
     const closeDay = toArgDate(shift.closed_at);
     if (openDay !== closeDay) {
       const days = Math.round(

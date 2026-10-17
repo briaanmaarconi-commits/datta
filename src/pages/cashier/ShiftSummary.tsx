@@ -15,7 +15,7 @@ import { useAuditLog } from '@/hooks/useAuditLog';
 import { useActiveShift } from '@/hooks/useActiveShift';
 import ShiftReportTicket, { ShiftReportBody, ShiftReportData } from '@/components/cashier/ShiftReportTicket';
 import { summarizeManualMovements, computeExpectedCash } from '@/lib/cashReconciliation';
-import { getOrdersCutoff, getShiftDisplayDate, formatShiftDate, formatShiftRange } from '@/lib/shiftScope';
+import { getOrdersCutoff, getShiftDisplayDate, formatShiftDate, formatShiftRange, getShiftWindow } from '@/lib/shiftScope';
 import { toArgDate } from '@/lib/utils';
 import { amountForMethod } from '@/lib/payments';
 import {
@@ -63,8 +63,7 @@ export default function ShiftSummary() {
 
   // Builds the printable report for any shift (open window or closed range)
   const buildReport = async (shift: any, actualCash: number): Promise<ShiftReportData> => {
-    const from = shift.opened_at ?? `${shift.shift_date}T00:00:00.000Z`;
-    const to = shift.closed_at ?? new Date().toISOString();
+    const { from, to } = getShiftWindow(shift);
 
     const [ordersRes, expensesRes, invoicesRes, fiscalRes, profileRes, courtesyRes, accountsRes, anomaliesRes] = await Promise.all([
       // Ventas del turno = comprobantes emitidos (momento del cobro)
@@ -166,7 +165,7 @@ export default function ShiftSummary() {
     return {
       establishmentName: establishment?.name,
       shiftDate: getShiftDisplayDate(shift) ?? shift.shift_date,
-      openedAt: shift.opened_at,
+      openedAt: from,
       closedAt: shift.closed_at ?? new Date().toISOString(),
       closedByName: (profileRes as any)?.data?.full_name ?? null,
       totalSales,
@@ -204,8 +203,8 @@ export default function ShiftSummary() {
         .select('id, total, payment_method, payments')
         .eq('establishment_id', establishmentId!);
 
-      if (activeShift?.opened_at) {
-        query = query.gte('created_at', activeShift.opened_at);
+      if (activeShift) {
+        query = query.gte('created_at', getShiftWindow(activeShift).from);
       }
 
       const { data, error } = await query;
@@ -234,12 +233,12 @@ export default function ShiftSummary() {
   const { data: manualMovements = { manualIncome: 0, manualExpenses: 0 } } = useQuery({
     queryKey: ['shift-manual-movements', establishmentId, activeShift?.id],
     queryFn: async () => {
-      if (!activeShift?.opened_at) return { manualIncome: 0, manualExpenses: 0 };
+      if (!activeShift) return { manualIncome: 0, manualExpenses: 0 };
       const { data, error } = await db
         .from('finance_transactions')
         .select('type, amount, affects_cash, finance_categories(name)')
         .eq('establishment_id', establishmentId!)
-        .gte('created_at', activeShift.opened_at);
+        .gte('created_at', getShiftWindow(activeShift).from);
       if (error) throw error;
       const txs = (data ?? []).map((t: any) => ({
         type: t.type,
@@ -346,17 +345,21 @@ export default function ShiftSummary() {
       if (!activeShift) return null;
       const actualCash = Number(actualCashInput);
       const difference = actualCash - expectedCash;
-      const closedAt = new Date().toISOString();
-      const { error } = await db
+      // La hora real de cierre la pone el servidor (trigger); acá solo marcamos el cierre.
+      const { data: saved, error } = await db
         .from('shift_controls')
         .update({
-          closed_at: closedAt,
+          closed_at: new Date().toISOString(),
           closed_by: userId,
           actual_cash: actualCash,
           cash_difference: difference,
         })
-        .eq('id', activeShift.id);
+        .eq('id', activeShift.id)
+        .select('closed_at')
+        .maybeSingle();
       if (error) throw error;
+      const closedAt = (saved as any)?.closed_at ?? new Date().toISOString();
+      auditLog('close_shift', 'shift_controls', activeShift.id, { actual_cash: actualCash, expected: expectedCash });
 
       // No se cancelan pedidos ni se liberan mesas en silencio: el cierre solo
       // ocurre cuando ya no quedan mesas pendientes.
@@ -366,7 +369,6 @@ export default function ShiftSummary() {
       return await buildReport({ ...activeShift, closed_at: closedAt, closed_by: userId }, actualCash);
     },
     onSuccess: (data) => {
-      auditLog('close_shift', 'shift_controls', activeShift?.id, { actual_cash: Number(actualCashInput), expected: expectedCash });
       queryClient.invalidateQueries({ queryKey: ['active-shift'] });
       queryClient.invalidateQueries({ queryKey: ['past-shifts'] });
       queryClient.invalidateQueries({ queryKey: ['shift-stats'] });
@@ -445,7 +447,7 @@ export default function ShiftSummary() {
                   <div>
                     <p className="font-semibold">Turno abierto</p>
                     <p className="text-sm text-muted-foreground">
-                      Abierto el {new Date(activeShift.opened_at!).toLocaleString('es')} — Fondo inicial: ${initialCash.toFixed(2)}
+                      Abierto el {new Date(getShiftWindow(activeShift).from).toLocaleString('es', { timeZone: 'America/Argentina/Buenos_Aires' })} — Fondo inicial: ${initialCash.toFixed(2)}
                     </p>
                   </div>
                 </div>

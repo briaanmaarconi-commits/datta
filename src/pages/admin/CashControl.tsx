@@ -20,7 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '@/components/ui/textarea';
 import { CheckCircle, Circle, Plus, Trash2, DollarSign, TrendingDown, TrendingUp, CalendarIcon, Eye } from 'lucide-react';
 import ShiftDetailDialog from '@/components/admin/ShiftDetailDialog';
-import { getShiftDisplayDate, formatShiftDate, formatShiftRange } from '@/lib/shiftScope';
+import { getShiftDisplayDate, formatShiftDate, formatShiftRange, getShiftWindow } from '@/lib/shiftScope';
 
 import FiscalSettingsCard from '@/components/admin/FiscalSettingsCard';
 import CourtesyAccountsTab from '@/components/admin/CourtesyAccountsTab';
@@ -85,8 +85,7 @@ function ShiftControlTab({ establishmentId, userId }: { establishmentId: string 
 
       const results = await Promise.all((data || []).map(async (shift: any) => {
         // Misma fuente que el detalle: comprobantes por momento de COBRO dentro del turno.
-        const from = shift.opened_at ?? `${shift.shift_date}T00:00:00.000Z`;
-        const to = shift.closed_at ?? new Date().toISOString();
+        const { from, to } = getShiftWindow(shift);
         const { data: invs } = await db
           .from('invoices')
           .select('id, total, payment_method, payments')

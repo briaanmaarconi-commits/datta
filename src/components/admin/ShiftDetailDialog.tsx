@@ -18,7 +18,7 @@ interface ShiftDetailDialogProps {
 }
 
 import { isAutomaticSaleTx, isTipTx, summarizeManualMovements, computeExpectedCash } from '@/lib/cashReconciliation';
-import { formatShiftDate, formatShiftRange } from '@/lib/shiftScope';
+import { formatShiftDate, formatShiftRange, getShiftWindow } from '@/lib/shiftScope';
 import { amountForMethod } from '@/lib/payments';
 
 const money = (n: number) => `$${(n ?? 0).toFixed(2)}`;
@@ -28,8 +28,7 @@ export default function ShiftDetailDialog({ open, onOpenChange, shift, establish
   const { data } = useQuery({
     queryKey: ['shift-detail', shift?.id],
     queryFn: async () => {
-      const from = shift.opened_at ?? `${shift.shift_date}T00:00:00.000Z`;
-      const to = shift.closed_at ?? new Date().toISOString();
+      const { from, to } = getShiftWindow(shift);
 
       // Las ventas del turno se toman de los comprobantes (momento del COBRO).
       // Un pedido puede haberse abierto antes del turno y cobrarse dentro de él.
@@ -174,8 +173,8 @@ export default function ShiftDetailDialog({ open, onOpenChange, shift, establish
 
       // Duration + sales per hour
       let durationHours: number | null = null;
-      if (shift.opened_at && shift.closed_at) {
-        durationHours = (new Date(shift.closed_at).getTime() - new Date(shift.opened_at).getTime()) / 3600000;
+      if (shift.closed_at) {
+        durationHours = (new Date(to).getTime() - new Date(from).getTime()) / 3600000;
       }
       const salesPerHour = durationHours && durationHours > 0.05 ? totalSales / durationHours : null;
 
