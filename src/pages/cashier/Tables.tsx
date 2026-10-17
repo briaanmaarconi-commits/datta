@@ -407,7 +407,7 @@ export default function CashierTables() {
       if (isZeroClose && !zeroReason.trim()) {
         throw new Error('Indicá el motivo por el que la mesa se cierra en $0');
       }
-      const paid = isZeroClose ? 0 : parseFloat(amountPaid);
+      const paid = isZeroClose ? 0 : paidNum;
       // For cash, the amount the customer hands over must cover total + tip (if pool/cash)
       const cashTipPart = paymentMethod === 'cash' && tipMode === 'pool' ? tipNum : 0;
       const cashRequired = grandTotal + cashTipPart;
@@ -455,17 +455,19 @@ export default function CashierTables() {
       for (let idx = 0; idx < tableOrders.length; idx++) {
         const order: any = tableOrders[idx];
         const chargedTotal = chargedTotals[idx];
-        await db.from('orders').update({
+        const { error: orderErr } = await db.from('orders').update({
           status: 'closed' as any,
           payment_method: paymentMethod,
           payments: orderPayments ? orderPayments[idx] : null,
           total: chargedTotal,
           amount_paid: paymentMethod === 'cash' && idx === 0 ? paid : chargedTotal,
         } as any).eq('id', order.id);
+        if (orderErr) throw new Error(`No se pudo cerrar el pedido de la mesa: ${orderErr.message}`);
       }
 
 
-      await db.from('tables').update({ status: 'free' as any, payment_request: null } as any).eq('id', selectedTable!.id);
+      const { error: tableErr } = await db.from('tables').update({ status: 'free' as any, payment_request: null } as any).eq('id', selectedTable!.id);
+      if (tableErr) throw new Error(`No se pudo liberar la mesa: ${tableErr.message}`);
 
       // Auto-register SALES income (separate from tips)
       let { data: salesCat } = await db
@@ -541,8 +543,8 @@ export default function CashierTables() {
 
       // Auto-generate invoice
       // Cash: amount_paid is what customer handed over; change = paid - (total + cash-pool-tip)
-      const actualPaid = paymentMethod === 'cash' ? parseFloat(amountPaid) : grandTotal + tipToRegister;
-      const changeAmt = paymentMethod === 'cash' ? Math.max(0, parseFloat(amountPaid) - (grandTotal + cashTipPart)) : 0;
+      const actualPaid = paymentMethod === 'cash' ? paidNum : grandTotal + tipToRegister;
+      const changeAmt = paymentMethod === 'cash' ? Math.max(0, paidNum - (grandTotal + cashTipPart)) : 0;
       // El snapshot guarda SIEMPRE el detalle completo, incluidos los ítems excluidos
       // (marcados como `excluded`), para que ninguna factura quede sin detalle.
       const rawItems = tableOrders.flatMap((o: any) => o.order_items || []);
@@ -691,7 +693,7 @@ export default function CashierTables() {
       return { ticket, fiscal, fiscalError };
     },
     onSuccess: ({ ticket, fiscal, fiscalError }: { ticket: CloseTicketData; fiscal: FacturaTicketData | null; fiscalError: string | null }) => {
-      const paid = parseFloat(amountPaid);
+      const paid = paidNum;
       const cashTipPart = paymentMethod === 'cash' && tipMode === 'pool' ? tipNum : 0;
       const change = paymentMethod === 'cash' ? Math.max(0, paid - (grandTotal + cashTipPart)) : 0;
       queryClient.invalidateQueries({ queryKey: ['tables'] });
@@ -752,11 +754,25 @@ export default function CashierTables() {
   const adjustmentsTotal = adjustments.reduce((s, a) => s + a.qty * a.unit_price, 0);
   const grandTotal = ordersTotal + adjustmentsTotal;
   const isZeroClose = grandTotal <= 0 && tableOrders.length > 0;
-  const paidNum = parseFloat(amountPaid) || 0;
   // In cash + pool mode, the customer also hands over the tip; cash-required is total + tip
   const cashTipPart = paymentMethod === 'cash' && tipMode === 'pool' ? tipNum : 0;
   const cashRequired = grandTotal + cashTipPart;
+  // Si no se carga el monto recibido en efectivo, se toma como pago exacto (sin vuelto).
+  const paidNum = amountPaid.trim() === '' ? cashRequired : (parseFloat(amountPaid) || 0);
   const change = paymentMethod === 'cash' ? Math.max(0, paidNum - cashRequired) : 0;
+
+  // Qué falta para poder cerrar la mesa (null = se puede cerrar).
+  const closeBlocker: string | null =
+    isAccount && isZeroClose ? 'La mesa está en $0: no hay nada para cargar a la cuenta corriente'
+    : isAccount && !companyId ? 'Elegí la empresa de la cuenta corriente'
+    : isAccount && !voucherNumber.trim() ? 'Cargá el número de vale'
+    : fiscalIncomplete ? 'Completá el CUIT y la razón social para la factura'
+    : isZeroClose && !zeroReason.trim() ? 'Indicá el motivo por el que la mesa se cierra en $0'
+    : !isZeroClose && paymentMethod === 'cash' && paidNum < cashRequired ? `El monto recibido no alcanza (faltan $${(cashRequired - paidNum).toFixed(2)})`
+    : !isZeroClose && isMixed && splitParts.filter(p => p.amount > 0).length < 2 ? 'Cargá al menos dos medios de pago'
+    : !isZeroClose && isMixed && splitSum(splitParts) !== Math.round(grandTotal * 100) / 100 ? 'Los montos del pago combinado tienen que sumar el total de la mesa'
+    : tipMode === 'individual' && canRegisterTip && tipNum > 0 && !tipWaiterId && waiters.length > 0 ? 'Seleccioná el mozo que recibe la propina'
+    : null;
 
   // Combined items list for pre-bill ticket and final invoice snapshot
   const combinedItems = useMemo(() => {
@@ -1179,13 +1195,13 @@ export default function CashierTables() {
                     <Input
                       id="amountPaid"
                       type="number"
-                      placeholder="0.00"
+                      placeholder={`Exacto: ${cashRequired.toFixed(2)}`}
                       value={amountPaid}
                       onChange={e => setAmountPaid(e.target.value)}
                       min={0}
                       step="0.01"
                     />
-                    {paidNum > 0 && paidNum >= cashRequired && (
+                    {amountPaid.trim() !== '' && paidNum > 0 && paidNum >= cashRequired && (
                       <div className="flex items-center justify-between bg-green-500/10 border border-green-500/30 rounded-lg p-3">
                         <span className="font-semibold text-green-700">Vuelto</span>
                         <span className="text-xl font-bold text-green-700">${change.toFixed(2)}</span>
@@ -1348,20 +1364,20 @@ export default function CashierTables() {
 
               <Button
                 className="w-full gap-2"
-                onClick={() => closeAllOrders.mutate()}
-                disabled={
-                  closeAllOrders.isPending ||
-                  (isAccount && (!companyId || !voucherNumber.trim() || isZeroClose)) ||
-                  fiscalIncomplete ||
-                  (isZeroClose && !zeroReason.trim()) ||
-                  (!isZeroClose && paymentMethod === 'cash' && (paidNum < cashRequired || paidNum === 0)) ||
-                  (!isZeroClose && isMixed && (splitParts.filter(p => p.amount > 0).length < 2 || splitSum(splitParts) !== Math.round(grandTotal * 100) / 100)) ||
-                  (tipMode === 'individual' && canRegisterTip && tipNum > 0 && !tipWaiterId && waiters.length > 0)
-                }
+                onClick={() => {
+                  // El botón no queda mudo: si falta algo, dice qué.
+                  if (closeBlocker) {
+                    toast.error(closeBlocker);
+                    return;
+                  }
+                  closeAllOrders.mutate();
+                }}
+                disabled={closeAllOrders.isPending}
               >
                 <DollarSign className="h-4 w-4" />
                 {isAccount ? 'Cargar a cuenta corriente' : 'Cerrar mesa'} — ${(grandTotal + (canRegisterTip ? tipNum : 0)).toFixed(2)}
               </Button>
+              {closeBlocker && <p className="text-sm text-destructive text-center">{closeBlocker}</p>}
 
               <Button
                 variant="outline"
