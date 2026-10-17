@@ -319,7 +319,7 @@ function FinanceTab({ establishmentId, userId }: { establishmentId: string | nul
   const [txCategoryId, setTxCategoryId] = useState('');
   const [txAmount, setTxAmount] = useState('');
   const [txDescription, setTxDescription] = useState('');
-  const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
+  const [txDate, setTxDate] = useState(toArgDate());
   const [txType, setTxType] = useState<'income' | 'expense'>('expense');
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('month');
@@ -558,7 +558,7 @@ function FinanceTab({ establishmentId, userId }: { establishmentId: string | nul
             <SelectItem value="expense">Salidas</SelectItem>
           </SelectContent>
         </Select>
-        <Button onClick={() => setShowTxDialog(true)}><Plus className="h-4 w-4 mr-1" /> Registrar movimiento</Button>
+        <Button onClick={() => { setTxDate(toArgDate()); setShowTxDialog(true); }}><Plus className="h-4 w-4 mr-1" /> Registrar movimiento</Button>
         <Button variant="outline" onClick={() => setShowCatDialog(true)}><Plus className="h-4 w-4 mr-1" /> Nueva categoría</Button>
       </div>
 

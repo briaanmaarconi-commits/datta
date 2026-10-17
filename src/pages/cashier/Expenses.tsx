@@ -69,7 +69,7 @@ export default function CashierExpenses() {
   const [txAmount, setTxAmount] = useState('');
   const [txDescription, setTxDescription] = useState('');
   const [txNotes, setTxNotes] = useState('');
-  const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
+  const [txDate, setTxDate] = useState(toArgDate());
   const [txType, setTxType] = useState<'income' | 'expense'>('expense');
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [categorySearch, setCategorySearch] = useState('');
@@ -366,7 +366,7 @@ export default function CashierExpenses() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <h1 className="text-3xl font-bold tracking-tight">Salidas e Ingresos</h1>
         <div className="flex gap-2 flex-wrap">
-          <Button onClick={() => setShowTxDialog(true)}><Plus className="h-4 w-4 mr-1" /> Registrar movimiento</Button>
+          <Button onClick={() => { setTxDate(toArgDate()); setShowTxDialog(true); }}><Plus className="h-4 w-4 mr-1" /> Registrar movimiento</Button>
           {aiReaderEnabled && (
             <Button variant="secondary" onClick={() => setShowScanDialog(true)}>
               <ScanLine className="h-4 w-4 mr-1" /> Leer factura con IA

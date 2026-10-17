@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { toArgDate } from '@/lib/utils';
 import InvoiceScanDialog, { type ParsedInvoice } from '@/components/shared/InvoiceScanDialog';
 import InvoiceItemsReviewDialog from '@/components/shared/InvoiceItemsReviewDialog';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -97,7 +98,7 @@ export default function SimplePurchasesTab() {
   const [editingTxId, setEditingTxId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [supplier, setSupplier] = useState('');
-  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
+  const [invoiceDate, setInvoiceDate] = useState(toArgDate());
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [lines, setLines] = useState<Line[]>([{ ...emptyLine }]);
@@ -178,7 +179,7 @@ export default function SimplePurchasesTab() {
     setEditingId(null);
     setEditingTxId(null);
     setSupplier('');
-    setInvoiceDate(new Date().toISOString().split('T')[0]);
+    setInvoiceDate(toArgDate());
     setNotes('');
     setPaymentMethod('cash');
     setLines([{ ...emptyLine }]);

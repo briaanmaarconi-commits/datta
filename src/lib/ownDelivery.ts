@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { toArgDate } from '@/lib/utils';
 
 // Delivery propio (pedidos por teléfono). Los pedidos son orders con channel 'delivery' y
 // external_platform 'propio'; la ficha del cliente vive en customers (backend/sql/109_delivery_customers.sql).
@@ -101,7 +102,7 @@ export async function closeOwnDeliveryOrder(params: {
     await db.from('finance_transactions').insert({
       establishment_id: establishmentId, category_id: (salesCat as any).id, type: 'income', amount: total,
       description: `Delivery${order.customer_name ? ` - ${order.customer_name}` : ''} - ${PAY_LABEL[payMethod]}`,
-      date: new Date().toISOString().split('T')[0], created_by: userId,
+      date: toArgDate(), created_by: userId,
     });
   }
 

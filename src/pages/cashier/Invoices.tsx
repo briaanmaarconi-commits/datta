@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { toArgDate } from '@/lib/utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
@@ -235,7 +236,7 @@ export default function CashierInvoices() {
           type: 'income',
           amount: grandTotal,
           description: `Mesa ${selectedTable!.number} - ${PAYMENT_LABELS[paymentMethod]}`,
-          date: new Date().toISOString().split('T')[0],
+          date: toArgDate(),
           created_by: session?.user?.id || null,
         });
       }

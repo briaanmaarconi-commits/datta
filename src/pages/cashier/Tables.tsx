@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { toArgDate } from '@/lib/utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
@@ -495,7 +496,7 @@ export default function CashierTables() {
           type: 'income',
           amount: grandTotal,
           description: `Mesa ${selectedTable!.number} - ${pmLabel(paymentMethod)}`,
-          date: new Date().toISOString().split('T')[0],
+          date: toArgDate(),
           created_by: session?.user?.id || null,
         });
       }
@@ -515,7 +516,7 @@ export default function CashierTables() {
           ? (waiters.find((w: any) => w.user_id === tipWaiterId)?.profiles?.full_name || 'Mozo')
           : 'Pozo común';
         const pmLabel = tipMethod === 'cash' ? 'Efectivo' : tipMethod === 'card' ? 'Tarjeta' : 'Transferencia';
-        const today = new Date().toISOString().split('T')[0];
+        const today = toArgDate();
 
         // Income
         await db.from('finance_transactions').insert({

@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import { toArgDate } from '@/lib/utils';
 import { db } from '@/lib/db';
 
 export type CourtesyType = 'invitation' | 'staff_meal' | 'internal';
@@ -113,7 +114,7 @@ export async function closeTableAsCourtesy(params: CloseAsCourtesyParams) {
       type: 'expense',
       amount: totalCost,
       description: `${typeLabel} — Mesa ${tableNumber}${notes ? ` (${notes})` : ''}`,
-      date: new Date().toISOString().split('T')[0],
+      date: toArgDate(),
       created_by: userId,
     }).select('id').single();
     if (txErr) throw txErr;

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { toArgDate } from '@/lib/utils';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
@@ -108,7 +109,7 @@ export default function InvoiceItemsReviewDialog({ open, onOpenChange, invoices,
         key: `g${gi}`,
         supplier: inv.supplier || '',
         invoice_number: inv.invoice_number || '',
-        invoice_date: inv.invoice_date || new Date().toISOString().slice(0, 10),
+        invoice_date: inv.invoice_date || toArgDate(),
         total: inv.total ? String(inv.total) : '',
         receipt_path: inv.receipt_path,
         lines: (inv.items || []).map((it, li) => ({
