@@ -10,7 +10,7 @@ export function useActiveShift() {
   const { data: activeShift, isLoading } = useQuery({
     queryKey: ['active-shift', establishmentId],
     queryFn: async () => {
-      const { data } = await db
+      const { data, error } = await db
         .from('shift_controls')
         .select('*')
         .eq('establishment_id', establishmentId!)
@@ -18,6 +18,9 @@ export function useActiveShift() {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+      // Si la consulta falla (wifi que se corta, servidor lento) no es "no hay turno":
+      // se lanza el error para conservar el último dato bueno y reintentar.
+      if (error) throw error;
       return data ?? null;
     },
     enabled: !!establishmentId,
