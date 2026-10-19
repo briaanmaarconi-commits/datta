@@ -130,11 +130,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       staleTime: 60_000,
     });
 
-    // Prefetch tables + sectors (Mesas / Monitor)
+    // Prefetch tables + sectors (Mesas): misma consulta que la página, y si falla se lanza
+    // el error para no dejar guardada una lista vacía (mesas en gris en el plano).
     queryClient.prefetchQuery({
       queryKey: ['tables', establishmentId],
       queryFn: async () => {
-        const { data } = await db.from('tables').select('*, sectors(name, color)').eq('establishment_id', establishmentId).order('number');
+        const { data, error } = await db.from('tables').select('*').eq('establishment_id', establishmentId).order('number');
+        if (error) throw error;
         return data ?? [];
       },
       staleTime: 60_000,
@@ -142,7 +144,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     queryClient.prefetchQuery({
       queryKey: ['sectors', establishmentId],
       queryFn: async () => {
-        const { data } = await db.from('sectors').select('*').eq('establishment_id', establishmentId).order('name');
+        const { data, error } = await db.from('sectors').select('*').eq('establishment_id', establishmentId).order('sort_order');
+        if (error) throw error;
         return data ?? [];
       },
       staleTime: 5 * 60_000,
