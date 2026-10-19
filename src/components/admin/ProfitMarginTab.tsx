@@ -94,7 +94,7 @@ export default function ProfitMarginTab() {
           .gte('created_at', fromISO)
           .lte('created_at', toISO),
         db.from('order_items')
-          .select('quantity, unit_price, cost_snapshot, products(name), orders!inner(id, establishment_id, status, created_at)')
+          .select('quantity, unit_price, cost_snapshot, products(name), orders!inner(id)')
           .eq('orders.establishment_id', establishmentId!)
           .eq('orders.status', 'closed')
           .gte('orders.created_at', fromISO)

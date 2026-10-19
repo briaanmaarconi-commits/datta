@@ -183,7 +183,7 @@ async function fetchPeriodData(establishmentId: string, from: string, to: string
       .gte('created_at', from)
       .lte('created_at', to),
     db.from('order_items')
-      .select('quantity, unit_price, product_id, products(name, category_id, categories(name)), orders!inner(establishment_id, status, created_at)')
+      .select('quantity, unit_price, product_id, products(name, categories(name)), orders!inner(id)')
       .eq('orders.establishment_id', establishmentId)
       .eq('orders.status', 'closed')
       .gte('orders.created_at', from)

@@ -6,6 +6,9 @@ import { env } from "../env.js";
 export const pool = new pg.Pool({
   connectionString: env.APP_DATABASE_URL ?? env.DATABASE_URL,
   max: 20,
+  // Mantener las conexiones abiertas un rato: abrir una nueva cuesta más que la consulta misma
+  // (el valor por defecto las cierra a los 10 s sin uso).
+  idleTimeoutMillis: 5 * 60_000,
 });
 
 export type DbRole = "anon" | "authenticated" | "service_role";

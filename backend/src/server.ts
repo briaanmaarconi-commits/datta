@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import cookie from "@fastify/cookie";
+import compress from "@fastify/compress";
 import rateLimit from "@fastify/rate-limit";
 import { z } from "zod";
 import { env } from "./env.js";
@@ -32,6 +33,9 @@ export async function buildApp() {
   const app = Fastify({ logger: true, bodyLimit: 25 * 1024 * 1024, trustProxy: true });
 
   await app.register(cookie);
+  // Comprime las respuestas JSON (las de analíticas pesan cientos de KB sin comprimir).
+  // Solo JSON: el canal en vivo (/api/events) y los archivos estáticos quedan como están.
+  await app.register(compress, { customTypes: /^application\/json/, threshold: 1024 });
   await app.register(rateLimit, { max: 600, timeWindow: "1 minute" });
 
   app.decorateRequest("user", null);

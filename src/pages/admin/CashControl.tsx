@@ -83,16 +83,26 @@ function ShiftControlTab({ establishmentId, userId }: { establishmentId: string 
         .order('created_at', { ascending: false });
       if (error) throw error;
 
-      const results = await Promise.all((data || []).map(async (shift: any) => {
-        // Misma fuente que el detalle: comprobantes por momento de COBRO dentro del turno.
+      const list = data || [];
+      if (list.length === 0) return [];
+
+      // Misma fuente que el detalle: comprobantes por momento de COBRO dentro del turno.
+      // Una sola consulta que cubre todos los turnos (antes era una por turno y frenaba al servidor).
+      const windows = list.map((shift: any) => {
         const { from, to } = getShiftWindow(shift);
-        const { data: invs } = await db
-          .from('invoices')
-          .select('id, total, payment_method, payments')
-          .eq('establishment_id', establishmentId!)
-          .gte('created_at', from)
-          .lte('created_at', to);
-        const rows = invs || [];
+        return { from: new Date(from).getTime(), to: new Date(to).getTime() };
+      });
+      const { data: allInvs } = await db
+        .from('invoices')
+        .select('id, total, payment_method, payments, created_at')
+        .eq('establishment_id', establishmentId!)
+        .gte('created_at', new Date(Math.min(...windows.map(w => w.from))).toISOString())
+        .lte('created_at', new Date(Math.max(...windows.map(w => w.to))).toISOString());
+      const invs = (allInvs || []).map((o: any) => ({ ...o, _t: new Date(o.created_at).getTime() }));
+
+      const results = list.map((shift: any, i: number) => {
+        const { from, to } = windows[i];
+        const rows = invs.filter((o: any) => o._t >= from && o._t <= to);
         const sum = (m: string) => rows.reduce((s: number, o: any) => s + amountForMethod(o, m), 0);
         const cash = sum('cash');
         const card = sum('card');
@@ -100,7 +110,7 @@ function ShiftControlTab({ establishmentId, userId }: { establishmentId: string 
         const total = cash + card + transfer;
 
         return { ...shift, cash, card, transfer, total, count: rows.length };
-      }));
+      });
 
       return results;
     },

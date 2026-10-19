@@ -116,21 +116,23 @@ export default function AdminAnalytics() {
   const { data: financeData } = useQuery({
     queryKey: ['analytics-finance', establishmentId, range.fromDate, range.toDate],
     queryFn: async () => {
-      const { data: txs, error } = await db
-        .from('finance_transactions')
-        .select('*, finance_categories(name)')
-        .eq('establishment_id', establishmentId!)
-        .gte('date', range.fromDate)
-        .lte('date', range.toDate);
-      if (error) throw error;
-
-      const { data: closedOrders } = await db
-        .from('orders')
-        .select('id, total, payment_method, created_at')
-        .eq('establishment_id', establishmentId!)
-        .eq('status', 'closed')
-        .gte('created_at', range.fromISO)
-        .lte('created_at', range.toISO);
+      // Las dos consultas a la vez (antes la segunda esperaba a la primera).
+      const [txRes, closedRes] = await Promise.all([
+        db.from('finance_transactions')
+          .select('date, type, amount, finance_categories(name)')
+          .eq('establishment_id', establishmentId!)
+          .gte('date', range.fromDate)
+          .lte('date', range.toDate),
+        db.from('orders')
+          .select('total, created_at')
+          .eq('establishment_id', establishmentId!)
+          .eq('status', 'closed')
+          .gte('created_at', range.fromISO)
+          .lte('created_at', range.toISO),
+      ]);
+      if (txRes.error) throw txRes.error;
+      const txs = txRes.data;
+      const closedOrders = closedRes.data;
 
       const incomeMap: Record<string, number> = {};
       const expenseMap: Record<string, number> = {};
@@ -189,7 +191,7 @@ export default function AdminAnalytics() {
           .gte('created_at', range.fromISO)
           .lte('created_at', range.toISO),
         db.from('order_items')
-          .select('quantity, unit_price, product_id, products(name, price, categories(name)), orders!inner(establishment_id, status, created_at)')
+          .select('quantity, unit_price, product_id, products(name, categories(name)), orders!inner(id)')
           .eq('orders.establishment_id', establishmentId!)
           .eq('orders.status', 'closed')
           .gte('orders.created_at', range.fromISO)
