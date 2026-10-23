@@ -316,23 +316,33 @@ export default function ShiftSummary() {
   const expectedCash = computeExpectedCash({ initialCash, cashSales, manualIncome, manualExpenses: cashExpenses });
 
 
+  // Muestra el turno abierto/cerrado apenas lo confirma el servidor, sin esperar otra consulta.
+  // Se cancela antes cualquier consulta en curso para que no pise el dato nuevo con el viejo.
+  const setActiveShiftNow = async (shift: unknown) => {
+    await queryClient.cancelQueries({ queryKey: ['active-shift', establishmentId] });
+    queryClient.setQueryData(['active-shift', establishmentId], shift);
+    queryClient.invalidateQueries({ queryKey: ['active-shift'], refetchType: 'none' });
+  };
+
   const openShift = useMutation({
     mutationFn: async () => {
       const now = new Date().toISOString();
       // Fecha del turno = día en hora Argentina en que se abre la caja
       const today = toArgDate(new Date());
-      const { error } = await db.from('shift_controls').insert({
+      const { data, error } = await db.from('shift_controls').insert({
         establishment_id: establishmentId!,
         shift_date: today,
         is_controlled: false,
         opened_at: now,
         initial_cash: Number(initialCashInput) || 0,
-      } as any);
+      } as any).select('*').single();
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
-      auditLog('open_shift', 'shift_controls', undefined, { initial_cash: Number(initialCashInput) || 0 });
-      queryClient.invalidateQueries({ queryKey: ['active-shift'] });
+    onSuccess: async (shift) => {
+      auditLog('open_shift', 'shift_controls', (shift as any)?.id, { initial_cash: Number(initialCashInput) || 0 });
+      if (shift) await setActiveShiftNow(shift);
+      else queryClient.invalidateQueries({ queryKey: ['active-shift'] });
       queryClient.invalidateQueries({ queryKey: ['past-shifts'] });
       setInitialCashInput('');
       toast.success('Turno abierto');
@@ -363,24 +373,26 @@ export default function ShiftSummary() {
 
       // No se cancelan pedidos ni se liberan mesas en silencio: el cierre solo
       // ocurre cuando ya no quedan mesas pendientes.
-
-
-
-      return await buildReport({ ...activeShift, closed_at: closedAt, closed_by: userId }, actualCash);
+      return { shift: { ...activeShift, closed_at: closedAt, closed_by: userId }, actualCash };
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['active-shift'] });
+    onSuccess: async (closed) => {
+      // El turno se ve cerrado al instante; el reporte se arma después y se abre cuando está listo.
+      await setActiveShiftNow(null);
       queryClient.invalidateQueries({ queryKey: ['past-shifts'] });
       queryClient.invalidateQueries({ queryKey: ['shift-stats'] });
       setShowCloseDialog(false);
       setShowCloseConfirm(false);
       setActualCashInput('');
-      if (data) {
-        setReport(data);
-        setReportReprint(false);
-        setShowReport(true);
-      }
       toast.success('Turno cerrado correctamente');
+      if (closed) {
+        buildReport(closed.shift, closed.actualCash)
+          .then((data) => {
+            setReport(data);
+            setReportReprint(false);
+            setShowReport(true);
+          })
+          .catch(() => toast.error('El turno se cerró, pero no se pudo armar el reporte. Podés verlo en el historial.'));
+      }
     },
     onError: () => toast.error('Error al cerrar turno'),
   });
