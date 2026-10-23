@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { BarChart3, Settings2, ArrowLeftRight, Lightbulb, ShoppingCart, Package, Trash2, Repeat, Carrot } from 'lucide-react';
+import { BarChart3, Settings2, ArrowLeftRight, Lightbulb, ShoppingCart, Package, Trash2, Repeat, Carrot, Martini, History } from 'lucide-react';
 import StockDashboard from '@/components/admin/stock/StockDashboard';
 import ProductsRecipesTab from '@/components/admin/stock/ProductsRecipesTab';
 import MovementsTab from '@/components/admin/stock/MovementsTab';
@@ -18,6 +18,10 @@ import DirectStockTab from '@/components/admin/stock/DirectStockTab';
 import IngredientsTab from '@/components/admin/stock/IngredientsTab';
 import WastePanel from '@/components/admin/stock/WastePanel';
 import StockModeChooser, { type InventoryMode } from '@/components/admin/stock/StockModeChooser';
+import DrinksInventoryTab from '@/components/admin/stock/drinks/DrinksInventoryTab';
+import DrinksPurchasesTab from '@/components/admin/stock/drinks/DrinksPurchasesTab';
+import CocktailsTab from '@/components/admin/stock/drinks/CocktailsTab';
+import StockHistoryTab from '@/components/admin/stock/StockHistoryTab';
 
 const advancedTabs = [
   { value: 'dashboard', label: 'Estado', icon: BarChart3 },
@@ -28,6 +32,20 @@ const advancedTabs = [
   { value: 'waste', label: 'Mermas', icon: Trash2 },
   { value: 'suggestions', label: 'Sugerencias', icon: Lightbulb },
 ];
+
+const drinksTabs = [
+  { value: 'inventory', label: 'Inventario', icon: Package },
+  { value: 'purchases', label: 'Compras', icon: ShoppingCart },
+  { value: 'cocktails', label: 'Tragos', icon: Martini },
+  { value: 'waste', label: 'Mermas', icon: Trash2 },
+  { value: 'movements', label: 'Movimientos', icon: History },
+];
+
+const MODE_INFO: Record<InventoryMode, { badge: string; text: string; toast: string }> = {
+  simple: { badge: 'Simple: por porciones o unidades', text: 'Cada venta descuenta 1 porción o unidad del producto vendido.', toast: 'Listo: stock simple, por porciones o unidades' },
+  advanced: { badge: 'Avanzada: por ingredientes', text: 'Cada venta descuenta los ingredientes de la receta. Bebidas, postres y empanadas se cuentan por unidad.', toast: 'Listo: stock avanzado, por ingredientes' },
+  drinks: { badge: 'Bebidas y tragos', text: 'Cada bebida vendida descuenta 1 unidad y cada trago las onzas de las botellas que lleva.', toast: 'Listo: gestión de bebidas y tragos' },
+};
 
 const simpleTabs = [
   { value: 'units', label: 'Porciones y unidades', icon: Package },
@@ -66,7 +84,7 @@ export default function AdminStock() {
       queryClient.invalidateQueries({ queryKey: ['establishment-settings'] });
       setChanging(false);
       setTab(null);
-      toast.success(m === 'simple' ? 'Listo: stock simple, por porciones o unidades' : 'Listo: stock avanzado, por ingredientes');
+      toast.success(MODE_INFO[m].toast);
     },
     onError: (e: Error) => toast.error(e.message || 'No se pudo cambiar el modo'),
   });
@@ -89,7 +107,8 @@ export default function AdminStock() {
   }
 
   const advanced = mode === 'advanced';
-  const tabs = advanced ? advancedTabs : simpleTabs;
+  const drinks = mode === 'drinks';
+  const tabs = drinks ? drinksTabs : advanced ? advancedTabs : simpleTabs;
   const current = tab && tabs.some(t => t.value === tab) ? tab : tabs[0].value;
 
   return (
@@ -98,13 +117,9 @@ export default function AdminStock() {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-3xl font-bold tracking-tight">Gestión de Stock</h1>
-            <Badge variant="outline" className="border-primary/40 text-primary">{advanced ? 'Avanzada: por ingredientes' : 'Simple: por porciones o unidades'}</Badge>
+            <Badge variant="outline" className="border-primary/40 text-primary">{MODE_INFO[mode].badge}</Badge>
           </div>
-          <p className="mt-1 text-muted-foreground">
-            {advanced
-              ? 'Cada venta descuenta los ingredientes de la receta. Bebidas, postres y empanadas se cuentan por unidad.'
-              : 'Cada venta descuenta 1 porción o unidad del producto vendido.'}
-          </p>
+          <p className="mt-1 text-muted-foreground">{MODE_INFO[mode].text}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="destructive" className="gap-2" onClick={() => setWasteOpen(true)}><Trash2 className="h-4 w-4" />Registrar merma</Button>
@@ -121,8 +136,15 @@ export default function AdminStock() {
           ))}
         </TabsList>
         <TabsContent value="units"><DirectStockTab advanced={advanced} /></TabsContent>
-        <TabsContent value="waste"><WastePanel advanced={advanced} /></TabsContent>
-        {advanced ? (
+        <TabsContent value="waste"><WastePanel advanced={advanced || drinks} /></TabsContent>
+        {drinks ? (
+          <>
+            <TabsContent value="inventory"><DrinksInventoryTab /></TabsContent>
+            <TabsContent value="purchases"><DrinksPurchasesTab /></TabsContent>
+            <TabsContent value="cocktails"><CocktailsTab /></TabsContent>
+            <TabsContent value="movements"><StockHistoryTab /></TabsContent>
+          </>
+        ) : advanced ? (
           <>
             <TabsContent value="dashboard"><StockDashboard /></TabsContent>
             <TabsContent value="products"><ProductsRecipesTab /></TabsContent>
@@ -153,7 +175,7 @@ export default function AdminStock() {
             <DialogTitle>Registrar merma</DialogTitle>
             <DialogDescription>Lo que se perdió se descuenta del stock y se suma a las pérdidas del mes.</DialogDescription>
           </DialogHeader>
-          <WastePanel advanced={advanced} compact onDone={() => setWasteOpen(false)} />
+          <WastePanel advanced={advanced || drinks} compact onDone={() => setWasteOpen(false)} />
         </DialogContent>
       </Dialog>
     </div>

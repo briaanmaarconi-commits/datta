@@ -24,6 +24,7 @@ import { getOrdersCutoff } from '@/lib/shiftScope';
 import { getTableVisualState } from '@/lib/tableStatus';
 import TableStatusLegend from '@/components/shared/TableStatusLegend';
 import BillRequestDialog from '@/components/waiter/BillRequestDialog';
+import WaiterPushCard from '@/components/waiter/WaiterPushCard';
 import { describePayments, parsePayments, type PaymentPart } from '@/lib/payments';
 
 interface OrderingState {
@@ -471,6 +472,8 @@ export default function WaiterTables() {
         <h1 className="text-3xl font-bold tracking-tight">Mis Mesas</h1>
         <WaiterCallNotifications establishmentId={establishmentId} tables={tables} />
       </div>
+
+      <WaiterPushCard hideWhenOn />
 
       <Tabs defaultValue="list">
         <TabsList>

@@ -1,8 +1,8 @@
-import { CheckCircle2, ChefHat, Loader2, Package } from 'lucide-react';
+import { CheckCircle2, ChefHat, Loader2, Martini, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
-export type InventoryMode = 'simple' | 'advanced';
+export type InventoryMode = 'simple' | 'advanced' | 'drinks';
 
 const OPTIONS: { id: InventoryMode; title: string; icon: typeof Package; text: string; example: string; ideal: string }[] = [
   {
@@ -21,7 +21,17 @@ const OPTIONS: { id: InventoryMode; title: string; icon: typeof Package; text: s
     example: 'Ej.: compraste 10 kg de carne; cada hamburguesa usa 150 g, así que se descuentan solos al venderla.',
     ideal: 'Ideal para controlar costos al detalle. Bebidas, postres o empanadas se pueden seguir contando por unidad.',
   },
+  {
+    id: 'drinks',
+    title: 'Gestión de bebidas y tragos',
+    icon: Martini,
+    text: 'Contás las bebidas por unidad y las botellas para tragos. Cada trago descuenta las onzas que lleva.',
+    example: 'Ej.: "tengo 48 latas de cerveza y 6 botellas de fernet"; cada fernet con coca usa 2 oz de fernet.',
+    ideal: 'Ideal para bares y locales donde lo que más importa controlar es la barra.',
+  },
 ];
+
+const BUTTON: Record<InventoryMode, string> = { simple: 'Usar simple', advanced: 'Usar avanzada', drinks: 'Usar bebidas y tragos' };
 
 /** Elección del modo de stock: dos tarjetas grandes con su explicación. */
 export default function StockModeChooser({ current, onChoose, saving }: {
@@ -30,7 +40,7 @@ export default function StockModeChooser({ current, onChoose, saving }: {
   saving: boolean;
 }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {OPTIONS.map(o => {
         const active = current === o.id;
         return (
@@ -49,7 +59,7 @@ export default function StockModeChooser({ current, onChoose, saving }: {
             </div>
             <Button variant={active ? 'outline' : 'default'} disabled={saving || active} onClick={() => onChoose(o.id)} className="gap-2">
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              {active ? 'Seleccionado' : `Usar ${o.id === 'simple' ? 'simple' : 'avanzada'}`}
+              {active ? 'Seleccionado' : BUTTON[o.id]}
             </Button>
           </div>
         );

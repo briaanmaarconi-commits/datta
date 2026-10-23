@@ -34,7 +34,7 @@ export default function KitchenOrders() {
   const { data: establishment } = useQuery({
     queryKey: ['kitchen-establishment', establishmentId],
     queryFn: async () => {
-      const { data } = await db.from('establishments').select('name').eq('id', establishmentId!).maybeSingle();
+      const { data } = await db.from('establishments').select('name, drinks_print_at_cashier').eq('id', establishmentId!).maybeSingle();
       return data;
     },
     enabled: !!establishmentId,
@@ -76,6 +76,9 @@ export default function KitchenOrders() {
     enabled: hasStations,
     refetchInterval: 15000,
   });
+  // Local con "bebidas por caja": las bebidas las imprime la comandera de caja, acá no salen.
+  const drinksAtCashier = !!(establishment as { drinks_print_at_cashier?: boolean } | null | undefined)?.drinks_print_at_cashier;
+  const isDrink = (i: any) => i.products?.categories?.prep_area === 'bebida';
   const routeRef = useRef({ stations, hasStations, agentUp });
   routeRef.current = { stations, hasStations, agentUp };
 
@@ -227,7 +230,7 @@ export default function KitchenOrders() {
     const isAddition = !!onlyItems || (!isDelivery && !!order.table_id && orders.some(
       (o: any) => o.table_id === order.table_id && new Date(o.created_at) < new Date(order.created_at)
     ));
-    const items = onlyItems ?? order.order_items ?? [];
+    const items = (onlyItems ?? order.order_items ?? []).filter((i: any) => !(drinksAtCashier && isDrink(i)));
     const createdAt = onlyItems
       ? onlyItems.map((i: any) => i.created_at).filter(Boolean).sort().at(-1) ?? new Date().toISOString()
       : order.created_at;
@@ -372,7 +375,7 @@ export default function KitchenOrders() {
       printedRef.current.add(o.id);
       toPrint.forEach((i) => printedRef.current.add(i.id));
       // Lo que ya imprimió otra pestaña o dispositivo no se vuelve a imprimir
-      const unclaimed = toPrint.filter((i) => !i.kitchen_printed_at);
+      const unclaimed = toPrint.filter((i) => !i.kitchen_printed_at && !(drinksAtCashier && isDrink(i)));
       if (unclaimed.length > 0) pending.push({ order: o, items: unclaimed, isNew: isNew && unclaimed.length === items.length });
     }
     if (changed) persistPrinted();
@@ -386,7 +389,7 @@ export default function KitchenOrders() {
         enqueue(isNew && mine.length === items.length ? buildTicket(order) : buildTicket(order, false, mine));
       });
     });
-  }, [orders, ordersLoaded, autoPrint, establishmentId]);
+  }, [orders, ordersLoaded, autoPrint, establishmentId, drinksAtCashier]);
 
 
 
@@ -578,7 +581,11 @@ export default function KitchenOrders() {
                   size="sm"
                   variant="ghost"
                   className="w-full mt-2 text-xs text-muted-foreground print:hidden"
-                  onClick={() => enqueue(buildTicket(order, true))}
+                  onClick={() => {
+                    const ticket = buildTicket(order, true);
+                    if (ticket.items.length) enqueue(ticket);
+                    else toast.info('Este pedido es solo de bebidas: se imprime en la caja');
+                  }}
                 >
                   <Printer className="h-3 w-3 mr-1" /> Reimprimir
                 </Button>

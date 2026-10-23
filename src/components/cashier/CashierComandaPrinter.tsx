@@ -62,8 +62,8 @@ export default function CashierComandaPrinter() {
   const { data: establishment } = useQuery({
     queryKey: ['comanda-establishment', establishmentId],
     queryFn: async () => {
-      const { data } = await db.from('establishments').select('name').eq('id', establishmentId!).maybeSingle();
-      return data as { name?: string } | null;
+      const { data } = await db.from('establishments').select('name, drinks_print_at_cashier').eq('id', establishmentId!).maybeSingle();
+      return data as { name?: string; drinks_print_at_cashier?: boolean } | null;
     },
     enabled: !!establishmentId,
     staleTime: 5 * 60 * 1000,
@@ -143,13 +143,17 @@ export default function CashierComandaPrinter() {
     return new Set(((data as { id: string }[] | null) ?? []).map((r) => r.id));
   };
 
+  // Local con "bebidas por caja": esta PC imprime solo las bebidas; lo demás sale por la PC de cocina.
+  const onlyDrinks = !!establishment?.drinks_print_at_cashier;
+  const areaOf = (i: OrderItemRow) => (i.products?.categories?.prep_area ?? DEFAULT_PREP_AREA) as PrepArea;
+
   // Una comanda por sector, en el orden en que sale de cocina.
   const buildTickets = (order: OrderRow, items: OrderItemRow[], isAddition: boolean): KitchenTicketData[] => {
     const isDelivery = order.channel === 'delivery';
     const createdAt = items.map((i) => i.created_at).filter(Boolean).sort().at(-1) ?? order.created_at;
     const byArea = new Map<PrepArea, OrderItemRow[]>();
     for (const it of items) {
-      const area = (it.products?.categories?.prep_area ?? DEFAULT_PREP_AREA) as PrepArea;
+      const area = areaOf(it);
       byArea.set(area, [...(byArea.get(area) ?? []), it]);
     }
     return PREP_AREAS.filter((a) => byArea.has(a)).map((area) => ({
@@ -180,7 +184,11 @@ export default function CashierComandaPrinter() {
     for (const o of orders) {
       const all = o.order_items ?? [];
       const fresh = all.filter(
-        (i) => !i.kitchen_printed_at && !seenRef.current.has(i.id) && now - new Date(i.created_at).getTime() < MAX_AGE_MS,
+        (i) =>
+          !i.kitchen_printed_at &&
+          !seenRef.current.has(i.id) &&
+          now - new Date(i.created_at).getTime() < MAX_AGE_MS &&
+          (!onlyDrinks || areaOf(i) === 'bebida'),
       );
       if (fresh.length === 0) continue;
       fresh.forEach((i) => seenRef.current.add(i.id));
@@ -192,13 +200,13 @@ export default function CashierComandaPrinter() {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders, active]);
+  }, [orders, active, onlyDrinks]);
 
   // Botón "Imprimir comandas de prueba" de la pantalla Impresoras.
   useEffect(() => {
     const test = () => {
       const base = { establishmentName: establishment?.name, tableNumber: 'DEMO', sectorName: 'Prueba', createdAt: new Date().toISOString() };
-      PREP_AREAS.filter((a) => a !== 'entrada').forEach((area, n) =>
+      PREP_AREAS.filter((a) => (onlyDrinks ? a === 'bebida' : a !== 'entrada')).forEach((area, n) =>
         enqueue({
           ...base,
           areaName: PREP_AREA_LABEL[area],
@@ -209,7 +217,7 @@ export default function CashierComandaPrinter() {
     window.addEventListener(COMANDA_TEST_EVENT, test);
     return () => window.removeEventListener(COMANDA_TEST_EVENT, test);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [establishment?.name]);
+  }, [establishment?.name, onlyDrinks]);
 
   return printJob ? <KitchenTicket data={printJob} /> : null;
 }

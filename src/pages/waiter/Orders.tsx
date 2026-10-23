@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { BellRing, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuditLog } from '@/hooks/useAuditLog';
+import WaiterPushCard from '@/components/waiter/WaiterPushCard';
 
 const STATUS_LABELS: Record<string, string> = {
   new: 'Nuevo', preparing: 'En preparación', ready: 'Listo', delivered: 'Entregado',
@@ -140,6 +141,8 @@ export default function WaiterOrders() {
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight">Pedidos</h1>
+
+      <WaiterPushCard />
 
       {readyOrders.length > 0 && (
         <div className="rounded-lg border-2 border-green-500 bg-green-500/10 p-4 animate-pulse">

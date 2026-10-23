@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { UNAUTHORIZED_EVENT } from '@/lib/db';
 import { clearViewAs, useViewAsCtx, type ViewAsCtx } from '@/lib/viewAs';
+import { forgetPushOnThisDevice } from '@/lib/push';
 import type { Database } from '@/lib/dbTypes';
 
 type AppRole = Database['public']['Enums']['app_role'];
@@ -133,6 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     if (state.role === 'superadmin' && viewCtx) return exitViewAs();
     try {
+      await forgetPushOnThisDevice();
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     } finally {
       setState(SIGNED_OUT);

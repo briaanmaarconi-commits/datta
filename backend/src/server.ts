@@ -10,6 +10,7 @@ import { runQuery, type QuerySpec } from "./db/queryEngine.js";
 import { runRpc } from "./db/rpc.js";
 import { loadCatalog } from "./db/catalog.js";
 import { registerRealtime } from "./realtime/sse.js";
+import { registerPush } from "./fn/push.js";
 import { specSchema } from "./db/specSchema.js";
 import { registerPublicRoutes } from "./routes/public.js";
 import { registerStorage } from "./storage.js";
@@ -86,6 +87,7 @@ export async function buildApp() {
   await registerDattaBilling(app);
   await registerPriceSensitivity(app);
   await registerRealtime(app);
+  await registerPush(app);
 
   await registerWeb(app);
 

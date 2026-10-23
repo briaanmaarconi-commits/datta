@@ -12,7 +12,18 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   sale: { label: 'Venta', color: 'bg-blue-500/20 text-blue-700 border-blue-500/30' },
   waste: { label: 'Merma', color: 'bg-red-500/20 text-red-700 border-red-500/30' },
   adjustment: { label: 'Ajuste', color: 'bg-purple-500/20 text-purple-700 border-purple-500/30' },
+  consumption: { label: 'Cortesía', color: 'bg-amber-500/20 text-amber-700 border-amber-500/30' },
 };
+
+// Cantidad legible: las botellas para tragos se muestran en botellas; los productos por unidad, en unidades.
+function qtyLabel(m: any) {
+  const q = Number(m.quantity);
+  const sign = q > 0 ? '+' : '';
+  const ml = Number(m.ingredients?.bottle_ml);
+  if (ml) return `${sign}${(q / ml).toLocaleString('es-AR', { maximumFractionDigits: 2 })} bot.`;
+  if (m.product_id) return `${sign}${q} u`;
+  return `${sign}${q} ${m.ingredients?.unit ?? ''}`;
+}
 
 export default function StockHistoryTab() {
   const { establishmentId } = useAuth();
@@ -21,7 +32,7 @@ export default function StockHistoryTab() {
   const { data: movements = [] } = useQuery({
     queryKey: ['stock_movements', establishmentId, filterType],
     queryFn: async () => {
-      let q = db.from('stock_movements').select('*, ingredients(name, unit)')
+      let q = db.from('stock_movements').select('*, ingredients(name, unit, bottle_ml), products(name)')
         .eq('establishment_id', establishmentId!)
         .order('created_at', { ascending: false }).limit(100);
       if (filterType !== 'all') q = q.eq('type', filterType as any);
@@ -54,7 +65,7 @@ export default function StockHistoryTab() {
           <TableHeader>
             <TableRow>
               <TableHead>Fecha</TableHead>
-              <TableHead>Ingrediente</TableHead>
+              <TableHead>Producto</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead className="text-right">Cantidad</TableHead>
               <TableHead>Motivo</TableHead>
@@ -66,10 +77,10 @@ export default function StockHistoryTab() {
               return (
                 <TableRow key={m.id}>
                   <TableCell className="text-sm">{new Date(m.created_at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</TableCell>
-                  <TableCell className="font-medium">{(m as any).ingredients?.name}</TableCell>
+                  <TableCell className="font-medium">{m.ingredients?.name ?? m.products?.name}</TableCell>
                   <TableCell><Badge className={t.color}>{t.label}</Badge></TableCell>
                   <TableCell className={`text-right font-mono ${m.quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {m.quantity > 0 ? '+' : ''}{m.quantity} {(m as any).ingredients?.unit}
+                    {qtyLabel(m)}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">{m.reason || '-'}</TableCell>
                 </TableRow>

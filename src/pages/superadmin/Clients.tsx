@@ -34,7 +34,7 @@ export default function SuperAdminClients() {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentEstId, setPaymentEstId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
-  const [form, setForm] = useState({ name: '', address: '', city: '', contact_phone: '', contact_email: '', plan_id: '', agreed_price: '', service_start_date: '', service_status: 'active', delivery_enabled: false, rappi_commission: '', peya_commission: '' });
+  const [form, setForm] = useState({ name: '', address: '', city: '', contact_phone: '', contact_email: '', plan_id: '', agreed_price: '', service_start_date: '', service_status: 'active', delivery_enabled: false, drinks_print_at_cashier: false, waiter_push_enabled: false, rappi_commission: '', peya_commission: '' });
   const [payForm, setPayForm] = useState({ amount: '', payment_method: 'transfer', period_month: (new Date().getMonth() + 1).toString(), period_year: new Date().getFullYear().toString(), payment_date: new Date().toISOString().split('T')[0], notes: '' });
 
   const { data: establishments = [] } = useQuery({
@@ -77,6 +77,8 @@ export default function SuperAdminClients() {
         service_start_date: form.service_start_date || null,
         service_status: form.service_status,
         delivery_enabled: form.delivery_enabled,
+        drinks_print_at_cashier: form.drinks_print_at_cashier,
+        waiter_push_enabled: form.waiter_push_enabled,
         rappi_commission: form.rappi_commission ? Number(form.rappi_commission) : 0,
         peya_commission: form.peya_commission ? Number(form.peya_commission) : 0,
       };
@@ -121,7 +123,7 @@ export default function SuperAdminClients() {
   const resetForm = () => {
     setOpen(false);
     setEditId(null);
-    setForm({ name: '', address: '', city: '', contact_phone: '', contact_email: '', plan_id: '', agreed_price: '', service_start_date: '', service_status: 'active', delivery_enabled: false, rappi_commission: '', peya_commission: '' });
+    setForm({ name: '', address: '', city: '', contact_phone: '', contact_email: '', plan_id: '', agreed_price: '', service_start_date: '', service_status: 'active', delivery_enabled: false, drinks_print_at_cashier: false, waiter_push_enabled: false, rappi_commission: '', peya_commission: '' });
   };
 
   const startEdit = (est: any) => {
@@ -132,6 +134,8 @@ export default function SuperAdminClients() {
       plan_id: est.plan_id || '', agreed_price: est.agreed_price?.toString() || '',
       service_start_date: est.service_start_date || '', service_status: est.service_status || 'active',
       delivery_enabled: !!est.delivery_enabled,
+      drinks_print_at_cashier: !!est.drinks_print_at_cashier,
+      waiter_push_enabled: !!est.waiter_push_enabled,
       rappi_commission: est.rappi_commission?.toString() || '',
       peya_commission: est.peya_commission?.toString() || '',
     });
@@ -240,6 +244,23 @@ export default function SuperAdminClients() {
                       <div className="space-y-2"><Label>Comisión PedidosYa (%)</Label><Input type="number" step="0.1" value={form.peya_commission} onChange={e => setForm({ ...form, peya_commission: e.target.value })} placeholder="Ej: 22" /></div>
                     </div>
                   )}
+                </div>
+
+                <div className="rounded-lg border p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <Label htmlFor="drinks-cashier" className="text-sm font-semibold cursor-pointer">Bebidas por la comandera de caja</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">Las comandas de bebidas salen en la caja y el resto en cocina. En la PC de caja hay que encender «Imprimir comandas automáticamente» (Impresoras).</p>
+                    </div>
+                    <Switch id="drinks-cashier" checked={form.drinks_print_at_cashier} onCheckedChange={v => setForm({ ...form, drinks_print_at_cashier: v })} />
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <Label htmlFor="waiter-push" className="text-sm font-semibold cursor-pointer">Avisos al celular del mozo</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">Cuando cocina marca un pedido como listo, le llega una notificación solo al mozo que lo tomó.</p>
+                    </div>
+                    <Switch id="waiter-push" checked={form.waiter_push_enabled} onCheckedChange={v => setForm({ ...form, waiter_push_enabled: v })} />
+                  </div>
                 </div>
 
                 <Button type="submit" className="w-full" disabled={upsert.isPending}>{upsert.isPending ? 'Guardando...' : 'Guardar'}</Button>
