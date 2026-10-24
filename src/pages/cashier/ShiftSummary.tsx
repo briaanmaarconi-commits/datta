@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { db } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
@@ -324,6 +324,12 @@ export default function ShiftSummary() {
     queryClient.invalidateQueries({ queryKey: ['active-shift'], refetchType: 'none' });
   };
 
+  // Un doble clic dispara dos aperturas antes de que el botón se vea deshabilitado
+  // (isPending tarda un render). El ref corta el segundo clic en el acto; la base
+  // además rechaza un segundo turno abierto (índice único, 129_one_open_shift.sql).
+  const openingShiftRef = useRef(false);
+  const isOneOpenShiftError = (e: any) => e?.code === '23505';
+
   const openShift = useMutation({
     mutationFn: async () => {
       const now = new Date().toISOString();
@@ -347,8 +353,24 @@ export default function ShiftSummary() {
       setInitialCashInput('');
       toast.success('Turno abierto');
     },
-    onError: () => toast.error('Error al abrir turno'),
+    onError: (e) => {
+      if (isOneOpenShiftError(e)) {
+        queryClient.invalidateQueries({ queryKey: ['active-shift'] });
+        toast.info('Ya hay un turno abierto');
+        return;
+      }
+      toast.error('Error al abrir turno');
+    },
+    onSettled: () => {
+      openingShiftRef.current = false;
+    },
   });
+
+  const handleOpenShift = () => {
+    if (openingShiftRef.current) return;
+    openingShiftRef.current = true;
+    openShift.mutate();
+  };
 
   const closeShift = useMutation({
     mutationFn: async () => {
@@ -428,10 +450,25 @@ export default function ShiftSummary() {
       queryClient.invalidateQueries({ queryKey: ['past-shifts'] });
       toast.success('Turno reabierto correctamente');
     },
-    onError: () => toast.error('Error al reabrir turno'),
+    onError: (e) => {
+      if (isOneOpenShiftError(e)) {
+        queryClient.invalidateQueries({ queryKey: ['active-shift'] });
+        toast.error('No se puede reabrir: ya hay otro turno abierto');
+        return;
+      }
+      toast.error('Error al reabrir turno');
+    },
   });
 
   const isShiftOpen = !!activeShift;
+
+  // Turno abierto que empezó antes del cierre de otro turno: el resumen vuelve a sumar las
+  // ventas de ese turno ya cerrado (pasó con un turno duplicado por doble clic).
+  const overlappedClosedShift = activeShift
+    ? pastShifts.find((s: any) => s.closed_at && new Date(s.closed_at) > new Date(getShiftWindow(activeShift).from))
+    : undefined;
+  const argClock = (iso: string) =>
+    new Date(iso).toLocaleString('es', { timeZone: 'America/Argentina/Buenos_Aires', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
   const cards = [
     { title: 'Ventas del turno', value: `$${(stats?.totalSales ?? 0).toFixed(2)}`, icon: DollarSign },
@@ -489,6 +526,17 @@ export default function ShiftSummary() {
                   </p>
                 </div>
               )}
+              {overlappedClosedShift && (
+                <div className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3 space-y-1.5">
+                  <p className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    Este turno se abrió el {argClock(getShiftWindow(activeShift).from)}, antes del cierre del turno del {argClock(overlappedClosedShift.closed_at)}.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Los totales de abajo incluyen ventas de ese turno ya cerrado. Avisá al administrador antes de cerrar la caja.
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
@@ -510,7 +558,7 @@ export default function ShiftSummary() {
                     className="w-48"
                   />
                 </div>
-                <Button onClick={() => openShift.mutate()} disabled={openShift.isPending}>
+                <Button onClick={handleOpenShift} disabled={openShift.isPending}>
                   <PlayCircle className="h-4 w-4 mr-2" />
                   Abrir turno
                 </Button>
