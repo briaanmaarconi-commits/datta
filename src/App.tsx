@@ -19,6 +19,7 @@ import KitchenLayout from "./layouts/KitchenLayout";
 // Pages
 import SuperAdminDashboard from "./pages/superadmin/Dashboard";
 import SuperAdminClients from "./pages/superadmin/Clients";
+import SuperAdminClientDetail from "./pages/superadmin/ClientDetail";
 import SuperAdminProspects from "./pages/superadmin/Prospects";
 import SuperAdminUsers from "./pages/superadmin/Users";
 import SuperAdminAnalytics from "./pages/superadmin/Analytics";
@@ -89,6 +90,7 @@ const App = () => (
           <Route path="/superadmin/prospects" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminProspects /></SuperAdminLayout></ProtectedRoute>} />
           <Route path="/superadmin" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminDashboard /></SuperAdminLayout></ProtectedRoute>} />
           <Route path="/superadmin/clients" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminClients /></SuperAdminLayout></ProtectedRoute>} />
+          <Route path="/superadmin/clients/:id" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminClientDetail /></SuperAdminLayout></ProtectedRoute>} />
           <Route path="/superadmin/billing" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminBilling /></SuperAdminLayout></ProtectedRoute>} />
           <Route path="/superadmin/inconvenientes" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminSupport /></SuperAdminLayout></ProtectedRoute>} />
           <Route path="/superadmin/facturacion" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><DattaInvoicing /></SuperAdminLayout></ProtectedRoute>} />

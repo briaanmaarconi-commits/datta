@@ -1,55 +1,40 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { db } from '@/lib/db';
-import { useAuth } from '@/hooks/useAuth';
-import { Building2, Plus, Pencil, Eye, Search, DollarSign, AlertTriangle, CheckCircle2, Trash2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Plus, Pencil, Search, DollarSign, AlertTriangle, CheckCircle2, Trash2, ChevronRight } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
-import SubscriptionPanel from '@/components/superadmin/SubscriptionPanel';
+import ClientFormDialog from '@/components/superadmin/ClientFormDialog';
 import DeleteClientDialog from '@/components/superadmin/DeleteClientDialog';
 import DemoRestaurantButton from '@/components/superadmin/DemoRestaurantButton';
-import { billing, type BillingOverview } from '@/lib/billingApi';
+import { billing, fmtDate, STATUS_BADGE, STATUS_LABELS, type BillingOverview } from '@/lib/billingApi';
 
-const SERVICE_LABELS: Record<string, string> = { trial: 'Prueba gratis', active: 'Al día', past_due: 'Vencido', suspended: 'Suspendido', cancelled: 'Cancelado' };
-const SERVICE_BADGE: Record<string, 'default' | 'secondary' | 'destructive'> = { trial: 'secondary', active: 'default', past_due: 'destructive', suspended: 'destructive', cancelled: 'destructive' };
 const PAYMENT_METHODS: Record<string, string> = { transfer: 'Transferencia', cash: 'Efectivo', card: 'Tarjeta', check: 'Cheque', other: 'Otro' };
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
 export default function SuperAdminClients() {
-  const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<any | null>(null);
   const [search, setSearch] = useState('');
-  const [editId, setEditId] = useState<string | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentEstId, setPaymentEstId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
-  const [form, setForm] = useState({ name: '', address: '', city: '', contact_phone: '', contact_email: '', plan_id: '', agreed_price: '', service_start_date: '', service_status: 'active', delivery_enabled: false, drinks_print_at_cashier: false, waiter_push_enabled: false, rappi_commission: '', peya_commission: '' });
   const [payForm, setPayForm] = useState({ amount: '', payment_method: 'transfer', period_month: (new Date().getMonth() + 1).toString(), period_year: new Date().getFullYear().toString(), payment_date: new Date().toISOString().split('T')[0], notes: '' });
 
   const { data: establishments = [] } = useQuery({
     queryKey: ['sa-clients'],
     queryFn: async () => {
       const { data, error } = await db.from('establishments').select('*, client_plans(name, price)').order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: plans = [] } = useQuery({
-    queryKey: ['sa-plans'],
-    queryFn: async () => {
-      const { data, error } = await db.from('client_plans').select('*').eq('is_active', true).order('price');
       if (error) throw error;
       return data;
     },
@@ -64,39 +49,8 @@ export default function SuperAdminClients() {
     },
   });
 
-  const upsert = useMutation({
-    mutationFn: async () => {
-      const payload = {
-        name: form.name,
-        address: form.address || null,
-        city: form.city || null,
-        contact_phone: form.contact_phone || null,
-        contact_email: form.contact_email || null,
-        plan_id: form.plan_id || null,
-        agreed_price: form.agreed_price ? Number(form.agreed_price) : 0,
-        service_start_date: form.service_start_date || null,
-        service_status: form.service_status,
-        delivery_enabled: form.delivery_enabled,
-        drinks_print_at_cashier: form.drinks_print_at_cashier,
-        waiter_push_enabled: form.waiter_push_enabled,
-        rappi_commission: form.rappi_commission ? Number(form.rappi_commission) : 0,
-        peya_commission: form.peya_commission ? Number(form.peya_commission) : 0,
-      };
-      if (editId) {
-        const { error } = await db.from('establishments').update(payload).eq('id', editId);
-        if (error) throw error;
-      } else {
-        const { error } = await db.from('establishments').insert(payload);
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sa-clients'] });
-      toast.success(editId ? 'Cliente actualizado' : 'Cliente creado');
-      resetForm();
-    },
-    onError: () => toast.error('Error al guardar'),
-  });
+  const { data: billingOverview } = useQuery({ queryKey: ['billing-overview'], queryFn: () => billing<BillingOverview>('overview') });
+  const subOf = (id: string) => billingOverview?.clients.find((c) => c.id === id) ?? null;
 
   const createPayment = useMutation({
     mutationFn: async () => {
@@ -113,6 +67,7 @@ export default function SuperAdminClients() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sa-client-payments'] });
+      queryClient.invalidateQueries({ queryKey: ['billing-overview'] });
       toast.success('Pago registrado');
       setPaymentOpen(false);
       setPayForm({ amount: '', payment_method: 'transfer', period_month: (new Date().getMonth() + 1).toString(), period_year: new Date().getFullYear().toString(), payment_date: new Date().toISOString().split('T')[0], notes: '' });
@@ -120,27 +75,7 @@ export default function SuperAdminClients() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const resetForm = () => {
-    setOpen(false);
-    setEditId(null);
-    setForm({ name: '', address: '', city: '', contact_phone: '', contact_email: '', plan_id: '', agreed_price: '', service_start_date: '', service_status: 'active', delivery_enabled: false, drinks_print_at_cashier: false, waiter_push_enabled: false, rappi_commission: '', peya_commission: '' });
-  };
-
-  const startEdit = (est: any) => {
-    setEditId(est.id);
-    setForm({
-      name: est.name, address: est.address || '', city: est.city || '',
-      contact_phone: est.contact_phone || '', contact_email: est.contact_email || '',
-      plan_id: est.plan_id || '', agreed_price: est.agreed_price?.toString() || '',
-      service_start_date: est.service_start_date || '', service_status: est.service_status || 'active',
-      delivery_enabled: !!est.delivery_enabled,
-      drinks_print_at_cashier: !!est.drinks_print_at_cashier,
-      waiter_push_enabled: !!est.waiter_push_enabled,
-      rappi_commission: est.rappi_commission?.toString() || '',
-      peya_commission: est.peya_commission?.toString() || '',
-    });
-    setOpen(true);
-  };
+  const openForm = (est: any | null) => { setEditing(est); setFormOpen(true); };
 
   const openPaymentDialog = (estId: string) => {
     const est = establishments.find((e: any) => e.id === estId);
@@ -161,11 +96,6 @@ export default function SuperAdminClients() {
     (e.city || '').toLowerCase().includes(search.toLowerCase())
   );
 
-  const { data: billingOverview } = useQuery({ queryKey: ['billing-overview'], queryFn: () => billing<BillingOverview>('overview') });
-  const billingDetail = detailId ? billingOverview?.clients.find((c) => c.id === detailId) ?? null : null;
-  const detail = detailId ? establishments.find((e: any) => e.id === detailId) : null;
-  const detailPayments = detailId ? allPayments.filter((p: any) => p.establishment_id === detailId) : [];
-
   const getMonthsActive = (startDate: string | null) => {
     if (!startDate) return '—';
     const start = new Date(startDate);
@@ -180,6 +110,9 @@ export default function SuperAdminClients() {
   const isCurrentMonthPaid = (estId: string) =>
     allPayments.some((p: any) => p.establishment_id === estId && p.period_month === currentMonth && p.period_year === currentYear);
 
+  // Botones de la fila: no deben abrir la ficha al hacer clic.
+  const stop = (fn: () => void) => (e: React.MouseEvent) => { e.stopPropagation(); fn(); };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -190,86 +123,11 @@ export default function SuperAdminClients() {
             <Input placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} className="pl-8 w-56" />
           </div>
           <DemoRestaurantButton exists={establishments.some((e: any) => e.name === 'DEMO Datta')} />
-          <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); else setOpen(true); }}>
-            <DialogTrigger asChild>
-              <Button className="gap-2"><Plus className="h-4 w-4" /> Nuevo cliente</Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader><DialogTitle>{editId ? 'Editar' : 'Nuevo'} cliente</DialogTitle></DialogHeader>
-              <form onSubmit={e => { e.preventDefault(); upsert.mutate(); }} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2 col-span-2"><Label>Nombre del restaurante</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required /></div>
-                  <div className="space-y-2"><Label>Ciudad</Label><Input value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} /></div>
-                  <div className="space-y-2"><Label>Dirección</Label><Input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} /></div>
-                  <div className="space-y-2"><Label>Teléfono</Label><Input value={form.contact_phone} onChange={e => setForm({ ...form, contact_phone: e.target.value })} /></div>
-                  <div className="space-y-2"><Label>Email</Label><Input type="email" value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} /></div>
-                  <div className="space-y-2">
-                    <Label>Plan</Label>
-                    <Select value={form.plan_id} onValueChange={v => {
-                      const plan = plans.find((p: any) => p.id === v);
-                      setForm({ ...form, plan_id: v, agreed_price: plan?.price?.toString() || form.agreed_price });
-                    }}>
-                      <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                      <SelectContent>
-                        {plans.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name} - ${p.price}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2"><Label>Precio acordado</Label><Input type="number" value={form.agreed_price} onChange={e => setForm({ ...form, agreed_price: e.target.value })} /></div>
-                  <div className="space-y-2"><Label>Inicio del servicio</Label><Input type="date" value={form.service_start_date} onChange={e => setForm({ ...form, service_start_date: e.target.value })} /></div>
-                  <div className="space-y-2">
-                    <Label>Estado</Label>
-                    <Select value={form.service_status} onValueChange={v => setForm({ ...form, service_status: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Activo</SelectItem>
-                        <SelectItem value="suspended">Suspendido</SelectItem>
-                        <SelectItem value="cancelled">Cancelado</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border p-3 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <Label htmlFor="delivery-enabled" className="text-sm font-semibold cursor-pointer">Módulo Delivery (Rappi / PedidosYa)</Label>
-                      <p className="text-xs text-muted-foreground mt-0.5">Habilita la sección Delivery en Caja y las analíticas por canal.</p>
-                    </div>
-                    <Switch id="delivery-enabled" checked={form.delivery_enabled} onCheckedChange={v => setForm({ ...form, delivery_enabled: v })} />
-                  </div>
-                  {form.delivery_enabled && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2"><Label>Comisión Rappi (%)</Label><Input type="number" step="0.1" value={form.rappi_commission} onChange={e => setForm({ ...form, rappi_commission: e.target.value })} placeholder="Ej: 25" /></div>
-                      <div className="space-y-2"><Label>Comisión PedidosYa (%)</Label><Input type="number" step="0.1" value={form.peya_commission} onChange={e => setForm({ ...form, peya_commission: e.target.value })} placeholder="Ej: 22" /></div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="rounded-lg border p-3 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <Label htmlFor="drinks-cashier" className="text-sm font-semibold cursor-pointer">Bebidas por la comandera de caja</Label>
-                      <p className="text-xs text-muted-foreground mt-0.5">Las comandas de bebidas salen en la caja y el resto en cocina. En la PC de caja hay que encender «Imprimir comandas automáticamente» (Impresoras).</p>
-                    </div>
-                    <Switch id="drinks-cashier" checked={form.drinks_print_at_cashier} onCheckedChange={v => setForm({ ...form, drinks_print_at_cashier: v })} />
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <Label htmlFor="waiter-push" className="text-sm font-semibold cursor-pointer">Avisos al celular del mozo</Label>
-                      <p className="text-xs text-muted-foreground mt-0.5">Cuando cocina marca un pedido como listo, le llega una notificación solo al mozo que lo tomó.</p>
-                    </div>
-                    <Switch id="waiter-push" checked={form.waiter_push_enabled} onCheckedChange={v => setForm({ ...form, waiter_push_enabled: v })} />
-                  </div>
-                </div>
-
-                <Button type="submit" className="w-full" disabled={upsert.isPending}>{upsert.isPending ? 'Guardando...' : 'Guardar'}</Button>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <Button className="gap-2" onClick={() => openForm(null)}><Plus className="h-4 w-4" /> Nuevo cliente</Button>
         </div>
       </div>
 
+      <ClientFormDialog open={formOpen} onOpenChange={setFormOpen} client={editing} />
       <DeleteClientDialog client={deleteTarget} onClose={() => setDeleteTarget(null)} />
 
       {/* Payment registration dialog */}
@@ -314,71 +172,6 @@ export default function SuperAdminClients() {
         </DialogContent>
       </Dialog>
 
-      {/* Detail dialog with payment history */}
-      <Dialog open={!!detailId} onOpenChange={() => setDetailId(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" />{(detail as any)?.name}</DialogTitle></DialogHeader>
-          {detail && (
-            <Tabs defaultValue="info">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="info">Información</TabsTrigger>
-                <TabsTrigger value="subscription">Suscripción</TabsTrigger>
-                <TabsTrigger value="payments">Pagos</TabsTrigger>
-              </TabsList>
-              <TabsContent value="info" className="space-y-4">
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div><span className="text-muted-foreground">Ciudad:</span> <span className="font-medium">{(detail as any).city || '—'}</span></div>
-                  <div><span className="text-muted-foreground">Dirección:</span> <span className="font-medium">{(detail as any).address || '—'}</span></div>
-                  <div><span className="text-muted-foreground">Teléfono:</span> <span className="font-medium">{(detail as any).contact_phone || '—'}</span></div>
-                  <div><span className="text-muted-foreground">Email:</span> <span className="font-medium">{(detail as any).contact_email || '—'}</span></div>
-                  <div><span className="text-muted-foreground">Plan:</span> <span className="font-medium">{(detail as any).client_plans?.name || 'Sin plan'}</span></div>
-                  <div><span className="text-muted-foreground">Precio:</span> <span className="font-medium">${Number((detail as any).agreed_price || 0).toLocaleString('es-AR')}</span></div>
-                  <div><span className="text-muted-foreground">Inicio:</span> <span className="font-medium">{(detail as any).service_start_date ? new Date((detail as any).service_start_date).toLocaleDateString('es-AR') : '—'}</span></div>
-                  <div><span className="text-muted-foreground">Antigüedad:</span> <span className="font-medium">{getMonthsActive((detail as any).service_start_date)}</span></div>
-                  <div><span className="text-muted-foreground">Estado:</span> <Badge variant={SERVICE_BADGE[(detail as any).service_status] || 'secondary'}>{SERVICE_LABELS[(detail as any).service_status] || (detail as any).service_status}</Badge></div>
-                  <div><span className="text-muted-foreground">Mes actual:</span> {isCurrentMonthPaid(detailId!) ? <Badge variant="default" className="bg-green-600">Pagado</Badge> : <Badge variant="destructive">Pendiente</Badge>}</div>
-                </div>
-              </TabsContent>
-              <TabsContent value="subscription">
-                {billingDetail && billingOverview ? (
-                  <SubscriptionPanel key={billingDetail.id} client={billingDetail} mpEnabled={billingOverview.mp_enabled} />
-                ) : <p className="text-sm text-muted-foreground py-4">Cargando…</p>}
-              </TabsContent>
-              <TabsContent value="payments">
-                <div className="flex justify-end mb-3">
-                  <Button size="sm" onClick={() => openPaymentDialog(detailId!)} className="gap-1"><Plus className="h-3 w-3" /> Registrar pago</Button>
-                </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Período</TableHead>
-                      <TableHead>Monto</TableHead>
-                      <TableHead>Método</TableHead>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead>Notas</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {detailPayments.map((p: any) => (
-                      <TableRow key={p.id}>
-                        <TableCell>{MONTH_NAMES[p.period_month - 1]} {p.period_year}</TableCell>
-                        <TableCell className="font-medium">${Number(p.amount).toLocaleString('es-AR')}</TableCell>
-                        <TableCell>{PAYMENT_METHODS[p.payment_method] || p.payment_method}</TableCell>
-                        <TableCell>{new Date(p.payment_date).toLocaleDateString('es-AR')}</TableCell>
-                        <TableCell className="text-muted-foreground">{p.notes || '—'}</TableCell>
-                      </TableRow>
-                    ))}
-                    {detailPayments.length === 0 && (
-                      <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Sin pagos registrados</TableCell></TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </TabsContent>
-            </Tabs>
-          )}
-        </DialogContent>
-      </Dialog>
-
       <Card>
         <CardContent className="pt-6">
           <Table>
@@ -388,6 +181,7 @@ export default function SuperAdminClients() {
                 <TableHead>Ciudad</TableHead>
                 <TableHead>Plan</TableHead>
                 <TableHead>Precio</TableHead>
+                <TableHead>Vence</TableHead>
                 <TableHead>Antigüedad</TableHead>
                 <TableHead>Mes actual</TableHead>
                 <TableHead>Estado</TableHead>
@@ -397,12 +191,18 @@ export default function SuperAdminClients() {
             <TableBody>
               {filtered.map((est: any) => {
                 const paid = isCurrentMonthPaid(est.id);
+                const sub = subOf(est.id);
+                const status = sub?.effective_status ?? est.service_status;
                 return (
-                  <TableRow key={est.id}>
+                  <TableRow key={est.id} className="cursor-pointer" onClick={() => navigate(`/superadmin/clients/${est.id}`)}>
                     <TableCell className="font-medium">{est.name}</TableCell>
                     <TableCell>{est.city || '—'}</TableCell>
                     <TableCell>{est.client_plans?.name || '—'}</TableCell>
                     <TableCell>${Number(est.agreed_price || 0).toLocaleString('es-AR')}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {status === 'trial' && sub?.trial_ends_at ? <span title="Fin de la prueba gratis">Prueba: {fmtDate(sub.trial_ends_at)}</span>
+                        : sub?.billing_configured && sub.next_due_date ? fmtDate(sub.next_due_date) : '—'}
+                    </TableCell>
                     <TableCell>{getMonthsActive(est.service_start_date)}</TableCell>
                     <TableCell>
                       {est.service_status === 'active' ? (
@@ -413,18 +213,18 @@ export default function SuperAdminClients() {
                         )
                       ) : '—'}
                     </TableCell>
-                    <TableCell><Badge variant={SERVICE_BADGE[est.service_status] || 'secondary'}>{SERVICE_LABELS[est.service_status] || est.service_status}</Badge></TableCell>
-                    <TableCell className="text-right space-x-1">
-                      <Button variant="ghost" size="icon" onClick={() => setDetailId(est.id)} title="Ver detalle"><Eye className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => openPaymentDialog(est.id)} title="Registrar pago"><DollarSign className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => startEdit(est)} title="Editar"><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => setDeleteTarget({ id: est.id, name: est.name })} title="Eliminar cliente" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                    <TableCell><Badge variant={STATUS_BADGE[status] || 'secondary'}>{STATUS_LABELS[status] || status}</Badge></TableCell>
+                    <TableCell className="text-right space-x-1 whitespace-nowrap">
+                      <Button variant="ghost" size="icon" onClick={stop(() => openPaymentDialog(est.id))} title="Registrar pago"><DollarSign className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={stop(() => openForm(est))} title="Editar"><Pencil className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={stop(() => setDeleteTarget({ id: est.id, name: est.name }))} title="Eliminar cliente" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                      <ChevronRight className="inline h-4 w-4 text-muted-foreground" />
                     </TableCell>
                   </TableRow>
                 );
               })}
               {filtered.length === 0 && (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No se encontraron clientes</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No se encontraron clientes</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

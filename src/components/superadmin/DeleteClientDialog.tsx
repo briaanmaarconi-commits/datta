@@ -27,7 +27,7 @@ interface Preview {
  * Confirmación para eliminar un cliente (restaurante). Muestra qué se borra y, si el cliente tiene movimientos reales,
  * pide escribir su nombre. El servidor vuelve a validar el nombre y guarda una copia de seguridad antes de borrar.
  */
-export default function DeleteClientDialog({ client, onClose }: { client: { id: string; name: string } | null; onClose: () => void }) {
+export default function DeleteClientDialog({ client, onClose, onDeleted }: { client: { id: string; name: string } | null; onClose: () => void; onDeleted?: () => void }) {
   const qc = useQueryClient();
   const [typed, setTyped] = useState('');
 
@@ -45,6 +45,7 @@ export default function DeleteClientDialog({ client, onClose }: { client: { id: 
       for (const key of ['sa-clients', 'sa-client-payments', 'billing-overview', 'sa-users']) qc.invalidateQueries({ queryKey: [key] });
       toast.success(`Cliente "${client!.name}" eliminado. Copia de seguridad guardada en el servidor (${r.backup}).`, { duration: 9000 });
       handleClose(true);
+      onDeleted?.();
     },
     onError: (e: Error) => toast.error(e.message),
   });
