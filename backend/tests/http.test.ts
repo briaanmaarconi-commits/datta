@@ -127,6 +127,19 @@ describe("create-user (matriz de permisos)", () => {
     expect((await login("waiterA", PASS)).statusCode).toBe(401);
     expect((await login("waiterA", temp)).statusCode).toBe(200);
   });
+  it("el cajero edita nombre y contraseña de un mozo, pero no de un admin", async () => {
+    const email = u("editable");
+    const c = await call("cashierA", "POST", "/api/fn/create-user", { email, password: "Clave-1234", fullName: "Mozo Viejo", role: "waiter", establishmentId: ids.estA });
+    const userId = c.json().user.id as string;
+    const r = await call("cashierA", "POST", "/api/fn/create-user", { action: "update_user", userId, fullName: "Mozo Nuevo", password: "Otra-5678" });
+    expect(r.statusCode).toBe(200);
+    expect((await app.inject({ method: "POST", url: "/api/auth/login", payload: { email, password: "Clave-1234" } })).statusCode).toBe(401);
+    const l = await app.inject({ method: "POST", url: "/api/auth/login", payload: { email, password: "Otra-5678" } });
+    expect(l.json().user).toMatchObject({ role: "waiter", fullName: "Mozo Nuevo" });
+    expect((await call("cashierA", "POST", "/api/fn/create-user", { action: "update_user", userId: users.adminA.id, fullName: "X" })).statusCode).toBe(403);
+    expect((await call("adminB", "POST", "/api/fn/create-user", { action: "update_user", userId, fullName: "X" })).statusCode).toBe(403);
+    expect((await call("cashierA", "POST", "/api/fn/create-user", { action: "update_user", userId })).statusCode).toBe(400);
+  });
   it("adminB no puede resetear a un usuario de A", async () => {
     expect((await call("adminB", "POST", "/api/fn/create-user", { action: "reset_password", userId: users.adminA.id })).statusCode).toBe(403);
   });

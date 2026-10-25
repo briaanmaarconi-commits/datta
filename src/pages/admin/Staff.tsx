@@ -43,6 +43,10 @@ export default function AdminStaff() {
   const [editUserId, setEditUserId] = useState('');
   const [editRole, setEditRole] = useState<AppRole>('waiter');
   const [editUserName, setEditUserName] = useState('');
+  const [editOriginalRole, setEditOriginalRole] = useState<AppRole>('waiter');
+  const [editOriginalName, setEditOriginalName] = useState('');
+  const [editFullName, setEditFullName] = useState('');
+  const [editPassword, setEditPassword] = useState('');
 
   const { data: staff = [] } = useQuery({
     queryKey: ['staff', establishmentId],
@@ -80,18 +84,32 @@ export default function AdminStaff() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const updateRole = useMutation({
+  const updateStaff = useMutation({
     mutationFn: async () => {
-      const res = await db.functions.invoke('create-user', {
-        body: { action: 'update_role', roleId: editRoleId, role: editRole, establishmentId },
-      });
-      if (res.error) throw new Error(await edgeErrorMessage(res.error));
-      if (res.data?.error) throw new Error(res.data.error);
+      const invoke = async (body: Record<string, unknown>) => {
+        const res = await db.functions.invoke('create-user', { body });
+        if (res.error) throw new Error(await edgeErrorMessage(res.error));
+        if (res.data?.error) throw new Error(res.data.error);
+      };
+      const fullName = editFullName.trim();
+      const nameChanged = !!fullName && fullName !== editOriginalName;
+      if (nameChanged || editPassword) {
+        await invoke({
+          action: 'update_user',
+          userId: editUserId,
+          ...(nameChanged ? { fullName } : {}),
+          ...(editPassword ? { password: editPassword } : {}),
+        });
+      }
+      if (editRole !== editOriginalRole) {
+        await invoke({ action: 'update_role', roleId: editRoleId, role: editRole, establishmentId });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff'] });
-      toast.success('Rol actualizado');
+      toast.success(editPassword ? 'Datos y contraseña actualizados' : 'Datos actualizados');
       setEditOpen(false);
+      setEditPassword('');
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -136,7 +154,11 @@ export default function AdminStaff() {
     setEditRoleId(s.id);
     setEditUserId(s.user_id);
     setEditRole(s.role as AppRole);
+    setEditOriginalRole(s.role as AppRole);
     setEditUserName(s.profiles?.full_name || s.profiles?.email || '—');
+    setEditOriginalName(s.profiles?.full_name || '');
+    setEditFullName(s.profiles?.full_name || '');
+    setEditPassword('');
     setEditOpen(true);
   };
 
@@ -173,7 +195,12 @@ export default function AdminStaff() {
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Editar: {editUserName}</DialogTitle></DialogHeader>
-          <form onSubmit={e => { e.preventDefault(); updateRole.mutate(); }} className="space-y-4">
+          <form onSubmit={e => { e.preventDefault(); updateStaff.mutate(); }} className="space-y-4">
+            <div className="space-y-2"><Label>Nombre</Label><Input value={editFullName} onChange={e => setEditFullName(e.target.value)} required /></div>
+            <div className="space-y-2">
+              <Label>Nueva contraseña</Label>
+              <Input type="password" value={editPassword} onChange={e => setEditPassword(e.target.value)} minLength={6} placeholder="Dejar vacío para no cambiarla" autoComplete="new-password" />
+            </div>
             <div className="space-y-2">
               <Label>Rol</Label>
               <Select value={editRole} onValueChange={v => setEditRole(v as AppRole)}>
@@ -183,8 +210,8 @@ export default function AdminStaff() {
                 </SelectContent>
               </Select>
             </div>
-            <Button type="submit" className="w-full" disabled={updateRole.isPending}>
-              {updateRole.isPending ? 'Guardando...' : 'Guardar cambios'}
+            <Button type="submit" className="w-full" disabled={updateStaff.isPending}>
+              {updateStaff.isPending ? 'Guardando...' : 'Guardar cambios'}
             </Button>
           </form>
         </DialogContent>
@@ -215,7 +242,7 @@ export default function AdminStaff() {
                   <TableCell className="text-right space-x-1">
                     {canManage ? (
                       <>
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(s)} title="Editar rol">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(s)} title="Editar">
                           <Pencil className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => resetPassword.mutate(s.user_id)} title="Resetear contraseña">

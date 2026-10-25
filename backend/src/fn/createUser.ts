@@ -18,6 +18,7 @@ const body = z.discriminatedUnion("action", [
   z.object({ action: z.literal("create").optional(), email: z.string().email(), password: z.string().min(6).max(200), fullName: z.string().max(200).optional(), role: ROLE, establishmentId: z.string().uuid().nullish() }),
   z.object({ action: z.literal("update_role"), roleId: z.string().uuid(), role: ROLE, establishmentId: z.string().uuid().nullish() }),
   z.object({ action: z.literal("reset_password"), userId: z.string().uuid() }),
+  z.object({ action: z.literal("update_user"), userId: z.string().uuid(), fullName: z.string().trim().min(1).max(200).optional(), password: z.string().min(6).max(200).optional() }),
   z.object({ action: z.literal("delete_role"), roleId: z.string().uuid() }),
 ]);
 
@@ -89,14 +90,36 @@ export async function registerCreateUser(app: FastifyInstance) {
         return { success: true };
       }
 
+      const canManageUser = async (userId: string) => {
+        if (isSuperadmin) return true;
+        const { rows: targets } = await c.query(`SELECT role, establishment_id FROM public.user_roles WHERE user_id = $1`, [userId]);
+        if (!targets.length) return false;
+        if (targets.some((r) => r.role === "superadmin")) return false;
+        if (isCashier && !targets.every((r) => CASHIER_ASSIGNABLE.has(r.role))) return false;
+        return targets.some((r) => r.establishment_id && scoped.has(r.establishment_id));
+      };
+
+      if (b.action === "update_user") {
+        if (!b.fullName && !b.password) return fail(reply, 400, "Datos inválidos");
+        if (!(await canManageUser(b.userId))) return fail(reply, 403, "Forbidden");
+        const hash = b.password ? await bcrypt.hash(b.password, 10) : null;
+        const r = await c.query(
+          `UPDATE auth.users SET
+             encrypted_password = COALESCE($2, encrypted_password),
+             raw_user_meta_data = CASE WHEN $3::text IS NULL THEN raw_user_meta_data
+                                       ELSE COALESCE(raw_user_meta_data, '{}'::jsonb) || jsonb_build_object('full_name', $3::text) END,
+             updated_at = now()
+           WHERE id = $1`,
+          [b.userId, hash, b.fullName ?? null],
+        );
+        if (!r.rowCount) return fail(reply, 400, "Usuario inexistente");
+        if (b.fullName) await c.query(`UPDATE public.profiles SET full_name = $2 WHERE id = $1`, [b.userId, b.fullName]);
+        if (hash) await destroyUserSessions(b.userId);
+        return { success: true };
+      }
+
       if (b.action === "reset_password") {
-        if (!isSuperadmin) {
-          const { rows: targets } = await c.query(`SELECT role, establishment_id FROM public.user_roles WHERE user_id = $1`, [b.userId]);
-          if (!targets.length) return fail(reply, 403, "Forbidden");
-          if (targets.some((r) => r.role === "superadmin")) return fail(reply, 403, "Forbidden");
-          if (isCashier && !targets.every((r) => CASHIER_ASSIGNABLE.has(r.role))) return fail(reply, 403, "Forbidden");
-          if (!targets.some((r) => r.establishment_id && scoped.has(r.establishment_id))) return fail(reply, 403, "Forbidden");
-        }
+        if (!(await canManageUser(b.userId))) return fail(reply, 403, "Forbidden");
         const temp = tempPassword();
         const hash = await bcrypt.hash(temp, 10);
         const r = await c.query(`UPDATE auth.users SET encrypted_password = $1, updated_at = now() WHERE id = $2`, [hash, b.userId]);
