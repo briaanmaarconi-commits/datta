@@ -199,13 +199,15 @@ export default function CashierInvoices() {
       const actualPaid = paymentMethod === 'cash' ? paid : grandTotal;
       const changeAmt = paymentMethod === 'cash' ? Math.max(0, paid - grandTotal) : 0;
 
-      // Close orders
+      // Close orders: solo si siguen abiertos, así un segundo cobro del mismo pedido se corta acá.
       for (const order of tableOrders) {
-        await db.from('orders').update({
+        const { data: claimed, error: orderErr } = await db.from('orders').update({
           status: 'closed' as any,
           payment_method: paymentMethod,
           amount_paid: actualPaid,
-        } as any).eq('id', order.id);
+        } as any).eq('id', order.id).neq('status', 'closed').select('id');
+        if (orderErr) throw orderErr;
+        if (!claimed || claimed.length === 0) throw new Error('Esta mesa ya fue cobrada');
       }
 
       // Free table

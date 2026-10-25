@@ -87,10 +87,12 @@ export async function closeOwnDeliveryOrder(params: {
   const paid = payMethod === 'cash' ? params.amountPaid : total;
   if (payMethod === 'cash' && !(paid >= total)) throw new Error('El monto recibido tiene que cubrir el total');
 
-  const { error: closeErr } = await db.from('orders').update({
+  // Solo si sigue abierto: un segundo cobro del mismo pedido (doble toque) se corta acá.
+  const { data: claimed, error: closeErr } = await db.from('orders').update({
     status: 'closed', payment_method: payMethod, amount_paid: paid, delivered_at: new Date().toISOString(),
-  } as any).eq('id', order.id);
+  } as any).eq('id', order.id).neq('status', 'closed').select('id');
   if (closeErr) throw closeErr;
+  if (!claimed || claimed.length === 0) throw new Error('Este pedido ya fue cobrado');
 
   let { data: salesCat } = await db.from('finance_categories').select('id')
     .eq('establishment_id', establishmentId).eq('name', 'Ventas').eq('type', 'income').maybeSingle();

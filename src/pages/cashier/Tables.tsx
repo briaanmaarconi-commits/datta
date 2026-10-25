@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { toArgDate } from '@/lib/utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { db } from '@/lib/db';
@@ -453,17 +453,23 @@ export default function CashierTables() {
       });
       // Pago combinado: cada pedido lleva su parte de cada medio, así los resúmenes por medio suman exacto.
       const orderPayments = isMixed ? splitAcrossOrders(parts, chargedTotals) : null;
+      // Cerrar el pedido es lo primero y solo vale si sigue abierto: si otro cobro (doble toque,
+      // otra PC) ya lo cerró, la actualización no toca ninguna fila y se corta acá, antes de cargar
+      // el ingreso y el comprobante. La base serializa las dos actualizaciones del mismo pedido.
       for (let idx = 0; idx < tableOrders.length; idx++) {
         const order: any = tableOrders[idx];
         const chargedTotal = chargedTotals[idx];
-        const { error: orderErr } = await db.from('orders').update({
+        const { data: claimed, error: orderErr } = await db.from('orders').update({
           status: 'closed' as any,
           payment_method: paymentMethod,
           payments: orderPayments ? orderPayments[idx] : null,
           total: chargedTotal,
           amount_paid: paymentMethod === 'cash' && idx === 0 ? paid : chargedTotal,
-        } as any).eq('id', order.id);
+        } as any).eq('id', order.id).neq('status', 'closed').select('id');
         if (orderErr) throw new Error(`No se pudo cerrar el pedido de la mesa: ${orderErr.message}`);
+        if (!claimed || claimed.length === 0) {
+          throw Object.assign(new Error('Esta mesa ya fue cobrada'), { alreadyCharged: true });
+        }
       }
 
 
@@ -744,8 +750,22 @@ export default function CashierTables() {
       setPrintingClose(true);
     },
 
-    onError: (err: any) => toast.error(err.message || 'Error al cerrar mesa'),
+    onError: (err: any) => {
+      if (err?.alreadyCharged) {
+        queryClient.invalidateQueries({ queryKey: ['tables'] });
+        queryClient.invalidateQueries({ queryKey: ['table-orders'] });
+        setSelectedTable(null);
+      }
+      toast.error(err.message || 'Error al cerrar mesa');
+    },
+    onSettled: () => {
+      chargingRef.current = false;
+    },
   });
+
+  // Un doble toque dispara dos cobros antes de que el botón se vea deshabilitado
+  // (isPending tarda un render). El ref corta el segundo toque en el acto.
+  const chargingRef = useRef(false);
 
   const allItems = useMemo(
     () => tableOrders.flatMap((o: any) => o.order_items || []).filter((i: any) => !excludedItemIds.includes(i.id)),
@@ -1371,6 +1391,8 @@ export default function CashierTables() {
                     toast.error(closeBlocker);
                     return;
                   }
+                  if (chargingRef.current) return;
+                  chargingRef.current = true;
                   closeAllOrders.mutate();
                 }}
                 disabled={closeAllOrders.isPending}
