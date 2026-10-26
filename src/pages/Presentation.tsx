@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowDown, ArrowRight, BarChart3, Boxes, CalendarDays, ChefHat,
   LayoutDashboard, MessageCircle, MonitorSmartphone, ReceiptText, Sparkles,
-  Store, UserRound, Users, WalletCards, Star, Target,
+  Store, UserRound, Users, WalletCards, Star,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import dashboard from '@/assets/presentation/dashboard.png';
@@ -187,19 +187,8 @@ export default function Presentation() {
             <SectionIntro eyebrow="EVOLUCIÓN DE INGRESOS" title="Entendé la fluctuación, no solo el total." description="La curva diaria permite detectar crecimiento, caídas y días clave para ajustar compras, personal y promociones." />
             <Reveal delay={100}><BrowserFrame src={analyticsIncome} alt="Gráfico de evolución de ingresos diarios" contain /></Reveal>
           </div>
-          <div className="mt-12 grid gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
-            <SectionIntro eyebrow="PUNTO DE EQUILIBRIO" title="Cuánto vender para cubrir tus costos." description="Datta cruza los gastos fijos con el margen de contribución para calcular las ventas mínimas necesarias para no perder dinero. Comparalo con los ingresos del período para decidir si necesitás ajustar precios, costos o ventas." />
-            <Reveal delay={100}>
-              <div className="datta-panel border p-6 md:p-9">
-                <div className="flex items-center gap-3"><Target className="datta-kicker h-5 w-5" /><h3 className="font-semibold">Punto de equilibrio</h3></div>
-                <p className="datta-muted mt-2 text-xs">Ejemplo ilustrativo · período mensual</p>
-                <p className="mt-8 font-display text-5xl font-semibold md:text-6xl">$750.000</p>
-                <p className="datta-muted mt-3 text-sm">Ventas mínimas del mes para cubrir costos fijos y variables.</p>
-                <div className="datta-equilibrium-scale relative mt-7 h-2 rounded-sm"><span className="datta-equilibrium-marker absolute inset-y-0 left-1/2 w-0.5" /></div>
-                <div className="datta-muted mt-3 grid grid-cols-2 gap-4 text-xs"><span>Por debajo: no cubrís los costos</span><span>Por encima: generás ganancia</span></div>
-                <p className="datta-muted mt-7 text-xs leading-relaxed">El valor real se calcula con los datos de cada restaurante. Este ejemplo no modifica la información de Bodegón 65.</p>
-              </div>
-            </Reveal>
+          <div className="mt-12">
+            <SectionIntro eyebrow="PUNTO DE EQUILIBRIO" title="Sabé cuánto necesitás vender." description="Datta calcula con tus propios costos cuánto tenés que vender por mes para cubrir gastos y empezar a ganar." />
           </div>
         </div>
       </section>

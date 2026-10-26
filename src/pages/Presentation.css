@@ -112,6 +112,4 @@
 .datta-cover-logo .datta-logo-line { height: 4px; }
 .datta-review-stars { color: hsl(var(--presentation-orange)); }
 .datta-review-example { border-color: hsl(var(--presentation-line)); }
-.datta-equilibrium-scale { background: linear-gradient(90deg, hsl(var(--presentation-muted) / 0.3) 50%, hsl(var(--presentation-orange) / 0.65) 50%); }
-.datta-equilibrium-marker { background: hsl(var(--presentation-copy)); }
 @media (max-width: 767px) { .datta-cover-logo { font-size: 80px; } }
