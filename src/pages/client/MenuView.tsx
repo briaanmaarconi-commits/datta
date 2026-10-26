@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, UserRound, Eye } from 'lucide-react';
 import StarRating from '@/components/client/StarRating';
-import PromoBanners from '@/components/client/PromoBanners';
+import PromoBanners, { type QuickFilter } from '@/components/client/PromoBanners';
 import DailySpecials from '@/components/client/DailySpecials';
 import PopularDishes from '@/components/client/PopularDishes';
 import ReviewDialog from '@/components/client/ReviewDialog';
@@ -101,14 +101,31 @@ export default function MenuView() {
   
   // Find dessert category
   const dessertCat = categories.find(c => c.name.toLowerCase().includes('postre') || c.name.toLowerCase().includes('dessert'));
-  const dessertProducts = dessertCat ? products.filter(p => p.category_id === dessertCat.id) : [];
+  const dessertProducts = dessertCat
+    ? products
+        .filter(p => p.category_id === dessertCat.id)
+        .sort((a, b) => (avgRatings[b.id]?.count || 0) - (avgRatings[a.id]?.count || 0))
+    : [];
 
   // Al cargar las categorías, la carta abre directamente en la primera (sin vista "Todo")
   useEffect(() => {
     if (!selectedCat && categories.length > 0) setSelectedCat(categories[0].id);
   }, [categories, selectedCat]);
 
-  const filteredProducts = selectedCat ? products.filter(p => p.category_id === selectedCat) : products;
+  // Los accesos rápidos usan claves especiales en lugar de un id de categoría
+  const quickLists: Record<QuickFilter, { title: string; items: any[] }> = {
+    __popular: { title: 'Los más pedidos', items: popularProducts },
+    __desserts: { title: 'Postres más pedidos', items: dessertProducts },
+    __promos: { title: 'Promociones', items: promoProducts },
+  };
+  const quick = selectedCat && selectedCat in quickLists ? quickLists[selectedCat as QuickFilter] : null;
+
+  const filteredProducts = quick ? quick.items : selectedCat ? products.filter(p => p.category_id === selectedCat) : products;
+
+  const selectQuickFilter = (f: QuickFilter) => {
+    setSelectedCat(f);
+    requestAnimationFrame(() => document.getElementById('menu-products')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
 
   if (loadingEst || loadingProducts) {
     return (
@@ -153,21 +170,25 @@ export default function MenuView() {
         {/* Popular Dishes */}
         <PopularDishes products={products} avgRatings={avgRatings} />
 
-        {/* Banners */}
+        {/* Accesos rápidos */}
         <PromoBanners
           promoProducts={promoProducts}
           popularProducts={popularProducts}
           dessertProducts={dessertProducts}
+          active={selectedCat}
+          onSelect={selectQuickFilter}
         />
 
         {/* Category filters */}
-        <div className="flex gap-2 overflow-x-auto pb-2">
+        <div id="menu-products" className="flex gap-2 overflow-x-auto pb-2 scroll-mt-20">
           {categories.map(c => (
             <Button key={c.id} size="sm" variant={selectedCat === c.id ? 'default' : 'outline'} onClick={() => setSelectedCat(c.id)} className="whitespace-nowrap">
               {c.name}
             </Button>
           ))}
         </div>
+
+        {quick && <h2 className="font-bold text-base">{quick.title}</h2>}
 
         {/* Products */}
         {filteredProducts.length === 0 ? (
