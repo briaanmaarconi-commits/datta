@@ -25,9 +25,9 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,
 a{color:inherit;text-decoration:none}
 
 #bg{position:fixed;inset:0;z-index:0;background:var(--bg)}
-#bg::before{content:"";position:absolute;width:90vmax;height:90vmax;left:var(--gx,62%);top:50%;transform:translate(-50%,-50%);
-  background:radial-gradient(circle,var(--glow) 0%,transparent 64%);opacity:var(--glow-a);will-change:opacity}
-#bg::after{content:"";position:absolute;inset:0;opacity:.07;mix-blend-mode:overlay;
+#bg::before{content:"";position:absolute;width:90vmax;height:90vmax;left:var(--gx,62%);top:50%;transform:translate3d(-50%,-50%,0);
+  background:radial-gradient(circle,var(--glow) 0%,transparent 64%);opacity:var(--glow-a)}
+#bg::after{content:"";position:absolute;inset:0;opacity:.05;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E")}
 #vig{position:fixed;inset:0;z-index:4;pointer-events:none;background:radial-gradient(ellipse at 50% 50%,transparent 55%,rgba(0,0,0,.45) 100%)}
 #word{position:fixed;z-index:1;top:50%;left:var(--wx,64%);transform:translate(-50%,-50%);font:700 clamp(80px,17vw,300px)/.85 "Space Grotesk",sans-serif;
@@ -210,7 +210,7 @@ footer{position:relative;z-index:12;padding:28px clamp(16px,6vw,96px);font-size:
 <div id="dots"></div>
 
 <main>
-  <section class="sc" id="inicio" data-h="140" data-word="" data-label="Inicio">
+  <section class="sc" id="inicio" data-h="80" data-word="" data-label="Inicio">
     <div class="stick"><div class="txt">
       <h1 class="cover">datta</h1>
       <div class="lead">Sistema integral de negocios gastronómicos.</div>
@@ -219,7 +219,7 @@ footer{position:relative;z-index:12;padding:28px clamp(16px,6vw,96px);font-size:
     </div></div>
   </section>
 
-  <section class="sc" id="pedido" data-h="170" data-word="EN LA MESA" data-label="El pedido">
+  <section class="sc" id="pedido" data-h="95" data-word="EN LA MESA" data-label="El pedido">
     <div class="stick"><div class="txt">
       <div class="k">01 · El pedido</div>
       <h2>El mozo toma el pedido en la mesa.</h2>
@@ -232,7 +232,7 @@ footer{position:relative;z-index:12;padding:28px clamp(16px,6vw,96px);font-size:
     </div></div>
   </section>
 
-  <section class="sc" id="comanda" data-h="180" data-word="SIN ERRORES" data-label="La comanda">
+  <section class="sc" id="comanda" data-h="100" data-word="SIN ERRORES" data-label="La comanda">
     <div class="stick"><div class="txt">
       <div class="k">02 · La comanda</div>
       <h2>Confirmás, y la comanda sale sola.</h2>
@@ -244,7 +244,7 @@ footer{position:relative;z-index:12;padding:28px clamp(16px,6vw,96px);font-size:
     </div></div>
   </section>
 
-  <section class="sc" id="comprobantes" data-h="260" data-word="COMANDERA" data-label="Comandera">
+  <section class="sc" id="comprobantes" data-h="145" data-word="COMANDERA" data-label="Comandera">
     <div class="stick"><div class="txt">
       <div class="k">03 · Todo sale de la comandera</div>
       <h2>Cuatro comprobantes, un solo sistema.</h2>
@@ -257,7 +257,7 @@ footer{position:relative;z-index:12;padding:28px clamp(16px,6vw,96px);font-size:
     </div></div>
   </section>
 
-  <section class="sc" id="conectado" data-h="160" data-word="AL INSTANTE" data-label="Conectado">
+  <section class="sc" id="conectado" data-h="90" data-word="AL INSTANTE" data-label="Conectado">
     <div class="stick"><div class="txt">
       <div class="k">04 · Todo conectado</div>
       <h2>Cada área trabaja conectada.</h2>
@@ -267,7 +267,7 @@ footer{position:relative;z-index:12;padding:28px clamp(16px,6vw,96px);font-size:
     </div></div>
   </section>
 
-  <section class="sc" id="cocina" data-h="250" data-word="EN COCINA" data-label="La cocina" data-out=".97">
+  <section class="sc" id="cocina" data-h="140" data-word="EN COCINA" data-label="La cocina" data-out=".97">
     <div class="stick"><div class="txt">
       <div class="k">05 · La cocina</div>
       <h2>En papel o en pantalla, a la vista del chef.</h2>
@@ -280,7 +280,7 @@ footer{position:relative;z-index:12;padding:28px clamp(16px,6vw,96px);font-size:
     </div></div>
   </section>
 
-  <section class="sc" id="numeros" data-h="190" data-word="CON DATOS" data-label="Los números">
+  <section class="sc" id="numeros" data-h="105" data-word="CON DATOS" data-label="Los números">
     <div class="stick"><div class="txt">
       <div class="k">06 · Los números</div>
       <h2>Datos claros para decidir mejor.</h2>
@@ -294,7 +294,7 @@ footer{position:relative;z-index:12;padding:28px clamp(16px,6vw,96px);font-size:
     </div></div>
   </section>
 
-  <section class="sc" id="contacto" data-h="110" data-word="DATTA" data-label="Contacto">
+  <section class="sc" id="contacto" data-h="100" data-word="DATTA" data-label="Contacto">
     <div class="stick contact"><div class="txt">
       <div class="k">Datta</div>
       <h2>Tu restaurante, mejor gestionado.</h2>
@@ -325,16 +325,17 @@ const lerp3=(a,b,t)=>a.map((v,i)=>lerp(v,b[i],t));
 
 /* ---------- renderer ---------- */
 const canvas=document.getElementById('gl');
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,powerPreference:'high-performance'});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const renderer=new THREE.WebGLRenderer({canvas,antialias:!(matchMedia('(pointer:coarse)').matches&&devicePixelRatio>1.4),alpha:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,(matchMedia('(pointer:coarse)').matches||innerWidth<820)?1.5:1.75));
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=1.05;
 renderer.shadowMap.enabled=true;
-renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.shadowMap.type=THREE.PCFShadowMap;
 renderer.localClippingEnabled=true;
 const MAXANI=renderer.capabilities.getMaxAnisotropy();
-const DPR_MAX=Math.min(devicePixelRatio,2);
+const MOBILE=matchMedia('(pointer:coarse)').matches||innerWidth<820;
+const DPR_MAX=Math.min(devicePixelRatio,MOBILE?1.5:1.75);
 
 const scene=new THREE.Scene();
 const pmrem=new THREE.PMREMGenerator(renderer);
@@ -348,7 +349,7 @@ scene.add(new THREE.HemisphereLight(0xfff4e8,0x1a120c,0.55));
 const key=new THREE.DirectionalLight(0xfff0de,2.4);
 key.position.set(4,6,5);
 key.castShadow=true;
-key.shadow.mapSize.set(1536,1536);
+key.shadow.mapSize.set(1024,1024);
 Object.assign(key.shadow.camera,{left:-4,right:4,top:4,bottom:-4,near:1,far:20});
 key.shadow.bias=-0.0004;key.shadow.radius=5;
 scene.add(key);
@@ -410,7 +411,13 @@ stage.add(printer);
 /* ---------- tickets ---------- */
 const TW=.62,TL=1.7,CW=512,CH=1404,TS=1.5;
 const mono=(g,wt,sz)=>g.font=`${wt} ${sz}px "IBM Plex Mono",monospace`;
+let paperBase=null;
 function paper(g){
+  if(paperBase){g.clearRect(0,0,CW,CH);g.drawImage(paperBase,0,0,CW,CH);g.fillStyle='#161616';g.textBaseline='alphabetic';return;}
+  const pc=document.createElement('canvas');pc.width=CW*TS;pc.height=CH*TS;const pg=pc.getContext('2d');pg.setTransform(TS,0,0,TS,0,0);
+  paperBase=pc;drawPaper(pg);paper(g);
+}
+function drawPaper(g){
   g.clearRect(0,0,CW,CH);
   g.beginPath();g.moveTo(0,14);
   for(let x=0;x<=CW;x+=16)g.lineTo(x,(x/16)%2?2:14);
@@ -422,7 +429,6 @@ function paper(g){
   g.save();g.clip();
   for(let i=0;i<1600;i++){g.fillStyle=`rgba(0,0,0,${Math.random()*.03})`;g.fillRect(Math.random()*CW,Math.random()*CH,2,2);}
   g.restore();
-  g.fillStyle='#161616';g.textBaseline='alphabetic';
 }
 function dash(g,y){g.setLineDash([10,9]);g.strokeStyle='#666';g.lineWidth=3;g.beginPath();g.moveTo(34,y);g.lineTo(CW-34,y);g.stroke();g.setLineDash([]);}
 function row(g,l,r,y,wt=600,sz=30){mono(g,wt,sz);g.textAlign='left';g.fillText(l,36,y);g.textAlign='right';g.fillText(r,CW-36,y);}
@@ -712,7 +718,7 @@ const monitor=new THREE.Group();
   const bulb=new THREE.Mesh(new THREE.SphereGeometry(.1,24,16),new THREE.MeshStandardMaterial({color:0xffd1a0,emissive:0xffa24a,emissiveIntensity:0}));bulb.position.set(0,2.78,0);
   kitchen.userData.bulb=bulb;
   lamp.position.set(0,2.75,0);lamp.target.position.set(0,0,.1);
-  lamp.castShadow=true;lamp.shadow.mapSize.set(1024,1024);lamp.shadow.bias=-.0005;lamp.shadow.radius=6;
+  lamp.castShadow=true;lamp.shadow.mapSize.set(512,512);lamp.shadow.bias=-.0005;lamp.shadow.radius=6;
   kitchen.add(top,lip,base,rod,tip,monitor,shade,cap,cord,bulb,lamp,lamp.target);
   const steamT=canvasTex(128,128,(g,w,h)=>{const gr=g.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,'rgba(255,255,255,.9)');gr.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=gr;g.fillRect(0,0,w,h);});
   kitchen.userData.steam=[];
@@ -789,15 +795,15 @@ const _unused=[
 const COLS=[['#0c0c0e','#f97316',0],['#0a0910','#7c3aed',.26],['#0c0a09','#f97316',.24],['#0b0b0d','#f97316',.14],['#6b2207','#fb923c',.55],['#100a05','#f59e0b',.26],['#09090b','#f97316',.2],['#0a0a0c','#f97316',.26]];
 const ca=new THREE.Color(),cb=new THREE.Color();
 function mixHex(a,b,t){ca.set(a);cb.set(b);return '#'+ca.lerp(cb,t).getHexString();}
-const root=document.documentElement.style;
+const root=document.documentElement.style,bgS=document.getElementById('bg').style;
 let lastCol='';
 function setColors(s){
-  const key=s.toFixed(3);if(key===lastCol)return;lastCol=key;
+  const key=s.toFixed(2);if(key===lastCol)return;lastCol=key;
   const i=Math.floor(clamp(s,0,COLS.length-1)),j=Math.min(i+1,COLS.length-1);
   const t=sm(clamp((s-i-.55)/.45)),A=COLS[i],B=COLS[j];
-  root.setProperty('--bg',mixHex(A[0],B[0],t));
-  root.setProperty('--glow',mixHex(A[1],B[1],t));
-  root.setProperty('--glow-a',(A[2]+(B[2]-A[2])*t).toFixed(3));
+  bgS.setProperty('--bg',mixHex(A[0],B[0],t));
+  bgS.setProperty('--glow',mixHex(A[1],B[1],t));
+  bgS.setProperty('--glow-a',(A[2]+(B[2]-A[2])*t).toFixed(3));
 }
 
 /* ---------- scroll y textos ---------- */
@@ -816,7 +822,7 @@ const dots=[...dotsEl.children];
 let tops=[],hs=[];
 function measure(){tops=secs.map(s=>s.offsetTop);hs=secs.map(s=>s.offsetHeight);}
 function scrollS(){const y=scrollY;let s=0;for(let i=0;i<secs.length;i++){if(y>=tops[i])s=i+clamp((y-tops[i])/hs[i]);}return s;}
-let curWord=null,curDot=-1;
+let curWord=null,curDot=-1,lastGx='',lastSh='',lastHb='',lastPb='';
 function updateDOM(s){
   const n=secs.length;
   secs.forEach((sec,i)=>{
@@ -828,25 +834,25 @@ function updateDOM(s){
     txts[i].style.pointerEvents=o>.5?'auto':'none';
     txts[i].parentElement.style.visibility=o<.005?'hidden':'visible';
   });
-  pbs.forEach((el,k)=>el.parentElement.style.setProperty('--st',ramp(s,2.12+k*.2,2.3+k*.2).toFixed(3)));
+  const pk=s>1.8&&s<3.2?s.toFixed(3):'x';if(pk!==lastPb){lastPb=pk;pbs.forEach((el,k)=>el.parentElement.style.setProperty('--st',ramp(s,2.12+k*.2,2.3+k*.2).toFixed(3)));}
   const wi=Math.round(clamp(s-.35,0,n-1)),w=secs[wi].dataset.word;
   if(w!==curWord){curWord=w;wordEl.style.opacity=0;setTimeout(()=>{wordEl.textContent=w;wordEl.style.opacity=w?1:0;},180);}
   const di=Math.round(clamp(s-.3,0,n-1));if(di!==curDot){dots.forEach((d,k)=>d.classList.toggle('on',k===di));curDot=di;}
   const ni=6,sk=s.toFixed(3);
   if(sk!==lastShot){lastShot=sk;shots.forEach((el,k)=>{const p=ramp(s,ni-.1+k*.07,ni+.2+k*.07)*(1-ramp(s,ni+.7,ni+.86));
     el.style.opacity=p.toFixed(3);el.style.transform=wide?`translate3d(0,${((1-p)*70).toFixed(1)}px,${((1-p)*-120).toFixed(0)}px) rotateY(${SHOT_T[k][0]}) rotateX(${SHOT_T[k][1]})`:`translate3d(0,${((1-p)*40).toFixed(1)}px,0)`;});}
-  const g0=wide?lerp(50,64,ramp(s,.3,.95)):50;root.setProperty('--gx',g0.toFixed(1)+'%');
-  shadeEl.style.opacity=ramp(s,.25,.8).toFixed(3);
-  const hb=1-ramp(s,.3,.8);heroBg.style.opacity=hb.toFixed(3);heroBg.style.visibility=hb<.005?'hidden':'visible';
+  const g0=(wide?lerp(50,64,ramp(s,.3,.95)):50).toFixed(0)+'%';if(g0!==lastGx){lastGx=g0;bgS.setProperty('--gx',g0);}
+  const sh=ramp(s,.25,.8).toFixed(2);if(sh!==lastSh){lastSh=sh;shadeEl.style.opacity=sh;}
+  const hb=(1-ramp(s,.3,.8)).toFixed(2);if(hb!==lastHb){lastHb=hb;heroBg.style.opacity=hb;heroBg.style.visibility=hb==='0.00'?'hidden':'visible';}
   const max=document.documentElement.scrollHeight-innerHeight;
-  barEl.style.transform=`scaleX(${max>0?scrollY/max:0})`;
+  barEl.style.transform=`scaleX(${(max>0?scrollY/max:0).toFixed(4)})`;
 }
 
 /* ---------- tamaño ---------- */
 function layout(){
   const w=innerWidth,h=innerHeight;
   renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
-  wide=w>820&&w/h>1;
+  wide=w>820&&w/h>1;key.castShadow=!MOBILE;
   const visW=VH*camera.aspect;
   if(wide){stageBase={x:Math.min(visW*.2,2.3),y:0,s:clamp(visW/8.6,.8,1.1)};root.setProperty('--wx','66%');}
   else{stageBase={x:0,y:.95,s:clamp(camera.aspect*1.45,.6,.95)};root.setProperty('--wx','50%');}
@@ -869,14 +875,14 @@ function clipFromPrinter(plane){
 let pfN=0,pfT=0,pfDpr=DPR_MAX;
 function perf(dt){
   if(pfN<0)return;pfN++;pfT+=dt;
-  if(pfN>=90){const avg=pfT/pfN;pfN=0;pfT=0;
-    if(avg>1/40&&pfDpr>1){pfDpr=Math.max(1,pfDpr-.25);renderer.setPixelRatio(pfDpr);renderer.setSize(innerWidth,innerHeight,false);}
-    else if(avg<1/55)pfN=-1;}
+  if(pfN>=45){const avg=pfT/pfN;pfN=0;pfT=0;
+    if(avg>1/48&&pfDpr>.85){pfDpr=Math.max(.85,pfDpr-.2);renderer.setPixelRatio(pfDpr);renderer.setSize(innerWidth,innerHeight,false);if(pfDpr<1.1)key.castShadow=false;}
+    else if(avg<1/58)pfN=-1;}
 }
 function frame(){
   const dt=Math.min(clock.getDelta(),.1),t=clock.elapsedTime;
   sTarget=scrollS();
-  sCur+=(sTarget-sCur)*(1-Math.exp(-dt*5.5));
+  sCur+=(sTarget-sCur)*(1-Math.exp(-dt*6.5));
   perf(dt);
   if(Math.abs(sTarget-sCur)<1e-4)sCur=sTarget;
   const s=sCur;
@@ -906,7 +912,7 @@ function frame(){
   const st=s<1.3?0:s<1.52?1:s<5.5?2:3;if(st!==phState){phState=st;drawPhone(st);}
 
   // comanda
-  const strike=clamp((s-5.1)/.36),sq=Math.round(strike*60)/60;
+  const strike=clamp((s-5.1)/.36),sq=Math.round(strike*24)/24;
   if(sq!==lastStrike){lastStrike=sq;redrawComanda(sq);}
   if(s<1.98)ticket.visible=false;
   else if(s<2.7){ticket.visible=true;apply(ticket,printPose(s,clamp((s-2.05)/.55)));}
@@ -938,7 +944,7 @@ function frame(){
   if(kitchen.visible&&ksk!==lastKs){lastKs=ksk;drawKitchenScreen(strike,listo);}
   kitchen.userData.steam.forEach(sp=>{const u=sp.userData,f=(t*u.sp+u.o)%1;sp.position.set(u.x+Math.sin(t*.4+u.o*6)*.15,.15+f*1.9,u.z);sp.scale.setScalar(u.sz*(.6+f));sp.material.opacity=heat*.09*Math.sin(Math.PI*f);});
 
-  renderer.render(scene,camera);
+  if(!document.hidden)renderer.render(scene,camera);
   requestAnimationFrame(frame);
 }
 
