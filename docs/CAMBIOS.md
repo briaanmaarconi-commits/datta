@@ -4,7 +4,7 @@ Lo más nuevo arriba. Una línea por cambio, en palabras simples. "Publicado" = 
 Contexto general del sistema: [CONTEXTO-PROYECTO.md](CONTEXTO-PROYECTO.md).
 
 ## 2026-10-27
-- Presentación nueva: más fluida (menos carga para la compu y el celular) y más corta: hace falta deslizar bastante menos para recorrerla.
+- Presentación nueva: más fluida (menos carga para la compu y el celular) y más corta: hace falta deslizar bastante menos para recorrerla. Publicado.
 - Presentación comercial: dattagestion.com/presentacion (la dirección del QR de stickers y tarjetas) ahora muestra la nueva web con recorrido en 3D: pedido, comanda, comprobantes, cocina y analíticas. La presentación anterior quedó en dattagestion.com/presentacion-anterior. Publicado.
 - Presentación nueva: en pantallas medianas (tablet) las capturas del sistema ya no tapan el título de "Los números". Publicado.
 
