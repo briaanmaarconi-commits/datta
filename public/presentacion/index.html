@@ -140,10 +140,9 @@ ul.l li::before{content:"";flex:none;width:7px;height:7px;border-radius:2px;back
 .shot.a{left:0;top:2%;width:80%;z-index:1}
 .shot.b{right:0;top:30%;width:60%;z-index:2}
 .shot.c{left:6%;top:64%;width:62%;z-index:3}
-.trial{display:inline-flex;align-items:center;gap:10px;margin-top:24px;padding:10px 18px;border-radius:999px;
-  background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.4);font-size:15px}
-.trial span{color:var(--orange)}
-.trial b{color:var(--orange);font-weight:600}
+.trial{display:inline-block;margin-top:22px;padding:7px 16px;border-radius:999px;border:1px solid rgba(249,115,22,.32);
+  font-size:13.5px;letter-spacing:.01em;color:rgba(244,244,245,.78)}
+.trial b{color:#fb923c;font-weight:500}
 .wa{display:grid;gap:10px;margin-top:22px}
 .wa a{display:flex;align-items:center;gap:14px;border:1px solid var(--line);border-radius:14px;padding:16px 18px;background:rgba(10,10,12,.55);backdrop-filter:blur(6px);transition:border-color .2s}
 .wa a:hover{border-color:var(--orange)}
@@ -312,7 +311,7 @@ footer{position:relative;z-index:12;padding:28px clamp(16px,6vw,96px);font-size:
       <div class="k">Datta</div>
       <h2>Tu restaurante, mejor gestionado.</h2>
       <p>Conversemos sobre cómo Datta se adapta a tu operación.</p>
-      <div class="trial"><span>✦</span>Solicitá tu <b>mes de prueba gratis</b></div>
+      <div class="trial">Solicitá tu <b>mes de prueba gratis</b></div>
       <div class="wa">
         <a href="https://wa.me/5492314576149?text=Hola%2C%20quiero%20solicitar%20el%20mes%20de%20prueba%20gratis%20de%20Datta" target="_blank" rel="noopener"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.5l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 11.9 11.9 0 0 0 4.6 4c1.7.7 2.4.8 3.2.7a2.8 2.8 0 0 0 1.8-1.3 2.3 2.3 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3Z"/></svg><div><b>WhatsApp comercial</b><small>2314-576149</small></div><em>→</em></a>
         <a href="https://wa.me/5492314487074?text=Hola%2C%20quiero%20solicitar%20el%20mes%20de%20prueba%20gratis%20de%20Datta" target="_blank" rel="noopener"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.5l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 11.9 11.9 0 0 0 4.6 4c1.7.7 2.4.8 3.2.7a2.8 2.8 0 0 0 1.8-1.3 2.3 2.3 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3Z"/></svg><div><b>WhatsApp comercial</b><small>2314-487074</small></div><em>→</em></a>
@@ -930,7 +929,7 @@ function frame(){
 
   // escenario: a la derecha, salvo en la escena de comprobantes (centrado)
   if(wide){stage.position.set(stageBase.x,stageBase.y,0);stage.scale.setScalar(stageBase.s);}
-  else{const i0=Math.min(7,Math.floor(s)),i1=Math.min(7,i0+1),u=sm(clamp((s-i0-.62)/.38)),A=mobileFit(i0),B=mobileFit(i1);
+  else{const i0=Math.max(1,Math.min(7,Math.floor(s))),i1=Math.min(7,i0+1),u=sm(clamp((s-i0-.62)/.38)),A=mobileFit(i0),B=mobileFit(i1);
     stage.position.set(0,lerp(A[0],B[0],u),0);stage.scale.setScalar(lerp(A[1],B[1],u));}
   const f=focusAt(s);
 
@@ -950,7 +949,7 @@ function frame(){
   // celular
   const fs=tPhone(s);apply(phone,fs);phone.position.y+=Math.sin(t*1.3+1)*.03;
   if(s>5.62&&s<5.82)phone.rotation.z+=Math.sin(t*70)*.035*Math.sin(Math.PI*(s-5.62)/.2);
-  phone.visible=s<2.15||(s>5.42&&s<6.22);
+  phone.visible=(s>.42&&s<2.15)||(s>5.42&&s<6.22);
   const st=s<1.3?0:s<1.52?1:s<5.5?2:3;if(st!==phState){phState=st;drawPhone(st);}
 
   // comanda
