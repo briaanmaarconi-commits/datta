@@ -4,8 +4,8 @@ Lo más nuevo arriba. Una línea por cambio, en palabras simples. "Publicado" = 
 Contexto general del sistema: [CONTEXTO-PROYECTO.md](CONTEXTO-PROYECTO.md).
 
 ## 2026-10-28
-- Presentación nueva: mucho más fluida al deslizar en compu y celular (ya no redibuja imágenes ni recalcula luces mientras bajás).
-- Presentación nueva: en el celular ya no aparece el celular del mozo de fondo en el inicio, y el aviso del mes de prueba gratis tiene un diseño más fino.
+- Presentación nueva: mucho más fluida al deslizar en compu y celular (ya no redibuja imágenes ni recalcula luces mientras bajás). Publicado.
+- Presentación nueva: en el celular ya no aparece el celular del mozo de fondo en el inicio, y el aviso del mes de prueba gratis tiene un diseño más fino. Publicado.
 - Presentación nueva: en el celular se acomoda mejor (las capturas se ven de a una, la comandera y la cocina no quedan detrás del texto), tickets y pantallas más nítidos, se traba menos al deslizar y el contacto ofrece el mes de prueba gratis. Publicado.
 
 ## 2026-10-27
