@@ -33,6 +33,10 @@ export async function registerWeb(app: FastifyInstance) {
     }
     // archivos estáticos existentes (favicon, imágenes de /public, etc.)
     const rel = decodeURIComponent(url.split("?")[0]).replace(/^\/+/, "");
+    // presentación comercial (web estática en 3D): es la dirección del QR de stickers y tarjetas
+    if (/^presentacion\/?$/.test(rel) && existsSync(resolve(dist, "presentacion/index.html"))) {
+      return reply.header("Cache-Control", "no-cache").sendFile("presentacion/index.html");
+    }
     if (rel && !rel.includes("..") && existsSync(resolve(dist, rel)) && rel.includes(".")) return reply.sendFile(rel);
     return reply.header("Cache-Control", "no-cache").sendFile("index.html");
   });

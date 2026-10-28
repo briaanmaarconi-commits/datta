@@ -84,7 +84,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/presentacion" element={<Presentation />} />
+          <Route path="/presentacion-anterior" element={<Presentation />} />
 
           {/* Super Admin / Datta */}
           <Route path="/superadmin/prospects" element={<ProtectedRoute allowedRoles={['superadmin']}><SuperAdminLayout><SuperAdminProspects /></SuperAdminLayout></ProtectedRoute>} />

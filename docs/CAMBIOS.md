@@ -3,6 +3,9 @@
 Lo más nuevo arriba. Una línea por cambio, en palabras simples. "Publicado" = ya está en dattagestion.com.
 Contexto general del sistema: [CONTEXTO-PROYECTO.md](CONTEXTO-PROYECTO.md).
 
+## 2026-10-27
+- Presentación comercial: dattagestion.com/presentacion (la dirección del QR de stickers y tarjetas) ahora muestra la nueva web con recorrido en 3D: pedido, comanda, comprobantes, cocina y analíticas. La presentación anterior quedó en dattagestion.com/presentacion-anterior.
+
 ## 2026-10-26
 - Carta digital (QR): se sacaron las fotos de "Los más pedidos" y "Postres favoritos", que no hacían nada al tocarlas. Ahora hay botones "Ver los más pedidos", "Ver postres más pedidos" y "Ver promociones" que muestran esos platos. El QR no cambia. Publicado.
 - Presentación comercial: se reemplazó el ejemplo de punto de equilibrio por un texto corto.
