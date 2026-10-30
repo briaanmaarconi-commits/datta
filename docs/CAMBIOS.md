@@ -4,7 +4,7 @@ Lo más nuevo arriba. Una línea por cambio, en palabras simples. "Publicado" = 
 Contexto general del sistema: [CONTEXTO-PROYECTO.md](CONTEXTO-PROYECTO.md).
 
 ## 2026-10-30
-- Suscripción: trámite para darse de baja (solo el admin). Se elige el motivo y se escribe el detalle; el sistema sigue andando hasta el fin del período pagado (si la cuota está vencida, la baja es en el momento), se corta el débito automático y hasta ese día se puede arrepentir. El superadmin ve las bajas pedidas con el motivo en Cobranzas y en la ficha del cliente. El cajero ve el aviso del vencimiento pero ya no ve montos, pagos ni facturas.
+- Suscripción: trámite para darse de baja (solo el admin). Se elige el motivo y se escribe el detalle; el sistema sigue andando hasta el fin del período pagado (si la cuota está vencida, la baja es en el momento), se corta el débito automático y hasta ese día se puede arrepentir. El superadmin ve las bajas pedidas con el motivo en Cobranzas y en la ficha del cliente. El cajero ve el aviso del vencimiento pero ya no ve montos, pagos ni facturas. Publicado.
 
 ## 2026-10-29
 - Suscripción: aviso en Caja y Admin desde una semana antes del vencimiento. Si se atrasa, la primera semana no tiene recargo, la segunda +10% y la tercera +20%; a los 22 días se suspende (antes 25). El admin sube el comprobante de pago en Suscripción y queda pagado al instante (el superadmin lo puede ver y rechazar en Clientes → Pagos). Suscripción explica las condiciones con las fechas del local y permite activar el débito automático de Mercado Pago. Publicado.
