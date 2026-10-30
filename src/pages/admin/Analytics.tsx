@@ -23,6 +23,7 @@ import {
 } from 'recharts';
 import { DollarSign, TrendingUp, TrendingDown, ShoppingCart, Clock, Users, CreditCard, Banknote, ArrowRightLeft, BarChart3, GitCompareArrows, CalendarIcon, X, Download, FileText, FileSpreadsheet, Wallet, Bike, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { MIXED, PAYMENT_LABELS, parsePayments } from '@/lib/payments';
+import { SALES_CATEGORY_RE } from '@/lib/cashReconciliation';
 import AnalyticsComparison from '@/components/admin/AnalyticsComparison';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { exportAnalyticsPDF, exportAnalyticsExcel } from '@/lib/exportAnalytics';
@@ -144,6 +145,8 @@ export default function AdminAnalytics() {
       (txs || []).forEach((t: any) => {
         const catName = t.finance_categories?.name || 'Otros';
         if (isTipCategory(catName)) return;
+        // Las ventas ya se suman desde los pedidos cerrados: el movimiento automático "Ventas" las duplicaría
+        if (t.type === 'income' && SALES_CATEGORY_RE.test(catName)) return;
         if (t.type === 'income') {
           incomeMap[t.date] = (incomeMap[t.date] || 0) + Number(t.amount);
         } else {
@@ -272,7 +275,7 @@ export default function AdminAnalytics() {
           return;
         }
         const pm = (o.payment_method || '').toLowerCase();
-        let label = 'Otro';
+        let label = PAYMENT_LABELS[pm] ?? 'Otro';
         if (pm.includes('efectivo') || pm.includes('cash')) label = 'Efectivo';
         else if (pm.includes('tarjeta') || pm.includes('card')) label = 'Tarjeta';
         else if (pm.includes('transferencia') || pm.includes('transfer')) label = 'Transferencia';
