@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarCheck, Clock, Plus, Users } from 'lucide-react';
 import { db } from '@/lib/db';
@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useShowMore, ShowMoreButton } from '@/components/ui/show-more';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import { freeTablesFor, useReservationsAround } from '@/lib/reservationTables';
 
 type ReservationStatus = 'confirmed' | 'seated' | 'cancelled' | 'no_show';
 
@@ -86,6 +87,18 @@ export default function Reservations() {
 
   const tableById = useMemo(() => new Map(tables.map((table: any) => [table.id, table])), [tables]);
 
+  // Mesas libres a esa hora donde entra el grupo
+  const partyCount = parseInt(partySize, 10) || 1;
+  const reservationDate = useMemo(() => new Date(reservationAt), [reservationAt]);
+  const { data: nearbyReservations = [] } = useReservationsAround(open ? establishmentId : null, reservationDate);
+  const freeTables = useMemo(
+    () => freeTablesFor(tables as any[], nearbyReservations, partyCount, reservationDate),
+    [tables, nearbyReservations, partyCount, reservationDate],
+  );
+  useEffect(() => {
+    if (tableId && !freeTables.some((t: any) => t.id === tableId)) setTableId('');
+  }, [freeTables, tableId]);
+
   const filteredReservations = useMemo(() => {
     if (statusFilter === 'all') return reservations;
     if (statusFilter === 'active') return reservations.filter((reservation: any) => reservation.status === 'confirmed');
@@ -155,19 +168,12 @@ export default function Reservations() {
             <form onSubmit={e => { e.preventDefault(); createReservation.mutate(); }} className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Mesa</Label>
-                  <Select value={tableId} onValueChange={setTableId} required>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar mesa" /></SelectTrigger>
-                    <SelectContent position="popper" className="z-[100]">
-                      {tables.map((table: any) => (
-                        <SelectItem key={table.id} value={table.id}>Mesa {table.number} · {table.capacity} pers.</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
                   <Label>Fecha y hora</Label>
                   <Input type="datetime-local" value={reservationAt} onChange={e => setReservationAt(e.target.value)} required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Cantidad de personas</Label>
+                  <Input type="number" min="1" value={partySize} onChange={e => setPartySize(e.target.value)} required />
                 </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -181,8 +187,18 @@ export default function Reservations() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Cantidad de personas</Label>
-                <Input type="number" min="1" value={partySize} onChange={e => setPartySize(e.target.value)} required />
+                <Label>Mesa libre para {partyCount} {partyCount === 1 ? 'persona' : 'personas'}</Label>
+                <Select value={tableId} onValueChange={setTableId} required>
+                  <SelectTrigger><SelectValue placeholder={freeTables.length ? 'Seleccionar mesa' : 'No hay mesas libres'} /></SelectTrigger>
+                  <SelectContent position="popper" className="z-[100]">
+                    {freeTables.map((table: any) => (
+                      <SelectItem key={table.id} value={table.id}>Mesa {table.number} · {table.capacity} pers.</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {freeTables.length === 0 && (
+                  <p className="text-xs text-destructive">No queda ninguna mesa libre donde entren {partyCount} personas a esa hora.</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Notas</Label>

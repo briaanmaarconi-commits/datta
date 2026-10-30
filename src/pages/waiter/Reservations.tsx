@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import { freeTablesFor, useReservationsAround } from '@/lib/reservationTables';
 import { cn } from '@/lib/utils';
 
 type ReservationStatus = 'confirmed' | 'seated' | 'cancelled' | 'no_show';
@@ -108,6 +109,18 @@ export default function WaiterReservations() {
   }, [establishmentId, queryClient]);
 
   const tableById = useMemo(() => new Map(tables.map((t: any) => [t.id, t])), [tables]);
+
+  // Mesas libres a esa hora donde entra el grupo
+  const partyCount = parseInt(partySize, 10) || 1;
+  const reservationDate = useMemo(() => new Date(`${formDate}T${formTime}`), [formDate, formTime]);
+  const { data: nearbyReservations = [] } = useReservationsAround(open ? establishmentId : null, reservationDate);
+  const freeTables = useMemo(
+    () => freeTablesFor(tables as any[], nearbyReservations, partyCount, reservationDate),
+    [tables, nearbyReservations, partyCount, reservationDate],
+  );
+  useEffect(() => {
+    if (tableId && !freeTables.some((t: any) => t.id === tableId)) setTableId('');
+  }, [freeTables, tableId]);
 
   const stats = useMemo(() => {
     const active = reservations.filter((r: any) => r.status === 'confirmed');
@@ -354,17 +367,20 @@ export default function WaiterReservations() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Mesa</Label>
+              <Label>Mesa libre para {partyCount} {partyCount === 1 ? 'persona' : 'personas'}</Label>
               <Select value={tableId} onValueChange={setTableId}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar mesa" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={freeTables.length ? 'Seleccionar mesa' : 'No hay mesas libres'} /></SelectTrigger>
                 <SelectContent position="popper" className="z-[100]">
-                  {tables.map((table: any) => (
+                  {freeTables.map((table: any) => (
                     <SelectItem key={table.id} value={table.id}>
                       Mesa {table.number} · {table.capacity} pers.
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {freeTables.length === 0 && (
+                <p className="text-xs text-destructive">No queda ninguna mesa libre donde entren {partyCount} personas a esa hora.</p>
+              )}
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">

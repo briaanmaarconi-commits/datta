@@ -135,6 +135,27 @@ export default function AdminTables() {
     },
   });
 
+  // Comensales de la mesa: se guarda al instante; Reservas lo usa para ofrecer mesas donde entra el grupo.
+  const updateCapacity = useMutation({
+    mutationFn: async ({ id, capacity }: { id: string; capacity: number }) => {
+      const { error } = await db.from('tables').update({ capacity }).eq('id', id);
+      if (error) throw error;
+    },
+    onMutate: ({ id, capacity }) => {
+      queryClient.setQueryData(['tables', establishmentId], (prev: any[] | undefined) =>
+        prev?.map(t => (t.id === id ? { ...t, capacity } : t)));
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+      queryClient.invalidateQueries({ queryKey: ['reservation-tables'] });
+    },
+    onError: () => toast.error('No se pudo cambiar la cantidad de personas'),
+  });
+  const changeCapacity = (table: any, capacity: number) => {
+    if (capacity < 1 || capacity > 50 || capacity === table.capacity) return;
+    updateCapacity.mutate({ id: table.id, capacity });
+  };
+
   const host = window.location.hostname;
   const isPreviewOrigin = host === 'localhost'
     || host === '127.0.0.1'
@@ -164,7 +185,17 @@ export default function AdminTables() {
         <Badge className={STATUS_COLORS[table.status]}>
           {STATUS_LABELS[table.status]}
         </Badge>
-        <p className="text-sm text-muted-foreground">{table.capacity} personas</p>
+        <div className="flex items-center justify-center gap-1.5 whitespace-nowrap text-sm text-muted-foreground">
+          <Button variant="outline" size="sm" className="h-7 w-7 p-0" aria-label="Menos personas"
+            disabled={table.capacity <= 1} onClick={() => changeCapacity(table, table.capacity - 1)}>
+            −
+          </Button>
+          <span className="tabular-nums"><strong className="text-foreground">{table.capacity}</strong> personas</span>
+          <Button variant="outline" size="sm" className="h-7 w-7 p-0" aria-label="Más personas"
+            disabled={table.capacity >= 50} onClick={() => changeCapacity(table, table.capacity + 1)}>
+            +
+          </Button>
+        </div>
         <div className="flex justify-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setQrOpen(table.id)}>
             <QrCode className="h-3 w-3 mr-1" /> QR
