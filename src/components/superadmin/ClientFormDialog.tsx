@@ -90,8 +90,9 @@ export default function ClientFormDialog({ open, onOpenChange, client }: { open:
             <div className="space-y-2">
               <Label>Plan</Label>
               <Select value={form.plan_id} onValueChange={v => {
+                if (!v) return;
                 const plan = plans.find((p: any) => p.id === v);
-                setForm({ ...form, plan_id: v, agreed_price: plan?.price?.toString() || form.agreed_price });
+                setForm(f => ({ ...f, plan_id: v, agreed_price: plan?.price?.toString() || f.agreed_price }));
               }}>
                 <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                 <SelectContent>
@@ -103,10 +104,13 @@ export default function ClientFormDialog({ open, onOpenChange, client }: { open:
             <div className="space-y-2"><Label>Inicio del servicio</Label><Input type="date" value={form.service_start_date} onChange={e => setForm({ ...form, service_start_date: e.target.value })} /></div>
             <div className="space-y-2">
               <Label>Estado</Label>
-              <Select value={form.service_status} onValueChange={v => setForm({ ...form, service_status: v })}>
+              {/* Radix manda '' al guardar si el valor no está en la lista: se ignora para no borrar el estado */}
+              <Select value={form.service_status} onValueChange={v => v && setForm(f => ({ ...f, service_status: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="trial">Prueba gratis</SelectItem>
                   <SelectItem value="active">Activo</SelectItem>
+                  <SelectItem value="past_due">Vencido</SelectItem>
                   <SelectItem value="suspended">Suspendido</SelectItem>
                   <SelectItem value="cancelled">Cancelado</SelectItem>
                 </SelectContent>
