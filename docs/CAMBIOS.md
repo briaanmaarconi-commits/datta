@@ -4,7 +4,7 @@ Lo más nuevo arriba. Una línea por cambio, en palabras simples. "Publicado" = 
 Contexto general del sistema: [CONTEXTO-PROYECTO.md](CONTEXTO-PROYECTO.md).
 
 ## 2026-10-30
-- Superadmin → Clientes: al editar un cliente en prueba gratis o con un plan viejo, guardar ya no le borra el estado ni el plan. Se agregaron los estados "Prueba gratis" y "Vencido" a la lista. El Bodegón 65 pasó al plan Datta (mismo precio y fecha de prueba).
+- Superadmin → Clientes: al editar un cliente en prueba gratis o con un plan viejo, guardar ya no le borra el estado ni el plan. Se agregaron los estados "Prueba gratis" y "Vencido" a la lista. El Bodegón 65 pasó al plan Datta (mismo precio y fecha de prueba). Publicado.
 - Suscripción: trámite para darse de baja (solo el admin). Se elige el motivo y se escribe el detalle; el sistema sigue andando hasta el fin del período pagado (si la cuota está vencida, la baja es en el momento), se corta el débito automático y hasta ese día se puede arrepentir. El superadmin ve las bajas pedidas con el motivo en Cobranzas y en la ficha del cliente. El cajero ve el aviso del vencimiento pero ya no ve montos, pagos ni facturas. Publicado.
 
 ## 2026-10-29
