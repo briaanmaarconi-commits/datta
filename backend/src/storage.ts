@@ -7,10 +7,12 @@ import { env } from "./env.js";
 import { loadRoles } from "./fn/common.js";
 
 // Reemplazo de Supabase Storage: archivos en disco (volumen persistente) bajo STORAGE_DIR/<bucket>/<ruta>.
-// product-images es público (se sirve en /files/product-images/...); purchase-receipts es privado y por establecimiento.
+// product-images es público (se sirve en /files/product-images/...); purchase-receipts y payment-receipts son privados y por establecimiento.
 const BUCKETS = {
   "product-images": { public: true, exts: [".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"], estSegment: 1 }, // <prefijo>/<estId>/<archivo>
   "purchase-receipts": { public: false, exts: [".jpg", ".jpeg", ".png", ".webp", ".pdf", ".heic"], estSegment: 0 }, // <estId>/<archivo>
+  // comprobantes de pago de la suscripción a Datta: los sube el admin del local, los revisa el superadmin
+  "payment-receipts": { public: false, exts: [".jpg", ".jpeg", ".png", ".webp", ".pdf", ".heic"], estSegment: 0 }, // <estId>/<archivo>
 } as const;
 type Bucket = keyof typeof BUCKETS;
 

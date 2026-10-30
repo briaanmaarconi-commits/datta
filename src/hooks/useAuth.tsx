@@ -12,6 +12,10 @@ export interface ServiceInfo {
   trialEndsAt: string | null;
   overdueDays: number;
   daysToSuspension: number | null;
+  daysToDue: number | null;
+  surchargePct: number;
+  amountDue: number | null;
+  autoDebit: boolean;
   payUrl: string | null;
 }
 
@@ -47,6 +51,8 @@ interface AuthContextValue extends AuthState {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   getRoleRedirectPath: (role: AppRole | null) => string;
+  /** Vuelve a leer la sesión (p. ej. para actualizar el aviso de vencimiento después de pagar). */
+  refreshService: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -163,6 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signOut,
     getRoleRedirectPath,
+    refreshService: loadMe,
   };
 
   return (
@@ -181,6 +188,7 @@ const defaultAuth: AuthContextValue = {
   signIn: async () => ({ error: new Error('No AuthProvider') }),
   signOut: async () => {},
   getRoleRedirectPath: () => '/login',
+  refreshService: async () => {},
 };
 
 export function useAuth() {

@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Building2, CalendarClock, CreditCard, Hourglass, Mail, MapPin, Pencil, Phone, Trash2, Users, Wallet } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, Building2, CalendarClock, CreditCard, FileText, Hourglass, Mail, MapPin, Pencil, Phone, Trash2, Users, Wallet } from 'lucide-react';
+import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { db } from '@/lib/db';
 import { billing, fmtDate, money, STATUS_BADGE, STATUS_LABELS, type BillingOverview } from '@/lib/billingApi';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +17,10 @@ import ClientFormDialog from '@/components/superadmin/ClientFormDialog';
 import ClientUsersPanel, { useClientUsers } from '@/components/superadmin/ClientUsersPanel';
 import DeleteClientDialog from '@/components/superadmin/DeleteClientDialog';
 
-const PAYMENT_METHODS: Record<string, string> = { transfer: 'Transferencia', cash: 'Efectivo', card: 'Tarjeta', check: 'Cheque', mercadopago: 'Mercado Pago', other: 'Otro' };
+const PAYMENT_METHODS: Record<string, string> = {
+  transfer: 'Transferencia', cash: 'Efectivo', card: 'Tarjeta', check: 'Cheque', mercadopago: 'Mercado Pago', other: 'Otro',
+  transferencia: 'Transferencia', efectivo: 'Efectivo', otro: 'Otro',
+};
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const DAY = 86_400_000;
 
@@ -65,6 +71,26 @@ export default function SuperAdminClientDetail() {
   const navigate = useNavigate();
   const [editOpen, setEditOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [rejecting, setRejecting] = useState<any | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectBusy, setRejectBusy] = useState(false);
+  const qc = useQueryClient();
+
+  async function rejectReceipt() {
+    if (!rejecting) return;
+    setRejectBusy(true);
+    try {
+      await billing('reject-receipt', { payment_id: rejecting.id, reason: rejectReason.trim() });
+      toast.success('Comprobante rechazado');
+      setRejecting(null);
+      qc.invalidateQueries({ queryKey: ['sa-client-payments', id] });
+      qc.invalidateQueries({ queryKey: ['billing-overview'] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setRejectBusy(false);
+    }
+  }
 
   const { data: est, isLoading } = useQuery({
     queryKey: ['sa-client', id],
@@ -226,20 +252,36 @@ export default function SuperAdminClientDetail() {
                     <TableHead>Método</TableHead>
                     <TableHead>Fecha</TableHead>
                     <TableHead>Notas</TableHead>
+                    <TableHead>Comprobante</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {payments.map((p) => (
                     <TableRow key={p.id}>
                       <TableCell>{p.period_month ? `${MONTH_NAMES[p.period_month - 1]} ${p.period_year}` : '—'}</TableCell>
-                      <TableCell className="font-medium">{money(p.amount)}</TableCell>
+                      <TableCell className="font-medium">
+                        {money(p.amount)}
+                        {p.surcharge_pct > 0 && <span className="ml-1 text-xs text-muted-foreground">(+{p.surcharge_pct}%)</span>}
+                      </TableCell>
                       <TableCell>{PAYMENT_METHODS[p.payment_method] || p.payment_method}</TableCell>
                       <TableCell>{fmtDate(p.payment_date)}</TableCell>
                       <TableCell className="text-muted-foreground">{p.notes || '—'}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {p.source === 'receipt' && p.receipt_path ? (
+                          <div className="flex items-center gap-2">
+                            <a href={`/files/payment-receipts/${p.receipt_path}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+                              <FileText className="h-3.5 w-3.5" />Ver
+                            </a>
+                            <Button size="sm" variant="ghost" className="h-7 text-destructive hover:text-destructive" onClick={() => { setRejecting(p); setRejectReason(''); }}>
+                              Rechazar
+                            </Button>
+                          </div>
+                        ) : <span className="text-muted-foreground">—</span>}
+                      </TableCell>
                     </TableRow>
                   ))}
                   {payments.length === 0 && (
-                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Sin pagos registrados. Se registran desde la pestaña Suscripción.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Sin pagos registrados. Se registran desde la pestaña Suscripción.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -250,6 +292,20 @@ export default function SuperAdminClientDetail() {
 
       <ClientFormDialog open={editOpen} onOpenChange={setEditOpen} client={est} />
       <DeleteClientDialog client={deleting ? { id: est.id, name: est.name } : null} onClose={() => setDeleting(false)} onDeleted={() => navigate('/superadmin/clients')} />
+
+      <Dialog open={!!rejecting} onOpenChange={(o) => !o && setRejecting(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Rechazar comprobante</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Se borra el pago de {rejecting && money(rejecting.amount)} y el local vuelve a tener la cuota pendiente, con su vencimiento anterior. El motivo lo ve el restaurante en Suscripción.
+          </p>
+          <Textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Ej: el comprobante no corresponde, el monto no coincide…" />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejecting(null)}>Cancelar</Button>
+            <Button variant="destructive" disabled={rejectReason.trim().length < 3 || rejectBusy} onClick={rejectReceipt}>Rechazar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { env } from "../src/env.js";
 process.env.MERCADOPAGO_ACCESS_TOKEN = "test-token";
 process.env.MERCADOPAGO_WEBHOOK_SECRET = "whsec";
 
-const { addMonths, daysBetween, evaluate, nextDueAfterPayment } = await import("../src/lib/billing.js");
+const { addMonths, amountDue, daysBetween, evaluate, nextDueAfterPayment, surchargePct } = await import("../src/lib/billing.js");
 const { buildApp } = await import("../src/server.js");
 const { pool } = await import("../src/db/pool.js");
 const { runBillingSweep } = await import("../src/jobs/billingSweep.js");
@@ -34,6 +34,19 @@ describe("reglas de fechas y estados (puras)", () => {
     expect(evaluate({ service_status: "suspended", next_due_date: "2099-01-01" }, "2026-10-01", 25).status).toBe("suspended");
     expect(evaluate({ service_status: "cancelled", next_due_date: "2026-01-01" }, "2026-10-01", 25).status).toBe("cancelled");
     expect(evaluate({ service_status: "trial", next_due_date: "2026-10-01" }, "2026-10-05", 25).status).toBe("past_due");
+  });
+  it("recargo: primera semana sin recargo, después +10% por semana sobre el precio base", () => {
+    expect([0, 1, 7, 8, 14, 15, 21].map(surchargePct)).toEqual([0, 0, 0, 10, 10, 20, 20]);
+    expect(amountDue(50000, 7)).toBe(50000);
+    expect(amountDue(50000, 8)).toBe(55000);
+    expect(amountDue(50000, 15)).toBe(60000);
+  });
+  it("evaluate: avisa los días que faltan y suspende a los 22 días de atraso", () => {
+    const f = { service_status: "active", next_due_date: "2026-11-01" };
+    expect(evaluate(f, "2026-10-25", 22)).toMatchObject({ status: "active", daysToDue: 7 });
+    expect(evaluate(f, "2026-11-01", 22)).toMatchObject({ status: "active", daysToDue: 0 });
+    expect(evaluate(f, "2026-11-22", 22)).toMatchObject({ status: "past_due", overdueDays: 21, daysToSuspension: 1, daysToDue: null });
+    expect(evaluate(f, "2026-11-23", 22).status).toBe("suspended");
   });
   it("nextDueAfterPayment sigue el ciclo y reinicia si el atraso fue enorme", () => {
     expect(nextDueAfterPayment("2026-10-10", "2026-10-05")).toBe("2026-11-10"); // pago adelantado
@@ -161,7 +174,7 @@ describe("prueba gratis, vencimiento y suspensión automática", () => {
     expect(e.trial).toBe(e.due);
   });
 
-  it("el barrido pasa a past_due al día siguiente y suspende a los 25 días de atraso", async () => {
+  it("el barrido pasa a past_due al día siguiente y suspende a los 22 días de atraso", async () => {
     const due = (await estRow()).due as string;
     expect((await runBillingSweep(due)).toPastDue).not.toContain(ids.est); // el día del vencimiento sigue en prueba
     expect((await estRow()).service_status).toBe("trial");
@@ -170,17 +183,17 @@ describe("prueba gratis, vencimiento y suspensión automática", () => {
     expect(r1.toPastDue).toContain(ids.est);
     expect((await estRow()).service_status).toBe("past_due");
 
-    const r24 = await runBillingSweep(addDays(due, 24));
-    expect(r24.suspended).not.toContain(ids.est);
+    const r21 = await runBillingSweep(addDays(due, 21));
+    expect(r21.suspended).not.toContain(ids.est);
     expect((await estRow()).service_status).toBe("past_due");
 
-    const r25 = await runBillingSweep(addDays(due, 25));
-    expect(r25.suspended).toContain(ids.est);
+    const r22 = await runBillingSweep(addDays(due, 22));
+    expect(r22.suspended).toContain(ids.est);
     const e = await estRow();
     expect(e.service_status).toBe("suspended");
     expect(e.suspended_at).not.toBeNull();
     // idempotente: correrlo de nuevo no repite
-    expect((await runBillingSweep(addDays(due, 26))).suspended).not.toContain(ids.est);
+    expect((await runBillingSweep(addDays(due, 23))).suspended).not.toContain(ids.est);
   });
 
   it("un local suspendido no puede entrar, sus sesiones dejan de valer y la carta/QR/webhook se bloquean", async () => {
@@ -339,7 +352,7 @@ describe("resumen de cobranzas", () => {
   it("devuelve estado calculado, totales y días de gracia", async () => {
     const r = await call("superU", "/api/fn/billing/overview");
     const j = r.json();
-    expect(j.grace_days).toBe(25);
+    expect(j.grace_days).toBe(22);
     const mine = j.clients.find((c: any) => c.id === ids.est);
     expect(mine.effective_status).toBe("active");
     expect(mine.billing_configured).toBe(true);
@@ -349,6 +362,42 @@ describe("resumen de cobranzas", () => {
   it("los días de gracia se pueden cambiar", async () => {
     expect((await call("superU", "/api/fn/billing/settings", { grace_days: 30 })).statusCode).toBe(200);
     expect((await call("superU", "/api/fn/billing/overview")).json().grace_days).toBe(30);
-    await call("superU", "/api/fn/billing/settings", { grace_days: 25 });
+    await call("superU", "/api/fn/billing/settings", { grace_days: 22 });
+  });
+});
+
+describe("comprobante de pago subido por el local", () => {
+  it("el admin paga con recargo y el superadmin lo rechaza: vuelve el vencimiento y queda el motivo", async () => {
+    const today = artDateString();
+    const overdueDue = addDays(today, -10); // 10 días de atraso: +10%
+    await owner.query(`UPDATE public.establishments SET service_status = 'past_due', next_due_date = $2, is_active = true WHERE id = $1`, [ids.est, overdueDue]);
+    const base = Number((await owner.query(`SELECT agreed_price FROM public.establishments WHERE id = $1`, [ids.est])).rows[0].agreed_price);
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { email: users.admin.email, password: PASS } });
+    cookie.admin = String(login.headers["set-cookie"]).split(";")[0];
+
+    const me = (await call("admin", "/api/fn/subscription/me")).json();
+    expect(me).toMatchObject({ surcharge_pct: 10, amount_due: Math.round(base * 1.1), can_upload_receipt: true, is_admin: true });
+
+    expect((await call("superU", "/api/fn/subscription/upload-receipt", { receipt_path: `${ids.est}/x.pdf` })).statusCode).toBe(403);
+    expect((await call("admin", "/api/fn/subscription/upload-receipt", { receipt_path: "otro-local/x.pdf" })).statusCode).toBe(400);
+    const up = await call("admin", "/api/fn/subscription/upload-receipt", { receipt_path: `${ids.est}/x.pdf`, payment_method: "transferencia" });
+    expect(up.statusCode).toBe(200);
+    const e = await estRow();
+    expect(e.service_status).toBe("active");
+    expect(e.due).toBe(addMonths(overdueDue, 1));
+    const pay = (await owner.query(`SELECT id, amount::float AS amount, surcharge_pct, previous_due_date::text AS prev FROM public.client_payments WHERE establishment_id = $1 AND source = 'receipt'`, [ids.est])).rows[0];
+    expect(pay).toMatchObject({ amount: Math.round(base * 1.1), surcharge_pct: 10, prev: overdueDue });
+    // ya pagó: no se puede volver a subir hasta una semana antes del próximo vencimiento
+    expect((await call("admin", "/api/fn/subscription/upload-receipt", { receipt_path: `${ids.est}/y.pdf` })).statusCode).toBe(409);
+
+    expect((await call("admin", "/api/fn/billing/reject-receipt", { payment_id: pay.id, reason: "no corresponde" })).statusCode).toBe(403);
+    const rej = await call("superU", "/api/fn/billing/reject-receipt", { payment_id: pay.id, reason: "El monto no coincide" });
+    expect(rej.statusCode).toBe(200);
+    const after = await estRow();
+    expect(after.due).toBe(overdueDue);
+    expect(after.service_status).toBe("past_due");
+    expect((await owner.query(`SELECT 1 FROM public.client_payments WHERE id = $1`, [pay.id])).rowCount).toBe(0);
+    const me2 = (await call("admin", "/api/fn/subscription/me")).json();
+    expect(me2.rejected[0].reason).toBe("El monto no coincide");
   });
 });

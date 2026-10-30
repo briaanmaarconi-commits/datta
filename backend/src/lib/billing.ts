@@ -4,7 +4,18 @@ import { artDateString } from "./time.js";
 export type ServiceStatus = "trial" | "active" | "past_due" | "suspended" | "cancelled";
 /** Estados en los que el local no puede operar. */
 export const BLOCKED_STATUSES: ServiceStatus[] = ["suspended", "cancelled"];
-export const DEFAULT_GRACE_DAYS = 25;
+export const DEFAULT_GRACE_DAYS = 22;
+/** Desde cuántos días antes del vencimiento se avisa en Caja y Admin. */
+export const DUE_NOTICE_DAYS = 7;
+
+/** Recargo por atraso: primera semana sin recargo, después +10% por semana (sobre el precio base). */
+export function surchargePct(overdueDays: number): number {
+  if (overdueDays <= 7) return 0;
+  return Math.ceil((overdueDays - 7) / 7) * 10;
+}
+
+/** Monto a pagar hoy: precio base más el recargo por atraso, redondeado a pesos. */
+export const amountDue = (base: number, overdueDays: number) => Math.round(base * (1 + surchargePct(overdueDays) / 100));
 
 const DAY = 86_400_000;
 const utc = (d: string) => Date.parse(`${d}T00:00:00Z`);
@@ -32,6 +43,8 @@ export interface Evaluation {
   overdueDays: number;
   /** días que faltan para la suspensión automática (solo si está vencido) */
   daysToSuspension: number | null;
+  /** días que faltan para el vencimiento (0 = vence hoy; null si no hay vencimiento o ya venció) */
+  daysToDue: number | null;
 }
 
 /**
@@ -43,12 +56,14 @@ export interface Evaluation {
 export function evaluate(f: BillingFacts, today: string, grace: number): Evaluation {
   const current = f.service_status as ServiceStatus;
   if (BLOCKED_STATUSES.includes(current) || !f.next_due_date) {
-    return { status: current, overdueDays: 0, daysToSuspension: null };
+    return { status: current, overdueDays: 0, daysToSuspension: null, daysToDue: null };
   }
   const overdue = Math.max(0, daysBetween(f.next_due_date, today));
-  if (overdue === 0) return { status: current === "past_due" ? "active" : current, overdueDays: 0, daysToSuspension: null };
-  if (overdue >= grace) return { status: "suspended", overdueDays: overdue, daysToSuspension: 0 };
-  return { status: "past_due", overdueDays: overdue, daysToSuspension: grace - overdue };
+  if (overdue === 0) {
+    return { status: current === "past_due" ? "active" : current, overdueDays: 0, daysToSuspension: null, daysToDue: daysBetween(today, f.next_due_date) };
+  }
+  if (overdue >= grace) return { status: "suspended", overdueDays: overdue, daysToSuspension: 0, daysToDue: null };
+  return { status: "past_due", overdueDays: overdue, daysToSuspension: grace - overdue, daysToDue: null };
 }
 
 /** Próximo vencimiento tras un pago: sigue el ciclo; si el atraso fue muy grande, reinicia desde hoy. */
@@ -98,7 +113,10 @@ export interface PaymentInput {
   paymentDate?: string;
   periodMonth?: number;
   periodYear?: number;
-  source: "manual" | "mercadopago";
+  source: "manual" | "mercadopago" | "receipt";
+  /** comprobante subido por el local (bucket payment-receipts) */
+  receiptPath?: string | null;
+  surchargePct?: number;
   mpPaymentId?: string | null;
   mpStatus?: string | null;
   notes?: string | null;
@@ -117,11 +135,15 @@ export async function applyPayment(c: pg.PoolClient, p: PaymentInput): Promise<{
   const month = p.periodMonth ?? Number(paymentDate.slice(5, 7));
   const year = p.periodYear ?? Number(paymentDate.slice(0, 4));
 
+  // vencimiento antes del pago: si el superadmin rechaza un comprobante, se vuelve a este
+  const est = (await c.query(`SELECT next_due_date::text AS due FROM public.establishments WHERE id = $1 FOR UPDATE`, [p.establishmentId])).rows[0];
   const ins = await c.query(
-    `INSERT INTO public.client_payments (establishment_id, amount, payment_method, period_month, period_year, payment_date, notes, created_by, source, mp_payment_id, mp_status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    `INSERT INTO public.client_payments (establishment_id, amount, payment_method, period_month, period_year, payment_date, notes, created_by, source, mp_payment_id, mp_status,
+                                         receipt_path, previous_due_date, surcharge_pct)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
      ON CONFLICT DO NOTHING RETURNING id`,
-    [p.establishmentId, p.amount, p.method, month, year, paymentDate, p.notes ?? null, p.createdBy ?? null, p.source, p.mpPaymentId ?? null, p.mpStatus ?? null],
+    [p.establishmentId, p.amount, p.method, month, year, paymentDate, p.notes ?? null, p.createdBy ?? null, p.source, p.mpPaymentId ?? null, p.mpStatus ?? null,
+      p.receiptPath ?? null, est?.due ?? null, p.surchargePct ?? 0],
   );
   if (!ins.rows.length) return { inserted: false };
   const paymentId = ins.rows[0].id as string;
@@ -131,11 +153,10 @@ export async function applyPayment(c: pg.PoolClient, p: PaymentInput): Promise<{
     await c.query(
       `INSERT INTO public.datta_transactions (type, amount, description, category_id, establishment_id, date, created_by, client_payment_id)
        VALUES ('income', $1, $2, $3, $4, $5, $6, $7) ON CONFLICT (client_payment_id) DO NOTHING`,
-      [p.amount, `Suscripción ${String(month).padStart(2, "0")}/${year}${p.source === "mercadopago" ? " (Mercado Pago)" : ""}`, cat.rows[0].id, p.establishmentId, paymentDate, p.createdBy ?? null, paymentId],
+      [p.amount, `Suscripción ${String(month).padStart(2, "0")}/${year}${p.source === "mercadopago" ? " (Mercado Pago)" : p.source === "receipt" ? " (comprobante del local)" : ""}`, cat.rows[0].id, p.establishmentId, paymentDate, p.createdBy ?? null, paymentId],
     );
   }
 
-  const est = (await c.query(`SELECT next_due_date::text AS due FROM public.establishments WHERE id = $1 FOR UPDATE`, [p.establishmentId])).rows[0];
   const nextDue = p.nextDueDate && daysBetween(today, p.nextDueDate) > 0 ? p.nextDueDate : nextDueAfterPayment(est?.due ?? null, today);
   await c.query(
     `UPDATE public.establishments SET service_status = 'active', suspended_at = NULL, suspension_reason = NULL, next_due_date = $2, trial_ends_at = NULL WHERE id = $1`,

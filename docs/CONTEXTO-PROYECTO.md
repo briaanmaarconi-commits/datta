@@ -25,10 +25,11 @@ Pantallas en `src/pages/<rol>/` (admin, cashier, waiter, kitchen, superadmin, cl
 ## Arquitectura (resumen; detalle en README.md)
 - Frontend Vite + React + TS + Tailwind/shadcn en `src/`. Cliente tipo supabase-js en `src/lib/db.ts` que habla con el backend propio.
 - Backend Fastify + `pg` en `backend/`. Cada request corre en una transacción con `SET LOCAL ROLE` y claims JWT, así que Postgres hace cumplir el RLS.
-- Migraciones SQL en `backend/sql/` (numeradas, van por la 130). Se ejecutan al arrancar el contenedor.
+- Migraciones SQL en `backend/sql/` (numeradas, van por la 131). Se ejecutan al arrancar el contenedor.
 - Sesión por cookie, tiempo real por SSE (LISTEN/NOTIFY), archivos en `/data/uploads`.
 - Una sola imagen Docker (`Dockerfile` en la raíz) sirve API + SPA.
 - Funciones del backend en `backend/src/fn/`: AFIP, create-user, delivery, IA (Gemini o Claude), reportes por mail, cobranzas/Mercado Pago, demo.
+- Cobro de la suscripción (`backend/src/lib/billing.ts`): vence al terminar la prueba y después cada mes. Aviso en Caja y Admin desde 7 días antes. Primera semana de atraso sin recargo, segunda +10%, tercera +20% (sobre el precio base), y a los 22 días se suspende. El admin paga subiendo el comprobante en Suscripción (se acepta al instante; el superadmin lo puede rechazar en Clientes → Pagos) o activando el débito automático de Mercado Pago.
 - Impresión de comandas: desde el navegador de la PC de cocina/caja o con el agente de impresión local (paquete instalable).
 
 ## Desarrollo local

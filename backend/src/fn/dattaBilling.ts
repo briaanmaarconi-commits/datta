@@ -3,8 +3,11 @@ import forge from "node-forge";
 import { z } from "zod";
 import { SERVICE, withDb } from "../db/pool.js";
 import { decryptSecret, encryptSecret } from "../secrets.js";
-import { evaluate, graceDays } from "../lib/billing.js";
-import { issueForPayment, loadFiscal, missingConfig, publicIssuer, testConnection } from "../lib/dattaInvoice.js";
+import { env } from "../env.js";
+import { DUE_NOTICE_DAYS, applyPayment, daysBetween, evaluate, graceDays, surchargePct } from "../lib/billing.js";
+import { AutoDebitError, startAutoDebit, stopAutoDebit } from "../lib/billingMp.js";
+import { MpError, mpEnabled } from "../lib/mercadopago.js";
+import { autoIssueForPayment, issueForPayment, loadFiscal, missingConfig, publicIssuer, testConnection } from "../lib/dattaInvoice.js";
 import { artDateString } from "../lib/time.js";
 import { HttpError } from "./afipInvoice.js";
 import { fail, loadRoles, requireSession } from "./common.js";
@@ -19,6 +22,23 @@ async function requireSuper(req: FastifyRequest, reply: FastifyReply) {
     return null;
   }
   return user;
+}
+
+/** Local donde el usuario es admin (solo el admin paga y configura el débito). */
+async function adminEstablishment(userId: string): Promise<string | null> {
+  return (await loadRoles(userId)).find((r) => r.role === "admin" && r.establishment_id)?.establishment_id ?? null;
+}
+
+/**
+ * Pago pendiente del local hoy: se puede pagar desde 7 días antes del vencimiento, vencido o suspendido
+ * (no si está cancelado o sin vencimiento). El monto lleva el recargo por atraso.
+ */
+function receiptDue(e: { service_status: string; next_due_date: string | null } | undefined, today: string, base: number | null) {
+  if (!e?.next_due_date || e.service_status === "cancelled") return { open: false, surchargePct: 0, amount: null as number | null };
+  const overdue = Math.max(0, daysBetween(e.next_due_date, today));
+  const open = overdue > 0 || daysBetween(today, e.next_due_date) <= DUE_NOTICE_DAYS;
+  const pct = Math.min(surchargePct(overdue), 20);
+  return { open, surchargePct: pct, amount: base == null ? null : Math.round(base * (1 + pct / 100)) };
 }
 
 const sendError = (req: FastifyRequest, reply: FastifyReply, e: unknown, what: string) => {
@@ -181,7 +201,7 @@ export async function registerDattaBilling(app: FastifyInstance) {
         await c.query(
           `SELECT e.id, e.name, e.cuit, e.razon_social, e.is_active, e.service_status, e.agreed_price::float AS agreed_price,
                   e.trial_ends_at::text AS trial_ends_at, e.next_due_date::text AS next_due_date, e.service_start_date::text AS service_start_date,
-                  e.mp_status, e.mp_init_point, e.plan_id
+                  e.mp_status, e.mp_init_point, e.mp_payer_email, e.plan_id
              FROM public.establishments e WHERE e.id = $1`,
           [estId],
         )
@@ -189,6 +209,8 @@ export async function registerDattaBilling(app: FastifyInstance) {
       if (!e) return fail(reply, 404, "Local no encontrado");
       const ev = evaluate(e, artDateString(), await graceDays(c));
       const planPrice = Number((await c.query(`SELECT value FROM public.app_settings WHERE key = 'plan_price'`)).rows[0]?.value ?? 0);
+      const base = Number(e.agreed_price) > 0 ? Number(e.agreed_price) : planPrice > 0 ? planPrice : null;
+      const due = receiptDue(e, artDateString(), base);
       const plan = (
         await c.query(
           `SELECT name, description, features, price::float AS price FROM public.client_plans
@@ -198,8 +220,15 @@ export async function registerDattaBilling(app: FastifyInstance) {
       ).rows[0] ?? null;
       const payments = (
         await c.query(
-          `SELECT id, amount::float AS amount, payment_method, period_month, period_year, payment_date::text AS payment_date, source
+          `SELECT id, amount::float AS amount, payment_method, period_month, period_year, payment_date::text AS payment_date, source, receipt_path, surcharge_pct
              FROM public.client_payments WHERE establishment_id = $1 ORDER BY payment_date DESC, created_at DESC LIMIT 36`,
+          [estId],
+        )
+      ).rows;
+      const rejected = (
+        await c.query(
+          `SELECT id, amount::float AS amount, payment_date::text AS payment_date, reason, created_at
+             FROM public.rejected_receipts WHERE establishment_id = $1 AND created_at > now() - interval '60 days' ORDER BY created_at DESC LIMIT 5`,
           [estId],
         )
       ).rows;
@@ -220,13 +249,92 @@ export async function registerDattaBilling(app: FastifyInstance) {
         next_due_date: e.next_due_date,
         trial_ends_at: e.trial_ends_at,
         service_start_date: e.service_start_date,
-        amount: Number(e.agreed_price) > 0 ? Number(e.agreed_price) : planPrice > 0 ? planPrice : null,
+        amount: base,
+        days_to_due: ev.daysToDue,
+        surcharge_pct: due.surchargePct,
+        amount_due: due.amount,
+        can_upload_receipt: due.open,
+        is_admin: mine.role === "admin",
         plan,
         auto_debit: e.mp_status === "authorized",
+        auto_debit_pending: e.mp_status === "pending",
+        mp_payer_email: e.mp_payer_email ?? null,
         pay_url: e.mp_init_point ?? null,
         payments,
+        rejected,
         invoices,
       };
     });
+  });
+
+  // El admin sube el comprobante de pago: se acepta al instante (el superadmin lo puede rechazar después).
+  app.post("/api/fn/subscription/upload-receipt", async (req, reply) => {
+    const user = requireSession(req, reply);
+    if (!user) return;
+    const estId = await adminEstablishment(user.id);
+    if (!estId) return fail(reply, 403, "Solo el administrador del local puede subir el comprobante");
+    const b = z
+      .object({ receipt_path: z.string().min(3).max(300), payment_method: z.enum(["transferencia", "efectivo", "otro"]).default("transferencia"), notes: z.string().max(300).nullish() })
+      .safeParse(req.body);
+    if (!b.success || !b.data.receipt_path.startsWith(`${estId}/`)) return fail(reply, 400, "Falta el comprobante");
+    const today = artDateString();
+    const r = await withDb(SERVICE, async (c) => {
+      const e = (
+        await c.query(
+          `SELECT service_status, next_due_date::text AS next_due_date, agreed_price::float AS agreed_price,
+                  (SELECT (value #>> '{}')::float FROM public.app_settings WHERE key = 'plan_price') AS plan_price
+             FROM public.establishments WHERE id = $1 FOR UPDATE`,
+          [estId],
+        )
+      ).rows[0];
+      const base = Number(e?.agreed_price) > 0 ? Number(e.agreed_price) : Number(e?.plan_price) > 0 ? Number(e.plan_price) : null;
+      const due = receiptDue(e, today, base);
+      if (!due.open) return { error: "Todavía no hay un pago pendiente: el comprobante se sube desde una semana antes del vencimiento" };
+      if (due.amount == null) return { error: "El equipo de Datta todavía no definió tu precio. Escribinos por Inconvenientes." };
+      return applyPayment(c, {
+        establishmentId: estId, amount: due.amount, method: b.data.payment_method, source: "receipt", receiptPath: b.data.receipt_path,
+        surchargePct: due.surchargePct, notes: b.data.notes ?? null, createdBy: user.id,
+      });
+    });
+    if ("error" in r) return fail(reply, 409, r.error as string);
+    if (!r.inserted) return fail(reply, 409, "No se pudo registrar el pago");
+    if (r.paymentId) await autoIssueForPayment(r.paymentId, user.id, req.log);
+    return { ok: true, next_due_date: r.nextDueDate };
+  });
+
+  // Débito automático con Mercado Pago, activado por el admin del local.
+  app.post("/api/fn/subscription/auto-debit", async (req, reply) => {
+    const user = requireSession(req, reply);
+    if (!user) return;
+    const estId = await adminEstablishment(user.id);
+    if (!estId) return fail(reply, 403, "Solo el administrador del local puede activar el débito automático");
+    const b = z.object({ payer_email: z.string().email() }).safeParse(req.body);
+    if (!b.success) return fail(reply, 400, "Indicá el email de tu cuenta de Mercado Pago");
+    if (!mpEnabled()) return fail(reply, 503, "El débito automático no está disponible en este momento");
+    try {
+      const r = await withDb(SERVICE, (c) =>
+        startAutoDebit(c, { establishmentId: estId, payerEmail: b.data.payer_email, backUrl: `${env.PUBLIC_ORIGIN}/admin/suscripcion`, actor: user.id }),
+      );
+      return { ok: true, init_point: r.init_point };
+    } catch (e) {
+      if (e instanceof AutoDebitError) return fail(reply, e.status, e.status === 409 ? "Ya tenés un débito automático en curso. Desactivalo antes de generar otro." : e.message);
+      if (e instanceof MpError) return fail(reply, 502, `Mercado Pago: ${e.message}`);
+      throw e;
+    }
+  });
+
+  app.post("/api/fn/subscription/cancel-auto-debit", async (req, reply) => {
+    const user = requireSession(req, reply);
+    if (!user) return;
+    const estId = await adminEstablishment(user.id);
+    if (!estId) return fail(reply, 403, "Solo el administrador del local puede desactivar el débito automático");
+    try {
+      await withDb(SERVICE, (c) => stopAutoDebit(c, estId, user.id));
+      return { ok: true };
+    } catch (e) {
+      if (e instanceof AutoDebitError) return fail(reply, e.status, e.message);
+      if (e instanceof MpError) return fail(reply, 502, `Mercado Pago: ${e.message}`);
+      throw e;
+    }
   });
 }

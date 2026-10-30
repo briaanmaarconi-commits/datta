@@ -4,11 +4,13 @@ import { SERVICE, withDb } from "../db/pool.js";
 import { env } from "../env.js";
 import { runBillingSweep } from "../jobs/billingSweep.js";
 import { addMonths, applyPayment, evaluate, graceDays, logEvent, setServiceStatus } from "../lib/billing.js";
-import { handleAuthorizedPaymentId, recordAuthorizedPayment, syncPreapproval } from "../lib/billingMp.js";
 import {
-  MpError, cancelPreapproval, createPreapproval, getPayment, getPreapproval, mpEnabled, updatePreapprovalAmount, verifyWebhookSignature,
+  AutoDebitError, handleAuthorizedPaymentId, recordAuthorizedPayment, startAutoDebit, stopAutoDebit, syncPreapproval,
+} from "../lib/billingMp.js";
+import {
+  MpError, getPayment, getPreapproval, mpEnabled, updatePreapprovalAmount, verifyWebhookSignature,
 } from "../lib/mercadopago.js";
-import { addDays, artDateString, artMidnight } from "../lib/time.js";
+import { addDays, artDateString } from "../lib/time.js";
 import { autoIssueForPayment } from "../lib/dattaInvoice.js";
 import { fail, loadRoles, requireSession } from "./common.js";
 
@@ -154,32 +156,15 @@ export async function registerBilling(app: FastifyInstance) {
     const b = z.object({ establishment_id: uuid, payer_email: z.string().email(), amount: z.number().positive().optional() }).safeParse(req.body);
     if (!b.success) return fail(reply, 400, "Indicá el email del titular de la tarjeta");
     try {
-      return await withDb(SERVICE, async (c) => {
-        const e = (await c.query(`SELECT id, name, agreed_price::float AS price, trial_ends_at::text AS trial_ends_at, mp_preapproval_id, mp_status FROM public.establishments WHERE id = $1 FOR UPDATE`, [b.data.establishment_id])).rows[0];
-        if (!e) return fail(reply, 404, "Cliente inexistente");
-        if (e.mp_preapproval_id && ["pending", "authorized"].includes(e.mp_status)) {
-          return fail(reply, 409, "Este cliente ya tiene una suscripción en Mercado Pago. Cancelala antes de generar otra.");
-        }
-        const planPrice = Number((await c.query(`SELECT value FROM public.app_settings WHERE key = 'plan_price'`)).rows[0]?.value ?? 0);
-        const amount = b.data.amount ?? (e.price > 0 ? e.price : planPrice);
-        if (!(amount > 0)) return fail(reply, 400, "Primero definí el precio del cliente o del plan (tiene que ser mayor a 0).");
-
-        const today = artDateString();
-        // si está en prueba, el primer cobro es recién cuando termina; si no, hoy
-        const start = e.trial_ends_at && e.trial_ends_at > today ? e.trial_ends_at : today;
-        const startIso = start === today ? new Date(Date.now() + 60_000).toISOString() : artMidnight(start).toISOString();
-        const pre = await createPreapproval({
-          reason: `Datta – ${e.name}`, externalReference: e.id, payerEmail: b.data.payer_email, amount, startDate: startIso,
-          backUrl: `${env.PUBLIC_ORIGIN}/login`,
-        });
-        await c.query(
-          `UPDATE public.establishments SET mp_preapproval_id = $2, mp_payer_email = $3, mp_init_point = $4, mp_status = $5, agreed_price = $6 WHERE id = $1`,
-          [e.id, pre.id, b.data.payer_email, pre.init_point ?? null, pre.status, amount],
-        );
-        await logEvent(c, e.id, "mp_link_created", { preapproval_id: pre.id, amount, start }, user.id);
-        return { ok: true, init_point: pre.init_point, preapproval_id: pre.id, amount };
-      });
+      const r = await withDb(SERVICE, (c) =>
+        startAutoDebit(c, {
+          establishmentId: b.data.establishment_id, payerEmail: b.data.payer_email, amount: b.data.amount,
+          backUrl: `${env.PUBLIC_ORIGIN}/login`, actor: user.id,
+        }),
+      );
+      return { ok: true, ...r };
     } catch (e) {
+      if (e instanceof AutoDebitError) return fail(reply, e.status, e.message);
       return mpFail(reply, e);
     }
   });
@@ -190,17 +175,44 @@ export async function registerBilling(app: FastifyInstance) {
     const b = z.object({ establishment_id: uuid }).safeParse(req.body);
     if (!b.success) return fail(reply, 400, "Datos inválidos");
     try {
-      return await withDb(SERVICE, async (c) => {
-        const e = (await c.query(`SELECT mp_preapproval_id FROM public.establishments WHERE id = $1 FOR UPDATE`, [b.data.establishment_id])).rows[0];
-        if (!e?.mp_preapproval_id) return fail(reply, 404, "El cliente no tiene suscripción en Mercado Pago");
-        await cancelPreapproval(e.mp_preapproval_id);
-        await c.query(`UPDATE public.establishments SET mp_status = 'cancelled' WHERE id = $1`, [b.data.establishment_id]);
-        await logEvent(c, b.data.establishment_id, "mp_cancelled", {}, user.id);
-        return { ok: true };
-      });
+      await withDb(SERVICE, (c) => stopAutoDebit(c, b.data.establishment_id, user.id));
+      return { ok: true };
     } catch (e) {
+      if (e instanceof AutoDebitError) return fail(reply, e.status, e.message);
       return mpFail(reply, e);
     }
+  });
+
+  // Comprobante subido por el local que no corresponde: se borra el pago y vuelve el vencimiento anterior.
+  app.post("/api/fn/billing/reject-receipt", async (req, reply) => {
+    const user = await requireSuper(req, reply);
+    if (!user) return;
+    const b = z.object({ payment_id: uuid, reason: z.string().trim().min(3).max(300) }).safeParse(req.body);
+    if (!b.success) return fail(reply, 400, "Indicá el motivo del rechazo");
+    return withDb(SERVICE, async (c) => {
+      const p = (
+        await c.query(
+          `SELECT id, establishment_id, amount::float AS amount, payment_date::text AS payment_date, receipt_path, previous_due_date::text AS previous_due_date
+             FROM public.client_payments WHERE id = $1 AND source = 'receipt' FOR UPDATE`,
+          [b.data.payment_id],
+        )
+      ).rows[0];
+      if (!p) return fail(reply, 404, "No se encontró ese comprobante");
+      const invoiced = (await c.query(`SELECT 1 FROM public.datta_invoices WHERE client_payment_id = $1`, [p.id])).rowCount;
+      if (invoiced) return fail(reply, 409, "Este pago ya tiene factura emitida: anulala con una nota de crédito antes de rechazarlo");
+
+      await c.query(`DELETE FROM public.datta_transactions WHERE client_payment_id = $1`, [p.id]);
+      await c.query(`DELETE FROM public.client_payments WHERE id = $1`, [p.id]);
+      await c.query(
+        `INSERT INTO public.rejected_receipts (establishment_id, amount, payment_date, receipt_path, reason, rejected_by) VALUES ($1,$2,$3,$4,$5,$6)`,
+        [p.establishment_id, p.amount, p.payment_date, p.receipt_path, b.data.reason, user.id],
+      );
+      await c.query(`UPDATE public.establishments SET next_due_date = $2 WHERE id = $1`, [p.establishment_id, p.previous_due_date]);
+      const ev = evaluate({ service_status: "active", next_due_date: p.previous_due_date }, artDateString(), await graceDays(c));
+      await setServiceStatus(c, p.establishment_id, ev.status, `Comprobante rechazado: ${b.data.reason}`, user.id, { payment_id: p.id, amount: p.amount });
+      await logEvent(c, p.establishment_id, "receipt_rejected", { amount: p.amount, reason: b.data.reason, next_due_date: p.previous_due_date }, user.id);
+      return { ok: true, status: ev.status, next_due_date: p.previous_due_date };
+    });
   });
 
   // Precio: plan único. Sin ajuste automático; el superadmin decide cuándo y a quiénes aplicarlo.

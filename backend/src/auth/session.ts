@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { SERVICE, withDb } from "../db/pool.js";
 import { env } from "../env.js";
-import { BLOCKED_STATUSES, DEFAULT_GRACE_DAYS, evaluate, type ServiceStatus } from "../lib/billing.js";
+import { BLOCKED_STATUSES, DEFAULT_GRACE_DAYS, amountDue, evaluate, surchargePct, type ServiceStatus } from "../lib/billing.js";
 import { artDateString } from "../lib/time.js";
 
 export const SESSION_COOKIE = "datta_session";
@@ -15,6 +15,14 @@ export interface ServiceInfo {
   trialEndsAt: string | null;
   overdueDays: number;
   daysToSuspension: number | null;
+  /** días que faltan para vencer (null si no hay vencimiento o ya venció) */
+  daysToDue: number | null;
+  /** recargo por atraso que corre hoy (0, 10, 20) */
+  surchargePct: number;
+  /** monto a pagar hoy con el recargo (null si el precio no está definido) */
+  amountDue: number | null;
+  /** débito automático de Mercado Pago autorizado */
+  autoDebit: boolean;
   payUrl: string | null;
 }
 
@@ -68,6 +76,8 @@ export async function lookupSession(token: string): Promise<SessionLookup | null
     const { rows } = await c.query(
       `SELECT s.id AS session_id, s.last_seen_at, u.id, u.email, p.full_name, r.role, r.establishment_id,
               e.service_status, e.is_active, e.next_due_date::text AS next_due_date, e.trial_ends_at::text AS trial_ends_at, e.mp_init_point,
+              e.mp_status, e.agreed_price::float AS agreed_price,
+              COALESCE((SELECT (value #>> '{}')::float FROM public.app_settings WHERE key = 'plan_price'), 0) AS plan_price,
               COALESCE((SELECT (value #>> '{}')::int FROM public.app_settings WHERE key = 'billing_grace_days'), $2) AS grace
          FROM public.sessions s
          JOIN auth.users u ON u.id = s.user_id
@@ -94,12 +104,17 @@ export async function lookupSession(token: string): Promise<SessionLookup | null
       if (!r.is_active) blocked = "inactive";
       else if (BLOCKED_STATUSES.includes(status)) blocked = status as BlockReason;
       const ev = evaluate({ service_status: status, next_due_date: r.next_due_date }, artDateString(), Number(r.grace));
+      const base = Number(r.agreed_price) > 0 ? Number(r.agreed_price) : Number(r.plan_price);
       service = {
         status: ev.status,
         nextDueDate: r.next_due_date,
         trialEndsAt: r.trial_ends_at,
         overdueDays: ev.overdueDays,
         daysToSuspension: ev.daysToSuspension,
+        daysToDue: ev.daysToDue,
+        surchargePct: surchargePct(ev.overdueDays),
+        amountDue: base > 0 ? amountDue(base, ev.overdueDays) : null,
+        autoDebit: r.mp_status === "authorized",
         payUrl: r.mp_init_point ?? null,
       };
     }
