@@ -52,6 +52,12 @@ export interface BillingClient {
   suspension_reason: string | null;
   last_payment_date: string | null;
   last_payment_amount: number | null;
+  /** último pedido de baja del local: pendiente (se da de baja en cancel_on) o hecho */
+  cancel_status: 'pending' | 'done' | null;
+  cancel_on: string | null;
+  cancel_reason: string | null;
+  cancel_detail: string | null;
+  cancel_requested_at: string | null;
 }
 
 export interface BillingOverview {
@@ -76,6 +82,16 @@ export const STATUS_BADGE: Record<string, 'default' | 'secondary' | 'destructive
   past_due: 'destructive',
   suspended: 'destructive',
   cancelled: 'outline',
+};
+
+/** Motivos de baja (mismos códigos que CANCEL_REASONS en backend/src/lib/billing.ts). */
+export const CANCEL_REASON_LABELS: Record<string, string> = {
+  precio: 'Es caro para nosotros',
+  no_lo_usamos: 'No lo usamos lo suficiente',
+  cierre: 'Cerramos o vendemos el local',
+  otro_sistema: 'Nos pasamos a otro sistema',
+  problemas: 'Tuvimos problemas con el sistema',
+  otro: 'Otro motivo',
 };
 
 export const money = (n: number | null | undefined) => `$${Number(n ?? 0).toLocaleString('es-AR')}`;

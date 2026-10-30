@@ -15,6 +15,8 @@ export interface ServiceInfo {
   daysToDue: number | null;
   surchargePct: number;
   amountDue: number | null;
+  /** fecha en que se hace efectiva la baja pedida (null si no la pidió) */
+  cancelOn: string | null;
   autoDebit: boolean;
   payUrl: string | null;
 }

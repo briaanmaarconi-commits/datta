@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, CalendarClock, Check, CreditCard, Download, FileText, Loader2, Receipt, Repeat, ScrollText, Upload, Wallet } from 'lucide-react';
+import { AlertTriangle, CalendarClock, Check, CreditCard, Download, FileText, Loader2, LogOut, Receipt, Repeat, ScrollText, Upload, Wallet } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { STATUS_BADGE, STATUS_LABELS, fmtDate, money, type EffectiveStatus } from '@/lib/billingApi';
+import { CANCEL_REASON_LABELS, STATUS_BADGE, STATUS_LABELS, fmtDate, money, type EffectiveStatus } from '@/lib/billingApi';
 import { callFn, downloadInvoicePdf, invoiceLabel, type DattaInvoice } from '@/lib/dattaInvoice';
 
 interface SubscriptionInfo {
@@ -43,6 +43,7 @@ interface SubscriptionInfo {
   }[];
   rejected: { id: string; amount: number; payment_date: string; reason: string; created_at: string }[];
   invoices: DattaInvoice[];
+  cancellation: { id: string; reason_category: string; reason_detail: string; effective_date: string; created_at: string } | null;
 }
 
 const METHOD: Record<string, string> = {
@@ -63,8 +64,42 @@ export default function Subscription() {
   const [receiptMethod, setReceiptMethod] = useState('transferencia');
   const [receiptNotes, setReceiptNotes] = useState('');
   const [debitEmail, setDebitEmail] = useState('');
-  const [busy, setBusy] = useState<'receipt' | 'debit' | null>(null);
+  const [busy, setBusy] = useState<'receipt' | 'debit' | 'cancel' | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelCategory, setCancelCategory] = useState('');
+  const [cancelDetail, setCancelDetail] = useState('');
   const key = ['subscription', establishmentId];
+
+  async function requestCancellation() {
+    setBusy('cancel');
+    try {
+      const r = await callFn<{ effective_date: string }>('subscription/request-cancellation', { reason_category: cancelCategory, reason_detail: cancelDetail.trim() });
+      toast.success(`Listo. Tu suscripción se da de baja el ${fmtDate(r.effective_date)}`);
+      setCancelOpen(false);
+      setCancelCategory('');
+      setCancelDetail('');
+      await refreshService();
+      queryClient.invalidateQueries({ queryKey: key });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function withdrawCancellation() {
+    setBusy('cancel');
+    try {
+      await callFn('subscription/withdraw-cancellation');
+      toast.success('Cancelamos tu pedido de baja: seguís con Datta');
+      await refreshService();
+      queryClient.invalidateQueries({ queryKey: key });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function uploadReceipt() {
     if (!receiptFile || !establishmentId) return;
@@ -157,8 +192,24 @@ export default function Subscription() {
     <div className="space-y-6 pb-32 lg:pb-0">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Suscripción</h1>
-        <p className="mt-1 text-muted-foreground">Tu plan de Datta, cuándo vence y las facturas que te emitimos.</p>
+        <p className="mt-1 text-muted-foreground">
+          {data.is_admin ? 'Tu plan de Datta, cuándo vence y las facturas que te emitimos.' : 'El estado del servicio de Datta y cuándo vence.'}
+        </p>
       </div>
+
+      {data.cancellation && (
+        <Alert>
+          <LogOut className="h-4 w-4" />
+          <AlertDescription className="flex flex-wrap items-center gap-3">
+            <span className="flex-1">
+              Se pidió la baja de la suscripción. El sistema sigue funcionando hasta el {fmtDate(data.cancellation.effective_date)}; ese día se da de baja.
+            </span>
+            {data.is_admin && (
+              <Button size="sm" variant="outline" disabled={busy === 'cancel'} onClick={withdrawCancellation}>Me arrepentí, quiero seguir</Button>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {data.rejected.map((r) => (
         <Alert key={r.id} variant="destructive">
@@ -173,7 +224,7 @@ export default function Subscription() {
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
             Tu suscripción está vencida hace {data.overdue_days} {data.overdue_days === 1 ? 'día' : 'días'}
-            {data.surcharge_pct > 0 ? ` y lleva ${data.surcharge_pct}% de recargo` : ''}.
+            {data.is_admin && data.surcharge_pct > 0 ? ` y lleva ${data.surcharge_pct}% de recargo` : ''}.
             {data.days_to_suspension != null && ` Si no se regulariza, el servicio se suspende en ${data.days_to_suspension} ${data.days_to_suspension === 1 ? 'día' : 'días'}.`}
           </AlertDescription>
         </Alert>
@@ -185,7 +236,7 @@ export default function Subscription() {
         </Alert>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className={`grid gap-4 ${data.is_admin ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><CreditCard className="h-4 w-4" />Estado del servicio</CardTitle></CardHeader>
           <CardContent className="space-y-2">
@@ -208,7 +259,8 @@ export default function Subscription() {
           </CardContent>
         </Card>
 
-        <Card>
+        {/* el monto lo ve solo el admin */}
+        {data.is_admin && <Card>
           <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Wallet className="h-4 w-4" />Monto a pagar</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {data.can_upload_receipt && data.amount_due != null ? (
@@ -223,15 +275,15 @@ export default function Subscription() {
             )}
             {data.auto_debit ? (
               <p className="text-sm text-muted-foreground">Se debita automáticamente con Mercado Pago.</p>
+            ) : data.cancellation ? (
+              <p className="text-sm text-muted-foreground">Pediste la baja: no hay más cuotas para pagar.</p>
             ) : data.can_upload_receipt ? (
-              data.is_admin
-                ? <Button size="sm" className="w-full gap-2" onClick={() => setReceiptOpen(true)}><Upload className="h-4 w-4" />Subir comprobante de pago</Button>
-                : <p className="text-sm text-muted-foreground">El administrador del local sube el comprobante de pago.</p>
+              <Button size="sm" className="w-full gap-2" onClick={() => setReceiptOpen(true)}><Upload className="h-4 w-4" />Subir comprobante de pago</Button>
             ) : (
               <p className="text-sm text-muted-foreground">Podés pagar desde una semana antes del vencimiento.</p>
             )}
           </CardContent>
-        </Card>
+        </Card>}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -361,6 +413,8 @@ export default function Subscription() {
         </CardContent>
       </Card>
 
+      {/* facturas y pagos (con montos) solo para el admin */}
+      {data.is_admin && <>
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />Facturas</CardTitle></CardHeader>
         <CardContent>
@@ -448,6 +502,58 @@ export default function Subscription() {
           )}
         </CardContent>
       </Card>
+      </>}
+
+      {data.is_admin && !data.cancellation && data.status !== 'cancelled' && (
+        <Card className="border-dashed">
+          <CardHeader><CardTitle className="flex items-center gap-2 text-base"><LogOut className="h-5 w-5" />Dar de baja la suscripción</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm text-muted-foreground">
+            <p>
+              Si querés dejar de usar Datta, podés pedir la baja acá.{' '}
+              {data.next_due_date && data.overdue_days === 0
+                ? `El sistema sigue funcionando hasta el ${fmtDate(data.next_due_date)} (fin del período), no se cobra nada más y hasta ese día podés arrepentirte.`
+                : 'Como la cuota está vencida, la baja es en el momento.'}
+            </p>
+            <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => setCancelOpen(true)}>Pedir la baja</Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Dar de baja la suscripción</DialogTitle></DialogHeader>
+          <div className="space-y-4 text-sm">
+            <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+              <li>El sistema sigue funcionando normalmente hasta {data.next_due_date && data.overdue_days === 0 ? `el ${fmtDate(data.next_due_date)}` : 'hoy'}. Ese día se da de baja y nadie del local puede volver a entrar.</li>
+              <li>No se cobra ninguna cuota más.{data.auto_debit || data.auto_debit_pending ? ' Cancelamos el débito automático de Mercado Pago.' : ''}</li>
+              {data.overdue_days > 0 && <li>Las cuotas que quedaron sin pagar siguen pendientes.</li>}
+              <li>Tus datos (carta, ventas, facturas) quedan guardados: si volvés, te reactivamos con todo como estaba.</li>
+              <li>Hasta ese día podés cancelar el pedido desde esta misma pantalla.</li>
+            </ul>
+            <div className="space-y-2">
+              <Label>¿Por qué te das de baja?</Label>
+              <Select value={cancelCategory} onValueChange={setCancelCategory}>
+                <SelectTrigger><SelectValue placeholder="Elegí un motivo" /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(CANCEL_REASON_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cancel-detail">Contanos un poco más</Label>
+              <Textarea id="cancel-detail" value={cancelDetail} onChange={(e) => setCancelDetail(e.target.value)} rows={4}
+                placeholder="Nos sirve para mejorar Datta. Ej: qué te faltó, qué no funcionó, a qué sistema te pasás…" />
+              {cancelDetail.trim().length > 0 && cancelDetail.trim().length < 10 && <p className="text-xs text-destructive">Escribí al menos 10 letras.</p>}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelOpen(false)}>Volver</Button>
+            <Button variant="destructive" className="gap-2" disabled={!cancelCategory || cancelDetail.trim().length < 10 || busy === 'cancel'} onClick={requestCancellation}>
+              {busy === 'cancel' && <Loader2 className="h-4 w-4 animate-spin" />}Confirmar la baja
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

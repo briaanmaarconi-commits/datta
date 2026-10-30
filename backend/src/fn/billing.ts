@@ -48,8 +48,15 @@ export async function registerBilling(app: FastifyInstance) {
                   e.trial_ends_at::text AS trial_ends_at, e.next_due_date::text AS next_due_date, e.mp_preapproval_id, e.mp_status, e.mp_init_point,
                   e.suspended_at, e.suspension_reason,
                   (SELECT max(p.payment_date)::text FROM public.client_payments p WHERE p.establishment_id = e.id) AS last_payment_date,
-                  (SELECT p.amount::float FROM public.client_payments p WHERE p.establishment_id = e.id ORDER BY p.payment_date DESC, p.created_at DESC LIMIT 1) AS last_payment_amount
-             FROM public.establishments e ORDER BY e.name`,
+                  (SELECT p.amount::float FROM public.client_payments p WHERE p.establishment_id = e.id ORDER BY p.payment_date DESC, p.created_at DESC LIMIT 1) AS last_payment_amount,
+                  cr.status AS cancel_status, cr.effective_date::text AS cancel_on, cr.reason_category AS cancel_reason, cr.reason_detail AS cancel_detail,
+                  cr.created_at AS cancel_requested_at
+             FROM public.establishments e
+             LEFT JOIN LATERAL (
+               SELECT status, effective_date, reason_category, reason_detail, created_at FROM public.cancellation_requests
+                WHERE establishment_id = e.id AND status IN ('pending', 'done') ORDER BY created_at DESC LIMIT 1
+             ) cr ON true
+            ORDER BY e.name`,
         )
       ).rows;
       const clients = rows.map((r) => {

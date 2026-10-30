@@ -4,7 +4,9 @@ import { z } from "zod";
 import { SERVICE, withDb } from "../db/pool.js";
 import { decryptSecret, encryptSecret } from "../secrets.js";
 import { env } from "../env.js";
-import { DUE_NOTICE_DAYS, applyPayment, daysBetween, evaluate, graceDays, surchargePct } from "../lib/billing.js";
+import {
+  CANCEL_REASONS, DUE_NOTICE_DAYS, applyDueCancellations, applyPayment, daysBetween, evaluate, graceDays, logEvent, surchargePct,
+} from "../lib/billing.js";
 import { AutoDebitError, startAutoDebit, stopAutoDebit } from "../lib/billingMp.js";
 import { MpError, mpEnabled } from "../lib/mercadopago.js";
 import { autoIssueForPayment, issueForPayment, loadFiscal, missingConfig, publicIssuer, testConnection } from "../lib/dattaInvoice.js";
@@ -241,29 +243,103 @@ export async function registerDattaBilling(app: FastifyInstance) {
           [estId],
         )
       ).rows;
+      const cancellation = (
+        await c.query(
+          `SELECT id, reason_category, reason_detail, effective_date::text AS effective_date, created_at
+             FROM public.cancellation_requests WHERE establishment_id = $1 AND status = 'pending' LIMIT 1`,
+          [estId],
+        )
+      ).rows[0] ?? null;
+      // el cajero ve el estado y el vencimiento, pero no montos, pagos ni facturas
+      const isAdmin = mine.role === "admin";
+      const money = <T,>(v: T, hidden: T) => (isAdmin ? v : hidden);
       return {
         establishment: { id: e.id, name: e.name, cuit: e.cuit, razon_social: e.razon_social },
+        cancellation,
         status: ev.status,
         overdue_days: ev.overdueDays,
         days_to_suspension: ev.daysToSuspension,
         next_due_date: e.next_due_date,
         trial_ends_at: e.trial_ends_at,
         service_start_date: e.service_start_date,
-        amount: base,
+        amount: money(base, null),
         days_to_due: ev.daysToDue,
         surcharge_pct: due.surchargePct,
-        amount_due: due.amount,
-        can_upload_receipt: due.open,
-        is_admin: mine.role === "admin",
+        amount_due: money(due.amount, null),
+        can_upload_receipt: due.open && !cancellation,
+        is_admin: isAdmin,
         plan,
         auto_debit: e.mp_status === "authorized",
         auto_debit_pending: e.mp_status === "pending",
         mp_payer_email: e.mp_payer_email ?? null,
         pay_url: e.mp_init_point ?? null,
-        payments,
-        rejected,
-        invoices,
+        payments: money(payments, []),
+        rejected: money(rejected, []),
+        invoices: money(invoices, []),
       };
+    });
+  });
+
+  // Trámite de baja: el admin indica el motivo; el local sigue operando hasta el fin del período pagado.
+  app.post("/api/fn/subscription/request-cancellation", async (req, reply) => {
+    const user = requireSession(req, reply);
+    if (!user) return;
+    const estId = await adminEstablishment(user.id);
+    if (!estId) return fail(reply, 403, "Solo el administrador del local puede dar de baja la suscripción");
+    const b = z
+      .object({
+        reason_category: z.enum(CANCEL_REASONS),
+        reason_detail: z.string().trim().min(10, "Contanos un poco más el motivo (al menos 10 letras)").max(1000),
+      })
+      .safeParse(req.body);
+    if (!b.success) return fail(reply, 400, b.error.issues[0]?.message ?? "Completá el motivo de la baja");
+    const today = artDateString();
+    const r = await withDb(SERVICE, async (c) => {
+      const e = (
+        await c.query(`SELECT service_status, next_due_date::text AS next_due_date, mp_preapproval_id, mp_status FROM public.establishments WHERE id = $1 FOR UPDATE`, [estId])
+      ).rows[0];
+      if (!e || e.service_status === "cancelled") return { error: "La suscripción ya está dada de baja" };
+      const pending = (await c.query(`SELECT 1 FROM public.cancellation_requests WHERE establishment_id = $1 AND status = 'pending'`, [estId])).rowCount;
+      if (pending) return { error: "Ya pediste la baja. Si te arrepentiste, podés cancelar el pedido." };
+      // hasta el último día pagado (o la prueba); si ya venció, la baja es hoy
+      const effective = e.next_due_date && e.next_due_date > today ? e.next_due_date : today;
+      const ins = await c.query(
+        `INSERT INTO public.cancellation_requests (establishment_id, reason_category, reason_detail, effective_date, requested_by)
+         VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+        [estId, b.data.reason_category, b.data.reason_detail, effective, user.id],
+      );
+      await logEvent(c, estId, "cancellation_requested", { reason_category: b.data.reason_category, reason_detail: b.data.reason_detail, effective_date: effective }, user.id);
+      // que no se cobre nada más: se corta el débito automático
+      let autoDebitStopped = false;
+      if (e.mp_preapproval_id && ["pending", "authorized", "paused"].includes(e.mp_status)) {
+        try {
+          await stopAutoDebit(c, estId, user.id);
+          autoDebitStopped = true;
+        } catch (err) {
+          req.log.error({ err: (err as Error).message, estId }, "baja: no se pudo cancelar el débito en Mercado Pago");
+        }
+      }
+      if (effective === today) await applyDueCancellations(c, today);
+      return { id: ins.rows[0].id as string, effective, autoDebitStopped };
+    });
+    if ("error" in r) return fail(reply, 409, r.error as string);
+    return { ok: true, effective_date: r.effective, auto_debit_stopped: r.autoDebitStopped };
+  });
+
+  app.post("/api/fn/subscription/withdraw-cancellation", async (req, reply) => {
+    const user = requireSession(req, reply);
+    if (!user) return;
+    const estId = await adminEstablishment(user.id);
+    if (!estId) return fail(reply, 403, "Solo el administrador del local puede cancelar el pedido de baja");
+    return withDb(SERVICE, async (c) => {
+      const r = await c.query(
+        `UPDATE public.cancellation_requests SET status = 'withdrawn', resolved_at = now()
+          WHERE establishment_id = $1 AND status = 'pending' RETURNING id`,
+        [estId],
+      );
+      if (!r.rowCount) return fail(reply, 404, "No hay un pedido de baja pendiente");
+      await logEvent(c, estId, "cancellation_withdrawn", {}, user.id);
+      return { ok: true };
     });
   });
 

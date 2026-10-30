@@ -66,6 +66,7 @@ const ids = { est: crypto.randomUUID() };
 const users = {
   superU: { email: mail("super"), role: "superadmin", est: null as string | null, id: "" },
   admin: { email: mail("admin"), role: "admin", est: ids.est, id: "" },
+  cashier: { email: mail("cashier"), role: "cashier", est: ids.est, id: "" },
 };
 const cookie: Record<string, string> = {};
 
@@ -399,5 +400,49 @@ describe("comprobante de pago subido por el local", () => {
     expect((await owner.query(`SELECT 1 FROM public.client_payments WHERE id = $1`, [pay.id])).rowCount).toBe(0);
     const me2 = (await call("admin", "/api/fn/subscription/me")).json();
     expect(me2.rejected[0].reason).toBe("El monto no coincide");
+  });
+
+  it("el cajero ve el vencimiento pero no montos, pagos ni facturas", async () => {
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { email: users.cashier.email, password: PASS } });
+    cookie.cashier = String(login.headers["set-cookie"]).split(";")[0];
+    const me = (await call("cashier", "/api/fn/subscription/me")).json();
+    expect(me).toMatchObject({ is_admin: false, amount: null, amount_due: null, payments: [], invoices: [], rejected: [] });
+    expect(me.next_due_date).toBeTruthy();
+    const session = (await app.inject({ method: "GET", url: "/api/auth/me", headers: { cookie: cookie.cashier } })).json();
+    expect(session.user.service.amountDue).toBeNull();
+    expect(session.user.service.nextDueDate).toBeTruthy();
+    const adminSession = (await app.inject({ method: "GET", url: "/api/auth/me", headers: { cookie: cookie.admin } })).json();
+    expect(adminSession.user.service.amountDue).toBeGreaterThan(0);
+  });
+});
+
+describe("baja de la suscripción", () => {
+  it("el admin pide la baja con motivo, se puede arrepentir y se hace efectiva en la fecha", async () => {
+    const due = addDays(artDateString(), 10);
+    await owner.query(`UPDATE public.establishments SET service_status = 'active', next_due_date = $2 WHERE id = $1`, [ids.est, due]);
+    const body = { reason_category: "otro_sistema", reason_detail: "Nos pasamos a un sistema de la franquicia" };
+
+    expect((await call("cashier", "/api/fn/subscription/request-cancellation", body)).statusCode).toBe(403);
+    expect((await call("admin", "/api/fn/subscription/request-cancellation", { reason_category: "otro", reason_detail: "corto" })).statusCode).toBe(400);
+    const r = await call("admin", "/api/fn/subscription/request-cancellation", body);
+    expect(r.statusCode).toBe(200);
+    expect(r.json().effective_date).toBe(due); // sigue hasta el fin del período pagado
+    expect((await call("admin", "/api/fn/subscription/request-cancellation", body)).statusCode).toBe(409);
+    expect((await call("admin", "/api/fn/subscription/me")).json()).toMatchObject({ cancellation: { effective_date: due }, can_upload_receipt: false });
+    const ov = (await call("superU", "/api/fn/billing/overview")).json().clients.find((c: any) => c.id === ids.est);
+    expect(ov).toMatchObject({ cancel_status: "pending", cancel_on: due, cancel_reason: "otro_sistema" });
+
+    // se arrepiente y la vuelve a pedir
+    expect((await call("admin", "/api/fn/subscription/withdraw-cancellation")).statusCode).toBe(200);
+    expect((await call("admin", "/api/fn/subscription/me")).json().cancellation).toBeNull();
+    expect((await call("admin", "/api/fn/subscription/request-cancellation", body)).statusCode).toBe(200);
+
+    // el día anterior no pasa nada; el día de la baja queda cancelado
+    const { applyDueCancellations } = await import("../src/lib/billing.js");
+    expect(await applyDueCancellations(owner as any, addDays(due, -1))).not.toContain(ids.est);
+    expect(await applyDueCancellations(owner as any, due)).toContain(ids.est);
+    expect((await estRow()).service_status).toBe("cancelled");
+    const req = (await owner.query(`SELECT status FROM public.cancellation_requests WHERE establishment_id = $1 ORDER BY created_at DESC LIMIT 1`, [ids.est])).rows[0];
+    expect(req.status).toBe("done");
   });
 });

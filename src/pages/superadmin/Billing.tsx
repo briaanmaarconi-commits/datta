@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { AlertTriangle, CalendarClock, Gift, PauseCircle, RefreshCw, Wallet } from 'lucide-react';
+import { AlertTriangle, CalendarClock, Gift, LogOut, PauseCircle, RefreshCw, Wallet } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import SubscriptionPanel from '@/components/superadmin/SubscriptionPanel';
-import { billing, fmtDate, money, STATUS_BADGE, STATUS_LABELS, type BillingClient, type BillingOverview } from '@/lib/billingApi';
+import { billing, CANCEL_REASON_LABELS, fmtDate, money, STATUS_BADGE, STATUS_LABELS, type BillingClient, type BillingOverview } from '@/lib/billingApi';
 import { daysBetweenDates } from '@/lib/utils';
 
 function Stat({ title, value, icon, tone }: { title: string; value: string | number; icon: React.ReactNode; tone?: string }) {
@@ -62,7 +62,7 @@ export default function SuperAdminBilling() {
     mutationFn: () => billing<any>('sweep'),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ['billing-overview'] });
-      toast.success(`Barrido listo: ${r.toPastDue.length} pasaron a vencido, ${r.suspended.length} suspendidos, ${r.recoveredFromMp} cobros recuperados de Mercado Pago`);
+      toast.success(`Barrido listo: ${r.toPastDue.length} pasaron a vencido, ${r.suspended.length} suspendidos, ${r.cancelled?.length ?? 0} dados de baja, ${r.recoveredFromMp} cobros recuperados de Mercado Pago`);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -76,8 +76,11 @@ export default function SuperAdminBilling() {
 
   const clients = data.clients.filter((c) => c.is_active || c.effective_status !== 'cancelled');
   const pastDue = clients.filter((c) => c.effective_status === 'past_due').sort((a, b) => b.overdue_days - a.overdue_days);
+  const cancellations = data.clients
+    .filter((c) => c.cancel_status === 'pending' || (c.cancel_status === 'done' && c.cancel_on && daysBetweenDates(c.cancel_on, data.today) <= 60))
+    .sort((a, b) => String(b.cancel_requested_at).localeCompare(String(a.cancel_requested_at)));
   const soon = clients
-    .filter((c) => ['active', 'trial'].includes(c.effective_status) && c.next_due_date && daysBetweenDates(data.today, c.next_due_date) <= 7)
+    .filter((c) => ['active', 'trial'].includes(c.effective_status) && c.cancel_status !== 'pending' && c.next_due_date && daysBetweenDates(data.today, c.next_due_date) <= 7)
     .sort((a, b) => String(a.next_due_date).localeCompare(String(b.next_due_date)));
   const trials = clients.filter((c) => c.effective_status === 'trial');
   const suspended = clients.filter((c) => c.effective_status === 'suspended');
@@ -128,6 +131,24 @@ export default function SuperAdminBilling() {
             extra={(c) => (c.effective_status === 'trial' ? 'La prueba gratis termina' : c.mp_status === 'authorized' ? 'Se cobra solo con Mercado Pago' : 'Pago manual pendiente')} />
         </CardContent>
       </Card>
+
+      {cancellations.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2"><LogOut className="h-5 w-5" />Bajas pedidas ({cancellations.length})</CardTitle></CardHeader>
+          <CardContent>
+            <ClientsTable rows={cancellations} empty="" onOpen={(c) => setSelected(c.id)}
+              extra={(c) => (
+                <div className="space-y-0.5">
+                  <p className="font-medium">
+                    {c.cancel_status === 'pending' ? `Se da de baja el ${fmtDate(c.cancel_on)}` : `Dado de baja el ${fmtDate(c.cancel_on)}`}
+                    {' · '}{CANCEL_REASON_LABELS[c.cancel_reason ?? ''] ?? c.cancel_reason}
+                  </p>
+                  {c.cancel_detail && <p className="text-muted-foreground">“{c.cancel_detail}”</p>}
+                </div>
+              )} />
+          </CardContent>
+        </Card>
+      )}
 
       {trials.length > 0 && (
         <Card>

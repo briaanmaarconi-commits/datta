@@ -1,5 +1,5 @@
 import { SERVICE, withDb } from "../db/pool.js";
-import { evaluate, graceDays, setServiceStatus } from "../lib/billing.js";
+import { applyDueCancellations, evaluate, graceDays, setServiceStatus } from "../lib/billing.js";
 import { reconcileSubscription } from "../lib/billingMp.js";
 import { mpEnabled } from "../lib/mercadopago.js";
 import { artDateString } from "../lib/time.js";
@@ -9,6 +9,8 @@ export interface SweepResult {
   graceDays: number;
   toPastDue: string[];
   suspended: string[];
+  /** locales dados de baja hoy porque llegó la fecha que pidieron */
+  cancelled: string[];
   recoveredFromMp: number;
   errors: { establishmentId: string; error: string }[];
 }
@@ -20,7 +22,7 @@ export interface SweepResult {
  * Los clientes sin next_due_date (facturación no configurada) no se tocan.
  */
 export async function runBillingSweep(today = artDateString()): Promise<SweepResult> {
-  const out: SweepResult = { today, graceDays: 0, toPastDue: [], suspended: [], recoveredFromMp: 0, errors: [] };
+  const out: SweepResult = { today, graceDays: 0, toPastDue: [], suspended: [], cancelled: [], recoveredFromMp: 0, errors: [] };
 
   // 1) conciliación con Mercado Pago (cada suscripción en su propia transacción: un error no frena al resto)
   if (mpEnabled()) {
@@ -37,8 +39,9 @@ export async function runBillingSweep(today = artDateString()): Promise<SweepRes
     }
   }
 
-  // 2) y 3) estados por vencimiento
+  // 2) y 3) bajas pedidas que llegaron a su fecha; después, estados por vencimiento
   await withDb(SERVICE, async (c) => {
+    out.cancelled = await applyDueCancellations(c, today);
     out.graceDays = await graceDays(c);
     const rows = (
       await c.query(

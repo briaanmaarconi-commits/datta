@@ -19,8 +19,10 @@ export interface ServiceInfo {
   daysToDue: number | null;
   /** recargo por atraso que corre hoy (0, 10, 20) */
   surchargePct: number;
-  /** monto a pagar hoy con el recargo (null si el precio no está definido) */
+  /** monto a pagar hoy con el recargo (null si el precio no está definido o el usuario no es admin) */
   amountDue: number | null;
+  /** fecha en que se hace efectiva la baja pedida por el local (null si no pidió la baja) */
+  cancelOn: string | null;
   /** débito automático de Mercado Pago autorizado */
   autoDebit: boolean;
   payUrl: string | null;
@@ -77,6 +79,8 @@ export async function lookupSession(token: string): Promise<SessionLookup | null
       `SELECT s.id AS session_id, s.last_seen_at, u.id, u.email, p.full_name, r.role, r.establishment_id,
               e.service_status, e.is_active, e.next_due_date::text AS next_due_date, e.trial_ends_at::text AS trial_ends_at, e.mp_init_point,
               e.mp_status, e.agreed_price::float AS agreed_price,
+              (SELECT cr.effective_date::text FROM public.cancellation_requests cr
+                WHERE cr.establishment_id = e.id AND cr.status = 'pending' LIMIT 1) AS cancel_on,
               COALESCE((SELECT (value #>> '{}')::float FROM public.app_settings WHERE key = 'plan_price'), 0) AS plan_price,
               COALESCE((SELECT (value #>> '{}')::int FROM public.app_settings WHERE key = 'billing_grace_days'), $2) AS grace
          FROM public.sessions s
@@ -113,7 +117,9 @@ export async function lookupSession(token: string): Promise<SessionLookup | null
         daysToSuspension: ev.daysToSuspension,
         daysToDue: ev.daysToDue,
         surchargePct: surchargePct(ev.overdueDays),
-        amountDue: base > 0 ? amountDue(base, ev.overdueDays) : null,
+        // el cajero ve el aviso de vencimiento pero no el monto (solo el admin)
+        amountDue: r.role === "admin" && base > 0 ? amountDue(base, ev.overdueDays) : null,
+        cancelOn: r.cancel_on ?? null,
         autoDebit: r.mp_status === "authorized",
         payUrl: r.mp_init_point ?? null,
       };

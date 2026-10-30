@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { db } from '@/lib/db';
-import { billing, fmtDate, money, STATUS_BADGE, STATUS_LABELS, type BillingOverview } from '@/lib/billingApi';
+import { billing, CANCEL_REASON_LABELS, fmtDate, money, STATUS_BADGE, STATUS_LABELS, type BillingOverview } from '@/lib/billingApi';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -173,6 +173,19 @@ export default function SuperAdminClientDetail() {
         <Stat icon={status === 'trial' ? Hourglass : CalendarClock} label={dueCard.label} value={dueCard.value} hint={dueCard.hint} tone={dueCard.tone} />
         <Stat icon={CalendarClock} label="Antigüedad" value={seniority(since)} hint={`Cliente desde ${fmtDate(since)}`} />
       </div>
+
+      {sub?.cancel_status && (
+        <Card className={sub.cancel_status === 'pending' ? 'border-amber-500' : ''}>
+          <CardContent className="space-y-1 pt-5 text-sm">
+            <p className="font-medium">
+              {sub.cancel_status === 'pending' ? `Pidió la baja: se da de baja el ${fmtDate(sub.cancel_on)}` : `Se dio de baja el ${fmtDate(sub.cancel_on)}`}
+              {sub.cancel_requested_at && <span className="font-normal text-muted-foreground"> (pedido el {fmtDate(sub.cancel_requested_at)})</span>}
+            </p>
+            <p>Motivo: {CANCEL_REASON_LABELS[sub.cancel_reason ?? ''] ?? sub.cancel_reason}</p>
+            {sub.cancel_detail && <p className="text-muted-foreground">“{sub.cancel_detail}”</p>}
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="datos">
         <TabsList className="flex-wrap h-auto">

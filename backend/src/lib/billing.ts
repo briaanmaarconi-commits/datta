@@ -106,6 +106,27 @@ export async function setServiceStatus(
   await logEvent(c, establishmentId, `status_${status}`, { reason, ...extra }, actor);
 }
 
+/** Motivos de baja que elige el local (el detalle lo escribe aparte). */
+export const CANCEL_REASONS = ["precio", "no_lo_usamos", "cierre", "otro_sistema", "problemas", "otro"] as const;
+
+/** Bajas pedidas que llegaron a su fecha: el local pasa a "cancelled" y el pedido queda hecho. */
+export async function applyDueCancellations(c: pg.PoolClient, today: string): Promise<string[]> {
+  const due = (
+    await c.query(
+      `SELECT id, establishment_id, reason_category, reason_detail FROM public.cancellation_requests
+        WHERE status = 'pending' AND effective_date <= $1 FOR UPDATE`,
+      [today],
+    )
+  ).rows;
+  for (const r of due) {
+    await setServiceStatus(c, r.establishment_id, "cancelled", `Baja pedida por el local: ${r.reason_detail}`, null, {
+      cancellation_id: r.id, reason_category: r.reason_category, automatic: true,
+    });
+    await c.query(`UPDATE public.cancellation_requests SET status = 'done', resolved_at = now() WHERE id = $1`, [r.id]);
+  }
+  return due.map((r) => r.establishment_id as string);
+}
+
 export interface PaymentInput {
   establishmentId: string;
   amount: number;
