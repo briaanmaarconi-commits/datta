@@ -4,7 +4,7 @@ Lo más nuevo arriba. Una línea por cambio, en palabras simples. "Publicado" = 
 Contexto general del sistema: [CONTEXTO-PROYECTO.md](CONTEXTO-PROYECTO.md).
 
 ## 2026-10-29
-- Mesas: en la lista de mesas (admin y caja) se puede cambiar cuántas personas entran en cada mesa con − y +, y se guarda solo. Al cargar una reserva (caja, admin y mozo) solo aparecen las mesas libres a esa hora (sin otra reserva 2 horas antes o después) donde entra el grupo, de la más chica a la más grande.
+- Mesas: en la lista de mesas (admin y caja) se puede cambiar cuántas personas entran en cada mesa con − y +, y se guarda solo. Al cargar una reserva (caja, admin y mozo) solo aparecen las mesas libres a esa hora (sin otra reserva 2 horas antes o después) donde entra el grupo, de la más chica a la más grande. Publicado.
 
 ## 2026-10-28
 - Presentación nueva: mucho más fluida al deslizar en compu y celular (ya no redibuja imágenes ni recalcula luces mientras bajás). Publicado.
