@@ -27,7 +27,7 @@ export default function ServiceBanner() {
   }
   if (!service.nextDueDate) return null;
   const action = role === 'admin'
-    ? <Link to="/admin/suscripcion" className="rounded bg-black/80 px-3 py-1 font-medium text-white hover:bg-black">Subir comprobante</Link>
+    ? <Link to="/admin/suscripcion" className="rounded bg-black/80 px-3 py-1 font-medium text-white hover:bg-black">Ver información de cobranza</Link>
     : <span className="opacity-90">Avisale al administrador.</span>;
   const amount = service.amountDue != null ? ` · ${money(service.amountDue)}` : '';
 
@@ -54,7 +54,7 @@ export default function ServiceBanner() {
           </span>
         )}
         {role === 'admin'
-          ? <Link to="/admin/suscripcion" className="rounded bg-white/90 px-3 py-1 font-medium text-destructive hover:bg-white">Subir comprobante</Link>
+          ? <Link to="/admin/suscripcion" className="rounded bg-white/90 px-3 py-1 font-medium text-destructive hover:bg-white">Ver información de cobranza</Link>
           : <span className="opacity-90">Avisale al administrador.</span>}
       </div>
     );

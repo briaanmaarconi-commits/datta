@@ -4,6 +4,7 @@ Lo más nuevo arriba. Una línea por cambio, en palabras simples. "Publicado" = 
 Contexto general del sistema: [CONTEXTO-PROYECTO.md](CONTEXTO-PROYECTO.md).
 
 ## 2026-11-02
+- Aviso de vencimiento (Admin): el botón de la derecha ahora dice "Ver información de cobranza" y lleva a Suscripción, donde están los recargos, las fechas y la opción de subir el comprobante.
 - Suscripción: nuevos recargos por atraso. Primera semana +6% (antes sin recargo), segunda semana +12%, y en la tercera semana (día 15 de atraso) se suspende el sistema (antes 22 días). El aviso rojo dice cuántos días faltan para la suspensión. El vencimiento sigue fijo en el mismo día de cada mes aunque se pague tarde. En Cobranzas del superadmin los suspendidos aparecen arriba ("hay que llamarlos") con el teléfono del local. Publicado.
 
 ## 2026-10-30
