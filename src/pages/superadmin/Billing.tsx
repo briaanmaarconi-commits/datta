@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { AlertTriangle, CalendarClock, Gift, LogOut, PauseCircle, RefreshCw, Wallet } from 'lucide-react';
+import { AlertTriangle, CalendarClock, Gift, LogOut, PauseCircle, Phone, RefreshCw, Wallet } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -116,11 +116,31 @@ export default function SuperAdminBilling() {
         <Stat title="Suspendidos" value={counts.suspended} icon={<PauseCircle className="h-4 w-4" />} tone={counts.suspended ? 'text-destructive' : ''} />
       </div>
 
+      {suspended.length > 0 && (
+        <Card className="border-destructive">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2"><PauseCircle className="h-5 w-5 text-destructive" />Suspendidos: hay que llamarlos ({suspended.length})</CardTitle>
+            <p className="text-xs text-muted-foreground">Llamalos para consultar. Desde «Gestionar» podés registrar el pago o reactivarlos.</p>
+          </CardHeader>
+          <CardContent>
+            <ClientsTable rows={suspended} empty="" onOpen={(c) => setSelected(c.id)}
+              extra={(c) => (
+                <div className="space-y-0.5">
+                  {c.contact_phone
+                    ? <a href={`tel:${c.contact_phone}`} className="inline-flex items-center gap-1 font-medium text-primary hover:underline"><Phone className="h-3.5 w-3.5" />{c.contact_phone}</a>
+                    : <p className="font-medium text-destructive">Sin teléfono cargado</p>}
+                  <p className="text-muted-foreground">{c.suspended_at ? `Desde el ${fmtDate(c.suspended_at)} · ` : ''}{c.suspension_reason ?? 'Suspendido'}</p>
+                </div>
+              )} />
+          </CardContent>
+        </Card>
+      )}
+
       <Card className={pastDue.length ? 'border-destructive' : ''}>
         <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-destructive" />Morosos ({pastDue.length})</CardTitle></CardHeader>
         <CardContent>
           <ClientsTable rows={pastDue} empty="Nadie debe nada. 🎉" onOpen={(c) => setSelected(c.id)}
-            extra={(c) => <span className="text-destructive">{c.overdue_days} días de atraso — se suspende en {c.days_to_suspension} días</span>} />
+            extra={(c) => <span className="text-destructive">{c.overdue_days} días de atraso (+{c.overdue_days <= 7 ? 6 : 12}%) — se suspende en {c.days_to_suspension} días</span>} />
         </CardContent>
       </Card>
 
@@ -156,15 +176,6 @@ export default function SuperAdminBilling() {
           <CardContent>
             <ClientsTable rows={trials} empty="" onOpen={(c) => setSelected(c.id)}
               extra={(c) => `Termina el ${fmtDate(c.trial_ends_at)} (${Math.max(0, daysBetweenDates(data.today, c.trial_ends_at ?? data.today))} días)`} />
-          </CardContent>
-        </Card>
-      )}
-
-      {suspended.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2"><PauseCircle className="h-5 w-5" />Suspendidos ({suspended.length})</CardTitle></CardHeader>
-          <CardContent>
-            <ClientsTable rows={suspended} empty="" onOpen={(c) => setSelected(c.id)} extra={(c) => c.suspension_reason ?? 'Suspendido'} />
           </CardContent>
         </Card>
       )}

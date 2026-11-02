@@ -4,14 +4,16 @@ import { artDateString } from "./time.js";
 export type ServiceStatus = "trial" | "active" | "past_due" | "suspended" | "cancelled";
 /** Estados en los que el local no puede operar. */
 export const BLOCKED_STATUSES: ServiceStatus[] = ["suspended", "cancelled"];
-export const DEFAULT_GRACE_DAYS = 22;
+export const DEFAULT_GRACE_DAYS = 15;
 /** Desde cuántos días antes del vencimiento se avisa en Caja y Admin. */
 export const DUE_NOTICE_DAYS = 7;
+/** Recargo máximo (segunda semana de atraso); después se suspende. */
+export const MAX_SURCHARGE_PCT = 12;
 
-/** Recargo por atraso: primera semana sin recargo, después +10% por semana (sobre el precio base). */
+/** Recargo por atraso (sobre el precio base): primera semana +6%, segunda +12%. */
 export function surchargePct(overdueDays: number): number {
-  if (overdueDays <= 7) return 0;
-  return Math.ceil((overdueDays - 7) / 7) * 10;
+  if (overdueDays <= 0) return 0;
+  return overdueDays <= 7 ? 6 : MAX_SURCHARGE_PCT;
 }
 
 /** Monto a pagar hoy: precio base más el recargo por atraso, redondeado a pesos. */

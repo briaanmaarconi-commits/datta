@@ -39,7 +39,7 @@ function receiptDue(e: { service_status: string; next_due_date: string | null } 
   if (!e?.next_due_date || e.service_status === "cancelled") return { open: false, surchargePct: 0, amount: null as number | null };
   const overdue = Math.max(0, daysBetween(e.next_due_date, today));
   const open = overdue > 0 || daysBetween(today, e.next_due_date) <= DUE_NOTICE_DAYS;
-  const pct = Math.min(surchargePct(overdue), 20);
+  const pct = surchargePct(overdue);
   return { open, surchargePct: pct, amount: base == null ? null : Math.round(base * (1 + pct / 100)) };
 }
 

@@ -298,10 +298,9 @@ export default function Subscription() {
               const d = (x?: string) => (x ? ` (${shortDate(x)})` : '');
               const rows: [string, string][] = [
                 [`Vencimiento${d(s?.due)}`, 'Pagás el monto del mes'],
-                [`Primera semana de atraso${s ? ` (hasta el ${shortDate(s.noSurchargeUntil)})` : ''}`, 'Sin recargo'],
-                [`Segunda semana${s ? ` (hasta el ${shortDate(s.plus10Until)})` : ''}`, '+10%'],
-                [`Tercera semana${s ? ` (hasta el ${shortDate(s.plus20Until)})` : ''}`, '+20%'],
-                [`Después${d(s?.suspendOn)}`, 'Se suspende el servicio hasta regularizar'],
+                [`Primera semana de atraso${s ? ` (hasta el ${shortDate(s.plus6Until)})` : ''}`, '+6%'],
+                [`Segunda semana${s ? ` (hasta el ${shortDate(s.plus12Until)})` : ''}`, '+12%'],
+                [`Tercera semana${d(s?.suspendOn)}`, 'Se suspende el sistema hasta regularizar'],
               ];
               return (
                 <ul className="divide-y rounded-md border">

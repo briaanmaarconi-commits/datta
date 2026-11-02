@@ -33,18 +33,24 @@ export default function ServiceBanner() {
 
   if (service.status === 'past_due') {
     const step = nextStep(service.nextDueDate, service.overdueDays);
+    const left = service.daysToSuspension;
+    const suspension = left == null
+      ? `el ${shortDate(dueSchedule(service.nextDueDate).suspendOn)}`
+      : left <= 1 ? 'mañana' : `dentro de ${left} días (el ${shortDate(dueSchedule(service.nextDueDate).suspendOn)})`;
     return (
       <div className="flex flex-wrap items-center gap-3 bg-destructive px-4 py-2 text-sm text-destructive-foreground">
         <AlertTriangle className="h-4 w-4 shrink-0" />
         {role === 'admin' ? (
           <span className="flex-1">
             Tu suscripción de Datta venció el {shortDate(service.nextDueDate)}{amount}
-            {service.surchargePct > 0 ? ` (incluye ${service.surchargePct}% de recargo)` : ''}. El {shortDate(step.date)} {step.what}.
+            {service.surchargePct > 0 ? ` (incluye ${service.surchargePct}% de recargo)` : ''}.
+            {step.date !== dueSchedule(service.nextDueDate).suspendOn && ` El ${shortDate(step.date)} ${step.what}.`}
+            {' '}Si no se paga, el sistema se suspende {suspension}.
           </span>
         ) : (
           // el cajero ve el vencimiento, pero no montos ni recargos
           <span className="flex-1">
-            La suscripción de Datta venció el {shortDate(service.nextDueDate)}. Si no se paga, el servicio se suspende el {shortDate(dueSchedule(service.nextDueDate).suspendOn)}.
+            La suscripción de Datta venció el {shortDate(service.nextDueDate)}. Si no se paga, el sistema se suspende {suspension}.
           </span>
         )}
         {role === 'admin'
