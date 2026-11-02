@@ -4,7 +4,7 @@ Lo más nuevo arriba. Una línea por cambio, en palabras simples. "Publicado" = 
 Contexto general del sistema: [CONTEXTO-PROYECTO.md](CONTEXTO-PROYECTO.md).
 
 ## 2026-11-02
-- Suscripción: nuevos recargos por atraso. Primera semana +6% (antes sin recargo), segunda semana +12%, y en la tercera semana (día 15 de atraso) se suspende el sistema (antes 22 días). El aviso rojo dice cuántos días faltan para la suspensión. El vencimiento sigue fijo en el mismo día de cada mes aunque se pague tarde. En Cobranzas del superadmin los suspendidos aparecen arriba ("hay que llamarlos") con el teléfono del local.
+- Suscripción: nuevos recargos por atraso. Primera semana +6% (antes sin recargo), segunda semana +12%, y en la tercera semana (día 15 de atraso) se suspende el sistema (antes 22 días). El aviso rojo dice cuántos días faltan para la suspensión. El vencimiento sigue fijo en el mismo día de cada mes aunque se pague tarde. En Cobranzas del superadmin los suspendidos aparecen arriba ("hay que llamarlos") con el teléfono del local. Publicado.
 
 ## 2026-10-30
 - Analíticas (todos los restaurantes): el gráfico "Ingresos por día" y el "Ingresos totales" del PDF/Excel contaban cada venta dos veces (el pedido cerrado más el movimiento automático de Ventas en caja). Ahora suman las ventas una sola vez más los otros ingresos cargados a mano. En "Métodos de pago", lo cobrado a cuenta corriente aparece con su nombre en vez de "Otro". Publicado.
