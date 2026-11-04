@@ -4,7 +4,7 @@ Lo más nuevo arriba. Una línea por cambio, en palabras simples. "Publicado" = 
 Contexto general del sistema: [CONTEXTO-PROYECTO.md](CONTEXTO-PROYECTO.md).
 
 ## 2026-11-04
-- Factura B (y C) con datos del cliente: al facturar (cierre de mesa en caja, Facturación, Factura manual y Facturar varias) se puede cargar el CUIT y la razón social del cliente; la factura sale a su nombre en ARCA y en el ticket/PDF. Si se deja vacío, sale a Consumidor Final como siempre. Un CUIT mal escrito se avisa en rojo y no se manda.
+- Factura B (y C) con datos del cliente: al facturar (cierre de mesa en caja, Facturación, Factura manual y Facturar varias) se puede cargar el CUIT y la razón social del cliente; la factura sale a su nombre en ARCA y en el ticket/PDF. Si se deja vacío, sale a Consumidor Final como siempre. Un CUIT mal escrito se avisa en rojo y no se manda. Publicado.
 
 ## 2026-11-03
 - Botón "Soporte remoto": ahora abre AnyDesk directamente (que muestra el número de la PC para pasarle a Datta). Solo si AnyDesk no está instalado ofrece descargarlo; antes siempre mostraba "Descargar AnyDesk". Publicado.
