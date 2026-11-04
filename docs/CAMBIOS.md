@@ -5,7 +5,7 @@ Contexto general del sistema: [CONTEXTO-PROYECTO.md](CONTEXTO-PROYECTO.md).
 
 ## 2026-11-03
 - Botón "Soporte remoto": ahora abre AnyDesk directamente (que muestra el número de la PC para pasarle a Datta). Solo si AnyDesk no está instalado ofrece descargarlo; antes siempre mostraba "Descargar AnyDesk". Publicado.
-- Comandas por caja: si en la caja se apaga "Imprimir comandas automáticamente en esta PC" (pasó en Restaurant Olavarría al borrarse los datos del navegador), aparece un cartel amarillo con "Prender comandas" (lleva a Impresoras) y "No es la caja" (para quien entra desde otra compu). En Impresoras hay una guía paso a paso: prender el interruptor, imprimir una prueba y, si no sale en papel o aparece el cuadro de Imprimir, cómo elegir la comandera en vez de "Microsoft Print to PDF" y abrir Datta con impresión directa. Ninguna PC se prende sola, así una compu a distancia no se queda con las comandas del local.
+- Comandas por caja: si en la caja se apaga "Imprimir comandas automáticamente en esta PC" (pasó en Restaurant Olavarría al borrarse los datos del navegador), aparece un cartel amarillo con "Prender comandas" (lleva a Impresoras) y "No es la caja" (para quien entra desde otra compu). En Impresoras hay una guía paso a paso: prender el interruptor, imprimir una prueba y, si no sale en papel o aparece el cuadro de Imprimir, cómo elegir la comandera en vez de "Microsoft Print to PDF" y abrir Datta con impresión directa. Ninguna PC se prende sola, así una compu a distancia no se queda con las comandas del local. Publicado.
 
 ## 2026-11-02
 - Aviso de vencimiento (Admin): el botón de la derecha ahora dice "Ver información de cobranza" y lleva a Suscripción, donde están los recargos, las fechas y la opción de subir el comprobante. Publicado.
