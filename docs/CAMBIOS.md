@@ -3,6 +3,9 @@
 Lo más nuevo arriba. Una línea por cambio, en palabras simples. "Publicado" = ya está en dattagestion.com.
 Contexto general del sistema: [CONTEXTO-PROYECTO.md](CONTEXTO-PROYECTO.md).
 
+## 2026-11-03
+- Comandas por caja: si en la caja se apaga "Imprimir comandas automáticamente en esta PC" (pasó en Restaurant Olavarría al borrarse los datos del navegador), aparece un cartel amarillo con "Prender comandas" (lleva a Impresoras) y "No es la caja" (para quien entra desde otra compu). En Impresoras hay una guía paso a paso: prender el interruptor, imprimir una prueba y, si no sale en papel o aparece el cuadro de Imprimir, cómo elegir la comandera en vez de "Microsoft Print to PDF" y abrir Datta con impresión directa. Ninguna PC se prende sola, así una compu a distancia no se queda con las comandas del local.
+
 ## 2026-11-02
 - Aviso de vencimiento (Admin): el botón de la derecha ahora dice "Ver información de cobranza" y lleva a Suscripción, donde están los recargos, las fechas y la opción de subir el comprobante. Publicado.
 - Suscripción: nuevos recargos por atraso. Primera semana +6% (antes sin recargo), segunda semana +12%, y en la tercera semana (día 15 de atraso) se suspende el sistema (antes 22 días). El aviso rojo dice cuántos días faltan para la suspensión. El vencimiento sigue fijo en el mismo día de cada mes aunque se pague tarde. En Cobranzas del superadmin los suspendidos aparecen arriba ("hay que llamarlos") con el teléfono del local. Publicado.

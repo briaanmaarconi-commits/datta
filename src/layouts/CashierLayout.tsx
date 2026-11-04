@@ -7,6 +7,7 @@ import GroupedNav, { type NavEntry } from '@/components/shared/GroupedNav';
 import { Button } from '@/components/ui/button';
 import FloatingCalculator from '@/components/cashier/FloatingCalculator';
 import CashierComandaPrinter from '@/components/cashier/CashierComandaPrinter';
+import ComandaOffBanner from '@/components/cashier/ComandaOffBanner';
 import ChatBot from '@/components/admin/ChatBot';
 import SupportAssistant from '@/components/support/SupportAssistant';
 import { useDeliverySettings } from '@/hooks/useDeliverySettings';
@@ -99,6 +100,7 @@ export default function CashierLayout({ children }: { children: React.ReactNode 
         <div className="flex min-w-0 flex-1 flex-col">
           <ViewAsBanner />
           <ServiceBanner />
+          {!viewAs && <ComandaOffBanner />}
           <header className="workspace-header">
             <SidebarTrigger />
             <span className="ml-3 text-sm font-medium text-muted-foreground">Caja</span>

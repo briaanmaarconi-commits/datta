@@ -6,7 +6,8 @@ import { KitchenTicket, type KitchenTicketData } from '@/components/kitchen/Kitc
 import { PLATFORM_LABELS, type DeliveryPlatform } from '@/hooks/useDeliverySettings';
 import { DEFAULT_PREP_AREA, PREP_AREAS, PREP_AREA_LABEL, type PrepArea } from '@/lib/printAgent';
 import { deliveryAddressLine } from '@/lib/ownDelivery';
-import { COMANDA_PRINT_EVENT, COMANDA_TEST_EVENT, isCashierComandaPrintOn } from '@/lib/comandaPrint';
+import { COMANDA_PRINTED_EVENT, COMANDA_TEST_EVENT } from '@/lib/comandaPrint';
+import { useCashierComandas } from '@/hooks/useCashierComandas';
 
 // Solo se imprimen ítems recientes: al encender la función no se reimprime lo viejo.
 const MAX_AGE_MS = 10 * 60 * 1000;
@@ -39,22 +40,11 @@ interface OrderRow {
  */
 export default function CashierComandaPrinter() {
   const { establishmentId, viewAs } = useAuth();
-  const [on, setOn] = useState(false);
+  const { on } = useCashierComandas();
   const [printJob, setPrintJob] = useState<KitchenTicketData | null>(null);
   const queueRef = useRef<KitchenTicketData[]>([]);
   const busyRef = useRef(false);
   const seenRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    const read = () => setOn(isCashierComandaPrintOn(establishmentId));
-    read();
-    window.addEventListener(COMANDA_PRINT_EVENT, read);
-    window.addEventListener('storage', read);
-    return () => {
-      window.removeEventListener(COMANDA_PRINT_EVENT, read);
-      window.removeEventListener('storage', read);
-    };
-  }, [establishmentId]);
 
   // El superadmin que mira desde su navegador no imprime ni reclama las comandas del local.
   const active = on && !!establishmentId && !viewAs;
@@ -115,7 +105,10 @@ export default function CashierComandaPrinter() {
     document.body.classList.add('printing-ticket');
     const t = setTimeout(() => {
       try {
+        // Con el cuadro de "Imprimir", window.print() espera a que lo cierren; con impresión directa vuelve enseguida.
+        const t0 = performance.now();
         window.print();
+        window.dispatchEvent(new CustomEvent(COMANDA_PRINTED_EVENT, { detail: performance.now() - t0 > 900 }));
       } catch (e) {
         console.warn('Print failed', e);
       }
