@@ -4,6 +4,7 @@ Lo más nuevo arriba. Una línea por cambio, en palabras simples. "Publicado" = 
 Contexto general del sistema: [CONTEXTO-PROYECTO.md](CONTEXTO-PROYECTO.md).
 
 ## 2026-11-04
+- Comandas con el nombre del mozo (pedido de Restaurant Olavarría, para todos los locales): debajo de la mesa sale "Mozo: ..." con quien tomó el pedido, tanto en la comandera de caja como en cocina y el agente de impresión. Si otro mozo agrega algo a la mesa, ese agregado sale con su nombre. Pedidos por QR no llevan mozo; los cargados en caja muestran al cajero.
 - Factura B (y C) con datos del cliente: al facturar (cierre de mesa en caja, Facturación, Factura manual y Facturar varias) se puede cargar el CUIT y la razón social del cliente; la factura sale a su nombre en ARCA y en el ticket/PDF. Si se deja vacío, sale a Consumidor Final como siempre. Un CUIT mal escrito se avisa en rojo y no se manda. Publicado.
 
 ## 2026-11-03

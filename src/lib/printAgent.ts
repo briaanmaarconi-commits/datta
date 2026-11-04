@@ -35,6 +35,8 @@ export interface AgentJob {
   createdAt: string;
   isAddition?: boolean;
   reprint?: boolean;
+  /** El agente lo imprime como "Mozo: ..." (agent/escpos.mjs). */
+  waiterName?: string | null;
   items: { quantity: number; name: string; notes?: string | null }[];
 }
 

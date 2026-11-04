@@ -15,6 +15,7 @@ import { useAuditLog } from '@/hooks/useAuditLog';
 import { KitchenTicket, KitchenTicketData } from '@/components/kitchen/KitchenTicket';
 import { PLATFORM_LABELS, type DeliveryPlatform } from '@/hooks/useDeliverySettings';
 import { deliveryAddressLine } from '@/lib/ownDelivery';
+import { attachWaiterNames, waiterForTicket } from '@/lib/staffNames';
 import { agentOnline, agentPrint, DEFAULT_PREP_AREA, groupByStation, PREP_AREAS, PREP_AREA_LABEL, type PrepArea, type PrintStation } from '@/lib/printAgent';
 
 function formatElapsed(created: string) {
@@ -51,7 +52,8 @@ export default function KitchenOrders() {
         .in('status', ['new', 'preparing'])
         .order('created_at', { ascending: true });
       if (error) throw error;
-      return data;
+      // Nombre del mozo de cada pedido/agregado, para imprimirlo en la comanda.
+      return attachWaiterNames((data ?? []) as any[]);
     },
     enabled: !!establishmentId,
     refetchInterval: 10000,
@@ -245,6 +247,7 @@ export default function KitchenOrders() {
       createdAt,
       isAddition,
       reprint,
+      waiterName: waiterForTicket(order, items),
       items: items.map((i: any) => ({
         id: i.id,
         quantity: i.quantity,

@@ -8,6 +8,7 @@ import { DEFAULT_PREP_AREA, PREP_AREAS, PREP_AREA_LABEL, type PrepArea } from '@
 import { deliveryAddressLine } from '@/lib/ownDelivery';
 import { COMANDA_PRINTED_EVENT, COMANDA_TEST_EVENT } from '@/lib/comandaPrint';
 import { useCashierComandas } from '@/hooks/useCashierComandas';
+import { attachWaiterNames, waiterForTicket } from '@/lib/staffNames';
 
 // Solo se imprimen ítems recientes: al encender la función no se reimprime lo viejo.
 const MAX_AGE_MS = 10 * 60 * 1000;
@@ -19,6 +20,8 @@ interface OrderItemRow {
   notes: string | null;
   created_at: string;
   kitchen_printed_at: string | null;
+  created_by?: string | null;
+  waiter_name?: string | null;
   products?: { name?: string; categories?: { prep_area?: PrepArea | null } | null } | null;
 }
 interface OrderRow {
@@ -29,6 +32,8 @@ interface OrderRow {
   customer_name?: string | null;
   delivery_address?: unknown;
   created_at: string;
+  created_by?: string | null;
+  waiter_name?: string | null;
   tables?: { number?: number; sectors?: { name?: string } | null } | null;
   order_items?: OrderItemRow[];
 }
@@ -69,7 +74,8 @@ export default function CashierComandaPrinter() {
         .in('status', ['new', 'preparing'])
         .order('created_at', { ascending: true });
       if (error) throw error;
-      return (data ?? []) as unknown as OrderRow[];
+      // Nombre del mozo de cada pedido/agregado, para imprimirlo en la comanda.
+      return attachWaiterNames((data ?? []) as unknown as OrderRow[]);
     },
     enabled: active,
     refetchInterval: POLL_MS,
@@ -160,6 +166,7 @@ export default function CashierComandaPrinter() {
       createdAt,
       isAddition,
       areaName: PREP_AREA_LABEL[area],
+      waiterName: waiterForTicket(order, byArea.get(area)!),
       items: byArea.get(area)!.map((i) => ({
         id: i.id,
         quantity: i.quantity,
