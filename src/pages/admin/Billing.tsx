@@ -19,6 +19,7 @@ import { FileText, Loader2, AlertTriangle } from 'lucide-react';
 import FiscalInvoiceDialog from '@/components/cashier/FiscalInvoiceDialog';
 import ManualInvoiceDialog from '@/components/cashier/ManualInvoiceDialog';
 import CuitReceptorFields from '@/components/shared/CuitReceptorFields';
+import { cuitDigits, receptorError } from '@/lib/cuit';
 import FiscalTicketDialog from '@/components/cashier/FiscalTicketDialog';
 import type { FacturaTicketData } from '@/components/cashier/FacturaTicket80mm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -150,8 +151,9 @@ export default function AdminBilling() {
 
   const handleBulk = async () => {
     if (selectedRows.length === 0) return;
-    if (bulkNeedsReceptor && (!bulkCuit || !bulkRazonSocial)) {
-      toast.error('CUIT y Razón Social son obligatorios para Factura A');
+    const receptorErr = receptorError(bulkCuit, bulkRazonSocial, bulkNeedsReceptor);
+    if (receptorErr) {
+      toast.error(receptorErr);
       return;
     }
     setBulkOpen(false);
@@ -188,8 +190,8 @@ export default function AdminBilling() {
           items: mergedItems,
           payment_method: selectedRows[0].payment_method,
           receptor_condicion_iva: bulkCondicion,
-          receptor_cuit: bulkCuit || null,
-          receptor_razon_social: bulkRazonSocial || null,
+          receptor_cuit: cuitDigits(bulkCuit) || null,
+          receptor_razon_social: cuitDigits(bulkCuit) ? bulkRazonSocial.trim() : null,
           is_credit_note: false,
           fecha_emision: bulkFecha,
           created_by: session?.user?.id,
@@ -216,8 +218,8 @@ export default function AdminBilling() {
           neto_gravado: res.neto_gravado,
           iva_amount: res.iva_amount,
           payment_method: selectedRows[0].payment_method,
-          receptor_cuit: bulkCuit || null,
-          receptor_razon_social: bulkRazonSocial || null,
+          receptor_cuit: cuitDigits(bulkCuit) || null,
+          receptor_razon_social: cuitDigits(bulkCuit) ? bulkRazonSocial.trim() : null,
           receptor_condicion_iva: bulkCondicion,
           items: mergedItems,
         });
@@ -240,8 +242,8 @@ export default function AdminBilling() {
           items: inv.items,
           payment_method: inv.payment_method,
           receptor_condicion_iva: bulkCondicion,
-          receptor_cuit: bulkCuit || null,
-          receptor_razon_social: bulkRazonSocial || null,
+          receptor_cuit: cuitDigits(bulkCuit) || null,
+          receptor_razon_social: cuitDigits(bulkCuit) ? bulkRazonSocial.trim() : null,
           is_credit_note: false,
           fecha_emision: bulkFecha,
           created_by: session?.user?.id,
@@ -458,19 +460,20 @@ export default function AdminBilling() {
               <p className="text-sm text-muted-foreground">Como Monotributista, siempre se emite Factura C.</p>
             )}
 
-            {bulkNeedsReceptor && (
-              <div className="space-y-3 border-t pt-3">
-                <CuitReceptorFields
-                  cuit={bulkCuit}
-                  razonSocial={bulkRazonSocial}
-                  onCuitChange={setBulkCuit}
-                  onRazonSocialChange={setBulkRazonSocial}
-                />
+            <div className="space-y-3 border-t pt-3">
+              <CuitReceptorFields
+                cuit={bulkCuit}
+                razonSocial={bulkRazonSocial}
+                onCuitChange={setBulkCuit}
+                onRazonSocialChange={setBulkRazonSocial}
+                optional={!bulkNeedsReceptor}
+              />
+              {(bulkNeedsReceptor || cuitDigits(bulkCuit)) && (
                 <p className="text-xs text-muted-foreground">
-                  Se emitirá una Factura A por cada comprobante seleccionado, todas al mismo receptor.
+                  Se emitirá una {bulkTipoLabel} por cada comprobante seleccionado, todas al mismo cliente.
                 </p>
-              </div>
-            )}
+              )}
+            </div>
 
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Tipo de comprobante:</span>

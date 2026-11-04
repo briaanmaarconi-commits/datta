@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { Loader2, FileText, Plus, Trash2 } from 'lucide-react';
 import { parseAmount } from '@/lib/parseAmount';
 import CuitReceptorFields from '@/components/shared/CuitReceptorFields';
+import { cuitDigits, receptorError } from '@/lib/cuit';
 import type { FacturaTicketData } from './FacturaTicket80mm';
 
 interface Line {
@@ -75,9 +76,8 @@ export default function ManualInvoiceDialog({ open, onOpenChange, condicionIvaEm
       const validLines = parsedLines.filter(l => l.name && l.subtotal > 0);
       if (validLines.length === 0) throw new Error('Cargá al menos un detalle con descripción y monto');
       if (total <= 0) throw new Error('El total debe ser mayor a cero');
-      if (needsReceptorData && (!receptorCuit || !receptorRazonSocial)) {
-        throw new Error('CUIT y Razón Social son obligatorios para Factura A');
-      }
+      const receptorErr = receptorError(receptorCuit, receptorRazonSocial, needsReceptorData);
+      if (receptorErr) throw new Error(receptorErr);
 
       const items = validLines.map(l => ({
         name: l.name,
@@ -96,8 +96,8 @@ export default function ManualInvoiceDialog({ open, onOpenChange, condicionIvaEm
         items,
         payment_method: paymentMethod,
         receptor_condicion_iva: receptorCondicion,
-        receptor_cuit: receptorCuit || null,
-        receptor_razon_social: receptorRazonSocial || null,
+        receptor_cuit: cuitDigits(receptorCuit) || null,
+        receptor_razon_social: cuitDigits(receptorCuit) ? receptorRazonSocial.trim() : null,
         is_credit_note: false,
         fecha_emision: fecha,
         created_by: session?.user?.id,
@@ -120,8 +120,8 @@ export default function ManualInvoiceDialog({ open, onOpenChange, condicionIvaEm
         neto_gravado: res.neto_gravado,
         iva_amount: res.iva_amount,
         payment_method: paymentMethod,
-        receptor_cuit: receptorCuit || null,
-        receptor_razon_social: receptorRazonSocial || null,
+        receptor_cuit: cuitDigits(receptorCuit) || null,
+        receptor_razon_social: cuitDigits(receptorCuit) ? receptorRazonSocial.trim() : null,
         receptor_condicion_iva: receptorCondicion,
         items,
       } as FacturaTicketData);
@@ -212,16 +212,15 @@ export default function ManualInvoiceDialog({ open, onOpenChange, condicionIvaEm
             <p className="text-sm text-muted-foreground">Como Monotributista, siempre se emite Factura C.</p>
           )}
 
-          {needsReceptorData && (
-            <div className="space-y-3 border-t pt-3">
-              <CuitReceptorFields
-                cuit={receptorCuit}
-                razonSocial={receptorRazonSocial}
-                onCuitChange={setReceptorCuit}
-                onRazonSocialChange={setReceptorRazonSocial}
-              />
-            </div>
-          )}
+          <div className="space-y-3 border-t pt-3">
+            <CuitReceptorFields
+              cuit={receptorCuit}
+              razonSocial={receptorRazonSocial}
+              onCuitChange={setReceptorCuit}
+              onRazonSocialChange={setReceptorRazonSocial}
+              optional={!needsReceptorData}
+            />
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">

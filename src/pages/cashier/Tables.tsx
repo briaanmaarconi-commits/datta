@@ -41,6 +41,7 @@ import { invokeAfip } from '@/lib/afipInvoke';
 import FiscalTicketDialog from '@/components/cashier/FiscalTicketDialog';
 import type { FacturaTicketData } from '@/components/cashier/FacturaTicket80mm';
 import CuitReceptorFields from '@/components/shared/CuitReceptorFields';
+import { cuitDigits, receptorError } from '@/lib/cuit';
 import { Switch } from '@/components/ui/switch';
 
 interface FiscalConfig {
@@ -169,7 +170,10 @@ export default function CashierTables() {
   const hasFiscalConfig = !!(fiscalConfig?.cuit && fiscalConfig?.punto_venta_afip);
   const fiscalIsRI = fiscalConfig?.condicion_iva === 'responsable_inscripto';
   const fiscalNeedsReceptor = fiscalIsRI && fiscalCondicion === 'responsable_inscripto'; // Factura A
-  const fiscalIncomplete = emitFiscal && paymentMethod !== 'account' && fiscalNeedsReceptor && (!fiscalCuit.trim() || !fiscalRazon.trim());
+  // Datos del cliente: obligatorios en Factura A, opcionales en B/C (vacío = Consumidor Final).
+  const fiscalReceptorError = emitFiscal && hasFiscalConfig && paymentMethod !== 'account'
+    ? receptorError(fiscalCuit, fiscalRazon, fiscalNeedsReceptor)
+    : null;
 
   // Realtime subscription
   useEffect(() => {
@@ -661,8 +665,9 @@ export default function CashierTables() {
       let fiscalError: string | null = null;
       const closedInvoiceId = (invoiceRow as { id?: string } | null)?.id;
       if (emitFiscal && !isAccount && !isZeroClose && closedInvoiceId) {
-        const rcuit = fiscalNeedsReceptor ? fiscalCuit.replace(/[^0-9]/g, '') : null;
-        const rrazon = fiscalNeedsReceptor ? fiscalRazon.trim() : null;
+        // Con CUIT cargado va identificado (DocTipo 80); sin CUIT, Consumidor Final.
+        const rcuit = cuitDigits(fiscalCuit) || null;
+        const rrazon = rcuit ? fiscalRazon.trim() : null;
         try {
           const res = (await invokeAfip({
             action: 'authorize',
@@ -787,7 +792,7 @@ export default function CashierTables() {
     isAccount && isZeroClose ? 'La mesa está en $0: no hay nada para cargar a la cuenta corriente'
     : isAccount && !companyId ? 'Elegí la empresa de la cuenta corriente'
     : isAccount && !voucherNumber.trim() ? 'Cargá el número de vale'
-    : fiscalIncomplete ? 'Completá el CUIT y la razón social para la factura'
+    : fiscalReceptorError && !isZeroClose ? fiscalReceptorError
     : isZeroClose && !zeroReason.trim() ? 'Indicá el motivo por el que la mesa se cierra en $0'
     : !isZeroClose && paymentMethod === 'cash' && paidNum < cashRequired ? `El monto recibido no alcanza (faltan $${(cashRequired - paidNum).toFixed(2)})`
     : !isZeroClose && isMixed && splitParts.filter(p => p.amount > 0).length < 2 ? 'Cargá al menos dos medios de pago'
@@ -1367,17 +1372,25 @@ export default function CashierTables() {
                             <SelectItem value="exento">Exento (Factura B)</SelectItem>
                           </SelectContent>
                         </Select>
-                        {fiscalNeedsReceptor && (
-                          <CuitReceptorFields
-                            cuit={fiscalCuit}
-                            razonSocial={fiscalRazon}
-                            onCuitChange={setFiscalCuit}
-                            onRazonSocialChange={setFiscalRazon}
-                          />
-                        )}
+                        <CuitReceptorFields
+                          cuit={fiscalCuit}
+                          razonSocial={fiscalRazon}
+                          onCuitChange={setFiscalCuit}
+                          onRazonSocialChange={setFiscalRazon}
+                          optional={!fiscalNeedsReceptor}
+                        />
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground">Como Monotributista, se emite Factura C.</p>
+                      <div className="space-y-3">
+                        <p className="text-xs text-muted-foreground">Como Monotributista, se emite Factura C.</p>
+                        <CuitReceptorFields
+                          cuit={fiscalCuit}
+                          razonSocial={fiscalRazon}
+                          onCuitChange={setFiscalCuit}
+                          onRazonSocialChange={setFiscalRazon}
+                          optional
+                        />
+                      </div>
                     )
                   )}
                 </div>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { lookupCuit } from '@/lib/cuitLookup';
+import { cuitDigits, isValidCuit } from '@/lib/cuit';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,8 @@ interface Props {
   razonSocial: string;
   onCuitChange: (v: string) => void;
   onRazonSocialChange: (v: string) => void;
+  /** Factura B/C: los datos del cliente son opcionales (vacío = Consumidor Final). */
+  optional?: boolean;
 }
 
 /**
@@ -19,17 +22,19 @@ interface Props {
  * Al completar los 11 dígitos (o con la lupa) consulta el padrón de ARCA
  * y autocompleta la razón social, que queda editable.
  */
-export default function CuitReceptorFields({ cuit, razonSocial, onCuitChange, onRazonSocialChange }: Props) {
+export default function CuitReceptorFields({ cuit, razonSocial, onCuitChange, onRazonSocialChange, optional = false }: Props) {
   const { establishmentId } = useAuth();
   const [loading, setLoading] = useState(false);
   const lastLookup = useRef('');
+  const digits = cuitDigits(cuit);
+  const cuitInvalid = digits.length > 0 && (digits.length > 11 || (digits.length === 11 && !isValidCuit(digits)));
 
-  const lookup = async (digits: string) => {
+  const lookup = async (d: string) => {
     if (!establishmentId || loading) return;
-    lastLookup.current = digits;
+    lastLookup.current = d;
     setLoading(true);
     try {
-      const res = await lookupCuit(establishmentId, digits);
+      const res = await lookupCuit(establishmentId, d);
       onRazonSocialChange(res.razon_social);
       toast.success('Razón social encontrada en ARCA');
     } catch (err: any) {
@@ -39,24 +44,31 @@ export default function CuitReceptorFields({ cuit, razonSocial, onCuitChange, on
     }
   };
 
-  // Autocompletar al llegar a 11 dígitos
+  // Autocompletar al llegar a 11 dígitos válidos
   useEffect(() => {
-    const digits = cuit.replace(/\D/g, '');
-    if (digits.length !== 11 || digits === lastLookup.current) return;
+    if (!isValidCuit(digits) || digits === lastLookup.current) return;
     const t = setTimeout(() => lookup(digits), 600);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cuit, establishmentId]);
+  }, [digits, establishmentId]);
 
   return (
     <>
+      {optional && (
+        <p className="text-xs text-muted-foreground">
+          Datos del cliente (opcional). Si los dejás vacíos, sale a Consumidor Final.
+        </p>
+      )}
       <div className="space-y-1.5">
-        <Label htmlFor="receptor-cuit">CUIT del receptor</Label>
+        <Label htmlFor="receptor-cuit">CUIT del cliente{optional ? ' (opcional)' : ''}</Label>
         <div className="flex gap-2">
           <Input
             id="receptor-cuit"
             placeholder="20-12345678-9"
+            inputMode="numeric"
             value={cuit}
+            aria-invalid={cuitInvalid}
+            className={cuitInvalid ? 'border-destructive focus-visible:ring-destructive' : undefined}
             onChange={e => onCuitChange(e.target.value)}
           />
           <Button
@@ -64,16 +76,17 @@ export default function CuitReceptorFields({ cuit, razonSocial, onCuitChange, on
             variant="outline"
             size="icon"
             title="Buscar razón social en ARCA"
-            disabled={loading || cuit.replace(/\D/g, '').length !== 11}
-            onClick={() => lookup(cuit.replace(/\D/g, ''))}
+            disabled={loading || !isValidCuit(digits)}
+            onClick={() => lookup(digits)}
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           </Button>
         </div>
+        {cuitInvalid && <p className="text-xs text-destructive">El CUIT no es válido. Revisá los 11 números.</p>}
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="receptor-razon" className="flex items-center gap-2">
-          Razón Social del receptor
+          Razón social del cliente{optional ? ' (opcional)' : ''}
           {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
         </Label>
         <Input

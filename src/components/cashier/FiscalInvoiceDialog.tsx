@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Loader2, FileText } from 'lucide-react';
 import CuitReceptorFields from '@/components/shared/CuitReceptorFields';
+import { cuitDigits, receptorError } from '@/lib/cuit';
 import { tableCell } from '@/lib/ownDelivery';
 
 interface FiscalInvoiceDialogProps {
@@ -57,9 +58,8 @@ export default function FiscalInvoiceDialog({ open, onOpenChange, invoice, condi
 
   const emitirFactura = useMutation({
     mutationFn: async () => {
-      if (needsReceptorData && (!receptorCuit || !receptorRazonSocial)) {
-        throw new Error('CUIT y Razón Social son obligatorios para Factura A');
-      }
+      const receptorErr = receptorError(receptorCuit, receptorRazonSocial, needsReceptorData);
+      if (receptorErr) throw new Error(receptorErr);
 
       return await invokeAfip({
         action: 'authorize',
@@ -69,8 +69,8 @@ export default function FiscalInvoiceDialog({ open, onOpenChange, invoice, condi
         items: invoice.items,
         payment_method: invoice.payment_method,
         receptor_condicion_iva: receptorCondicion,
-        receptor_cuit: receptorCuit || null,
-        receptor_razon_social: receptorRazonSocial || null,
+        receptor_cuit: cuitDigits(receptorCuit) || null,
+        receptor_razon_social: cuitDigits(receptorCuit) ? receptorRazonSocial.trim() : null,
         is_credit_note: false,
         created_by: session?.user?.id,
       });
@@ -92,8 +92,8 @@ export default function FiscalInvoiceDialog({ open, onOpenChange, invoice, condi
         neto_gravado: data.neto_gravado,
         iva_amount: data.iva_amount,
         payment_method: invoice.payment_method,
-        receptor_cuit: receptorCuit || null,
-        receptor_razon_social: receptorRazonSocial || null,
+        receptor_cuit: cuitDigits(receptorCuit) || null,
+        receptor_razon_social: cuitDigits(receptorCuit) ? receptorRazonSocial.trim() : null,
         receptor_condicion_iva: receptorCondicion,
         items: invoice.items || [],
       });
@@ -159,17 +159,16 @@ export default function FiscalInvoiceDialog({ open, onOpenChange, invoice, condi
             </p>
           )}
 
-          {/* Receptor data for Factura A */}
-          {needsReceptorData && (
-            <div className="space-y-3 border-t pt-3">
-              <CuitReceptorFields
-                cuit={receptorCuit}
-                razonSocial={receptorRazonSocial}
-                onCuitChange={setReceptorCuit}
-                onRazonSocialChange={setReceptorRazonSocial}
-              />
-            </div>
-          )}
+          {/* Datos del cliente: obligatorios en Factura A, opcionales en B/C */}
+          <div className="space-y-3 border-t pt-3">
+            <CuitReceptorFields
+              cuit={receptorCuit}
+              razonSocial={receptorRazonSocial}
+              onCuitChange={setReceptorCuit}
+              onRazonSocialChange={setReceptorRazonSocial}
+              optional={!needsReceptorData}
+            />
+          </div>
 
           {/* Comprobante type badge */}
           <div className="flex items-center gap-2">

@@ -39,6 +39,18 @@ export class HttpError extends Error {
   }
 }
 
+/** CUIT/CUIL: 11 dígitos con dígito verificador correcto. */
+export function isValidCuit(value: string): boolean {
+  const d = String(value ?? "").replace(/\D/g, "");
+  if (!/^\d{11}$/.test(d)) return false;
+  const weights = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  const sum = weights.reduce((acc, w, i) => acc + w * Number(d[i]), 0);
+  let check = 11 - (sum % 11);
+  if (check === 11) check = 0;
+  if (check === 10) return false;
+  return check === Number(d[10]);
+}
+
 export function getTipoCbte(condicionEmisor: string, condicionReceptor: string): number {
   if (condicionEmisor === "monotributo") return 11; // Factura C
   if (condicionReceptor === "responsable_inscripto") return 1; // Factura A
@@ -357,7 +369,7 @@ export async function registerAfipInvoice(app: FastifyInstance) {
       // ---------------- consulta padrón (razón social por CUIT)
       if (action === "padron") {
         const cuitConsultado = String(body.cuit_consultado || "").replace(/\D/g, "");
-        if (!/^\d{11}$/.test(cuitConsultado)) throw new HttpError(400, "CUIT inválido (11 dígitos)");
+        if (!isValidCuit(cuitConsultado)) throw new HttpError(400, "CUIT inválido (revisá los 11 números)");
         const { token, sign } = await getTicket(establishment_id, certPem, keyPem, isProduction, "ws_sr_padron_a5");
         const padronUrl = isProduction ? PADRON_URL_PRODUCTION : PADRON_URL_TESTING;
         const persona = await getPersonaPadron(padronUrl, token, sign, cuit, cuitConsultado);
@@ -409,8 +421,17 @@ export async function registerAfipInvoice(app: FastifyInstance) {
         const netoGravado = discriminaIva ? Number((totalNum / 1.21).toFixed(2)) : totalNum;
         const iva21 = discriminaIva ? Number((totalNum - netoGravado).toFixed(2)) : 0;
 
-        const docTipo = receptor_cuit ? 80 : 99;
-        const docNro = receptor_cuit ? String(receptor_cuit).replace(/\D/g, "") : "0";
+        // Cliente identificado: DocTipo 80 (CUIT). Sin CUIT: Consumidor Final (DocTipo 99).
+        const receptorCuitDigits = String(receptor_cuit ?? "").replace(/\D/g, "");
+        if (receptorCuitDigits && !is_credit_note && !isValidCuit(receptorCuitDigits)) {
+          throw new HttpError(400, "El CUIT del cliente no es válido (revisá los 11 números)");
+        }
+        if (tipoCbte === 1 && !receptorCuitDigits) {
+          throw new HttpError(400, "La Factura A necesita el CUIT del cliente");
+        }
+        const receptorRazon = receptorCuitDigits ? String(receptor_razon_social ?? "").trim() || null : null;
+        const docTipo = receptorCuitDigits ? 80 : 99;
+        const docNro = receptorCuitDigits || "0";
         const condIvaReceptor = COND_IVA_RECEPTOR_ID[receptor_condicion_iva] ?? 5;
 
         const { token, sign } = await getTicket(establishment_id, certPem, keyPem, isProduction);
@@ -529,7 +550,7 @@ export async function registerAfipInvoice(app: FastifyInstance) {
                RETURNING id`,
               [
                 establishment_id, invoice_id || null, tipoCbte, est.punto_venta_afip, nextNumber, cae, caeVto, totalNum, netoGravado, iva21,
-                items ? JSON.stringify(items) : null, payment_method || null, receptor_cuit || null, receptor_razon_social || null,
+                items ? JSON.stringify(items) : null, payment_method || null, receptorCuitDigits || null, receptorRazon,
                 receptor_condicion_iva, !!is_credit_note, related_fiscal_invoice_id || null, credit_note_reason || null, user.id,
                 JSON.stringify({ resultado, cae, cae_vto: caeVto, observaciones, environment: est.afip_environment }),
               ],
