@@ -4,7 +4,7 @@ Lo más nuevo arriba. Una línea por cambio, en palabras simples. "Publicado" = 
 Contexto general del sistema: [CONTEXTO-PROYECTO.md](CONTEXTO-PROYECTO.md).
 
 ## 2026-11-12
-- Aviso amarillo de vencimiento (prueba gratis y suscripción): ahora dice hasta qué día pagar y que desde el día siguiente se suma un 6% de recargo (pedido a raíz de Restaurant Olavarría, que no sabía del recargo). En caja aparece el mismo aviso con el porcentaje pero sin el monto.
+- Aviso amarillo de vencimiento (prueba gratis y suscripción): ahora dice hasta qué día pagar y que desde el día siguiente se suma un 6% de recargo (pedido a raíz de Restaurant Olavarría, que no sabía del recargo). En caja aparece el mismo aviso con el porcentaje pero sin el monto. Publicado.
 
 ## 2026-11-04
 - Comandas con el nombre del mozo (pedido de Restaurant Olavarría, para todos los locales): debajo de la mesa sale "Mozo: ..." con quien tomó el pedido, tanto en la comandera de caja como en cocina y el agente de impresión. Si otro mozo agrega algo a la mesa, ese agregado sale con su nombre. Pedidos por QR no llevan mozo; los cargados en caja muestran al cajero. Publicado.
