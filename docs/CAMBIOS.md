@@ -4,6 +4,7 @@ Lo más nuevo arriba. Una línea por cambio, en palabras simples. "Publicado" = 
 Contexto general del sistema: [CONTEXTO-PROYECTO.md](CONTEXTO-PROYECTO.md).
 
 ## 2026-11-12
+- Recetas de tragos (modo bebidas y tragos): en Stock → Tragos se carga cuánto lleva cada trago de cada bebida, en ml u onzas (ej.: fernet con coca = 60 ml de fernet + 180 ml de coca). Al cobrar la mesa se descuenta solo. Ahora aparecen también los tragos que estaban marcados "por unidad" y se puede crear una botella nueva desde la misma receta. Publicado.
 - Aviso amarillo de vencimiento (prueba gratis y suscripción): ahora dice hasta qué día pagar y que desde el día siguiente se suma un 6% de recargo (pedido a raíz de Restaurant Olavarría, que no sabía del recargo). En caja aparece el mismo aviso con el porcentaje pero sin el monto. Publicado.
 
 ## 2026-11-04

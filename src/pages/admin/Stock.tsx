@@ -44,7 +44,7 @@ const drinksTabs = [
 const MODE_INFO: Record<InventoryMode, { badge: string; text: string; toast: string }> = {
   simple: { badge: 'Simple: por porciones o unidades', text: 'Cada venta descuenta 1 porción o unidad del producto vendido.', toast: 'Listo: stock simple, por porciones o unidades' },
   advanced: { badge: 'Avanzada: por ingredientes', text: 'Cada venta descuenta los ingredientes de la receta. Bebidas, postres y empanadas se cuentan por unidad.', toast: 'Listo: stock avanzado, por ingredientes' },
-  drinks: { badge: 'Bebidas y tragos', text: 'Cada bebida vendida descuenta 1 unidad y cada trago las onzas de las botellas que lleva.', toast: 'Listo: gestión de bebidas y tragos' },
+  drinks: { badge: 'Bebidas y tragos', text: 'Cada bebida vendida descuenta 1 unidad y cada trago lo que lleva su receta.', toast: 'Listo: gestión de bebidas y tragos' },
 };
 
 const simpleTabs = [
