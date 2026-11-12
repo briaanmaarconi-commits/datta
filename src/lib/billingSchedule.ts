@@ -1,6 +1,9 @@
 // Calendario de un vencimiento de la suscripción (mismas reglas que backend/src/lib/billing.ts):
 // aviso 7 días antes, primera semana de atraso +6%, segunda +12% y suspensión a los 15 días de atraso.
 
+/** Recargo de la primera semana de atraso (%). */
+export const FIRST_SURCHARGE_PCT = 6;
+
 const addDays = (date: string, n: number) => {
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);

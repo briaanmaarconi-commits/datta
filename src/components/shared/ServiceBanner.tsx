@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { AlertTriangle, CalendarClock } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { money } from '@/lib/billingApi';
-import { dueSchedule, nextStep, shortDate } from '@/lib/billingSchedule';
+import { dueSchedule, FIRST_SURCHARGE_PCT, nextStep, shortDate } from '@/lib/billingSchedule';
 
 const NOTICE_DAYS = 7;
 
@@ -29,7 +29,8 @@ export default function ServiceBanner() {
   const action = role === 'admin'
     ? <Link to="/admin/suscripcion" className="rounded bg-black/80 px-3 py-1 font-medium text-white hover:bg-black">Ver información de cobranza</Link>
     : <span className="opacity-90">Avisale al administrador.</span>;
-  const amount = service.amountDue != null ? ` · ${money(service.amountDue)}` : '';
+  // el cajero no ve montos
+  const amount = role === 'admin' && service.amountDue != null ? ` · ${money(service.amountDue)}` : '';
 
   if (service.status === 'past_due') {
     const step = nextStep(service.nextDueDate, service.overdueDays);
@@ -72,6 +73,7 @@ export default function ServiceBanner() {
         <>
           <span className="flex-1">
             {service.status === 'trial' ? 'Tu prueba gratis termina' : 'Tu suscripción de Datta vence'} {when}{amount}.
+            {' '}Pagalo hasta el {shortDate(service.nextDueDate)} para no tener recargo: desde el día siguiente se suma un {FIRST_SURCHARGE_PCT}%.
           </span>
           {action}
         </>
