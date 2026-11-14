@@ -21,13 +21,12 @@ import {
   FileText, Search, Eye, FileCheck, FileX, Printer,
 } from 'lucide-react';
 import InvoiceTicket from '@/components/cashier/InvoiceTicket';
-import CloseTicket, { CloseTicketData } from '@/components/cashier/CloseTicket';
+import CloseTicket, { CloseTicketData, useTwoCopyPrint } from '@/components/cashier/CloseTicket';
 import FiscalInvoiceDialog from '@/components/cashier/FiscalInvoiceDialog';
 import ManualInvoiceDialog from '@/components/cashier/ManualInvoiceDialog';
 import CreditNoteDialog from '@/components/cashier/CreditNoteDialog';
 import FiscalTicketDialog from '@/components/cashier/FiscalTicketDialog';
 import type { FacturaTicketData } from '@/components/cashier/FacturaTicket80mm';
-import { printTicketPortal } from '@/lib/print';
 import { useShowMore, ShowMoreButton } from '@/components/ui/show-more';
 import { tableCell } from '@/lib/ownDelivery';
 
@@ -67,11 +66,8 @@ export default function CashierInvoices() {
   const [manualOpen, setManualOpen] = useState(false);
 
   // El duplicado (cliente + control) se monta solo mientras dura su impresión,
-  // para que nunca se cuele en el trabajo de impresión del ticket fiscal.
-  useEffect(() => {
-    if (!reprintTicket) return;
-    return printTicketPortal(() => setReprintTicket(null), 250);
-  }, [reprintTicket]);
+  // para que nunca se cuele en el trabajo de impresión del ticket fiscal. Cada copia es una impresión aparte.
+  const reprintCopy = useTwoCopyPrint(!!reprintTicket, () => setReprintTicket(null));
 
   // Fetch establishment name
   const { data: establishment } = useQuery({
@@ -656,7 +652,7 @@ export default function CashierInvoices() {
       />
 
       {/* Print-only: duplicate ticket (cliente + control) */}
-      {reprintTicket && <CloseTicket data={reprintTicket} reprint />}
+      {reprintTicket && <CloseTicket data={reprintTicket} reprint copy={reprintCopy} />}
     </div>
   );
 }

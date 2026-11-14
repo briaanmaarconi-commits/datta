@@ -34,9 +34,8 @@ import { MIXED, describePayments, parsePayments, splitAcrossOrders, type Payment
 import CourtesyDialog from '@/components/shared/CourtesyDialog';
 import { useCloseTableAsCourtesy, CourtesyType } from '@/hooks/useCloseTableAsCourtesy';
 import PreBillTicket from '@/components/cashier/PreBillTicket';
-import CloseTicket, { CloseTicketData } from '@/components/cashier/CloseTicket';
+import CloseTicket, { CloseTicketData, useTwoCopyPrint } from '@/components/cashier/CloseTicket';
 import AddProductsDialog, { CartLine } from '@/components/cashier/AddProductsDialog';
-import { printTicketPortal } from '@/lib/print';
 import { invokeAfip } from '@/lib/afipInvoke';
 import FiscalTicketDialog from '@/components/cashier/FiscalTicketDialog';
 import type { FacturaTicketData } from '@/components/cashier/FacturaTicket80mm';
@@ -98,10 +97,8 @@ export default function CashierTables() {
   const [fiscalTicket, setFiscalTicket] = useState<FacturaTicketData | null>(null);
   const { log: auditLog } = useAuditLog();
 
-  useEffect(() => {
-    if (!printingClose || !lastTicket) return;
-    return printTicketPortal(() => setPrintingClose(false));
-  }, [printingClose, lastTicket]);
+  // Recibo duplicado: cliente y control salen en dos impresiones, así la comandera corta entre una y otra.
+  const closeCopy = useTwoCopyPrint(printingClose && !!lastTicket, () => setPrintingClose(false));
 
   type ManualAdjustment = { id: string; name: string; qty: number; unit_price: number };
   const [adjustments, setAdjustments] = useState<ManualAdjustment[]>([]);
@@ -1461,7 +1458,7 @@ export default function CashierTables() {
       </Dialog>
 
       {/* Print-only: two copies (cliente + control) of the last closed table */}
-      {printingClose && lastTicket && <CloseTicket data={lastTicket} reprint={ticketReprint} />}
+      {printingClose && lastTicket && <CloseTicket data={lastTicket} reprint={ticketReprint} copy={closeCopy} />}
 
       <CourtesyDialog
         open={courtesyOpen}

@@ -1,7 +1,9 @@
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { PAYMENT_LABELS, type PaymentPart } from '@/lib/payments';
+import { printTicketPortal } from '@/lib/print';
 
 export interface CloseTicketItem {
   name: string;
@@ -31,18 +33,16 @@ function TicketCopy({
   data,
   copy,
   reprint,
-  pageBreak,
 }: {
   data: CloseTicketData;
   copy: 'cliente' | 'control';
   reprint?: boolean;
-  pageBreak?: boolean;
 }) {
   const ts = data.createdAt || new Date().toISOString();
   const isCash = data.paymentMethod === 'cash';
 
   return (
-    <div style={pageBreak ? { breakAfter: 'page', pageBreakAfter: 'always' } : undefined}>
+    <div>
       <div className="text-center mb-2">
         <p className="font-bold text-base">{data.establishmentName || 'Establecimiento'}</p>
         <p className="font-bold text-sm border-y border-dashed border-foreground py-0.5 my-1">
@@ -130,18 +130,45 @@ function TicketCopy({
   );
 }
 
+export type CloseTicketCopy = 'cliente' | 'control';
+
 /**
- * Print-only area: renders both copies (cliente + control) in a single print job.
+ * Print-only area: una copia del recibo (cliente o control).
  * Rendered through a portal on <body> so it never coexists with another
  * `.print-ticket` node (e.g. the pre-bill) in the same print job.
  */
-export default function CloseTicket({ data, reprint }: { data: CloseTicketData; reprint?: boolean }) {
+export default function CloseTicket({ data, reprint, copy }: { data: CloseTicketData; reprint?: boolean; copy: CloseTicketCopy }) {
   if (typeof document === 'undefined') return null;
   return createPortal(
     <div className="print-portal print-ticket">
-      <TicketCopy data={data} copy="cliente" reprint={reprint} pageBreak />
-      <TicketCopy data={data} copy="control" reprint={reprint} />
+      <TicketCopy key={copy} data={data} copy={copy} reprint={reprint} />
     </div>,
     document.body
   );
+}
+
+/**
+ * Imprime el duplicado como DOS impresiones seguidas (primero cliente, después control):
+ * así la comandera corta el papel entre una copia y la otra, sin depender de su configuración.
+ * Devuelve qué copia montar mientras `active`; al terminar la segunda llama a `onFinished`.
+ */
+export function useTwoCopyPrint(active: boolean, onFinished: () => void): CloseTicketCopy {
+  const [copy, setCopy] = useState<CloseTicketCopy>('cliente');
+  const finishedRef = useRef(onFinished);
+  finishedRef.current = onFinished;
+  useEffect(() => {
+    if (!active) {
+      setCopy('cliente');
+      return;
+    }
+    return printTicketPortal(() => {
+      if (copy === 'cliente') {
+        setCopy('control');
+      } else {
+        setCopy('cliente');
+        finishedRef.current();
+      }
+    }, copy === 'control' ? 600 : 250);
+  }, [active, copy]);
+  return copy;
 }

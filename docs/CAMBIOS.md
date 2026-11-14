@@ -4,6 +4,7 @@ Lo más nuevo arriba. Una línea por cambio, en palabras simples. "Publicado" = 
 Contexto general del sistema: [CONTEXTO-PROYECTO.md](CONTEXTO-PROYECTO.md).
 
 ## 2026-11-14
+- Recibo de pago duplicado (pedido de Restaurant Olavarría, para todos los locales): la copia del cliente y la de control ahora salen como dos impresiones separadas, así la comandera corta el papel entre una y otra (antes salían pegadas y había que cortarlas a mano). Vale al cerrar la mesa en caja y al reimprimir desde Facturación.
 - Personas en la mesa en la comanda (pedido de Restaurant Olavarría, para todos los locales): al abrir una mesa nueva el mozo tiene que indicar cuántas personas está atendiendo (aparte de las sillas del plano). Sale como "PERSONAS: N" en la comanda impresa (caja, cocina y agente de impresión; en el agente hace falta reinstalarlo para verlo) y en la pantalla de cocina ("Mesa 7 · 3 pers."). La pantalla de cocina ahora también muestra qué mozo tomó el pedido. Publicado.
 
 ## 2026-11-12
