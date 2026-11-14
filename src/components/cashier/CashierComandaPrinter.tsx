@@ -167,6 +167,7 @@ export default function CashierComandaPrinter() {
       isAddition,
       areaName: PREP_AREA_LABEL[area],
       waiterName: waiterForTicket(order, byArea.get(area)!),
+      guestCount: isDelivery ? null : ((order as any).guest_count ?? null),
       items: byArea.get(area)!.map((i) => ({
         id: i.id,
         quantity: i.quantity,

@@ -39,7 +39,7 @@ function wrap(text, width) {
 
 /**
  * job: { area, establishmentName, tableNumber, isDelivery, platform, customerName, sectorName,
- *        waiterName, createdAt, isAddition, reprint, items: [{quantity, name, notes}] }
+ *        guestCount, waiterName, createdAt, isAddition, reprint, items: [{quantity, name, notes}] }
  * opts: { paperWidth: 58|80, plain: boolean, cut: boolean }
  */
 export function buildTicket(job, opts = {}) {
@@ -72,6 +72,7 @@ export function buildTicket(job, opts = {}) {
     size(2, 2); bold(true); line('MESA ' + (job.tableNumber ?? '-')); size(1, 1); bold(false);
     if (job.sectorName) line('Sector: ' + job.sectorName);
   }
+  if (!job.isDelivery && job.guestCount) { bold(true); line('PERSONAS: ' + job.guestCount); bold(false); }
   if (job.waiterName) line('Mozo: ' + job.waiterName);
   const d = job.createdAt ? new Date(job.createdAt) : new Date();
   line(d.toLocaleDateString('es-AR') + ' ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }));

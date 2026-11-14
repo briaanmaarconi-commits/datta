@@ -1418,6 +1418,7 @@ export type Database = {
           customer_name: string | null
           delivered_at: string | null
           delivery_address: Json | null
+          guest_count: number | null
           delivery_fee: number
           establishment_id: string
           external_order_id: string | null
@@ -1439,6 +1440,7 @@ export type Database = {
           customer_name?: string | null
           delivered_at?: string | null
           delivery_address?: Json | null
+          guest_count?: number | null
           delivery_fee?: number
           establishment_id: string
           external_order_id?: string | null
@@ -1460,6 +1462,7 @@ export type Database = {
           customer_name?: string | null
           delivered_at?: string | null
           delivery_address?: Json | null
+          guest_count?: number | null
           delivery_fee?: number
           establishment_id?: string
           external_order_id?: string | null

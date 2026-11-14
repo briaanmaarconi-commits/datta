@@ -32,6 +32,8 @@ interface OrderingState {
   tableId: string;
   tableNumber: number;
   orderId?: string;
+  /** Personas que atiende el mozo en esta mesa (se pide al abrirla; sale en la comanda). */
+  guestCount?: number;
 }
 
 export default function WaiterTables() {
@@ -292,12 +294,15 @@ export default function WaiterTables() {
       // Save to localStorage before attempting (resilience)
       savePendingOrder(cart, ordering);
       const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+      // Un agregado que sale como pedido nuevo lleva las personas que ya tiene la mesa.
+      const guests = ordering.guestCount ?? ((tables.find(t => t.id === ordering.tableId) as any)?.guest_count || null);
       const { data: order, error } = await db.from('orders').insert({
         table_id: ordering.tableId,
         establishment_id: establishmentId!,
         created_by: user?.id,
         total,
-      }).select().single();
+        guest_count: guests,
+      } as any).select().single();
       if (error) throw error;
       const items = cart.map(i => ({
         order_id: order.id,
@@ -397,8 +402,22 @@ export default function WaiterTables() {
     if (tableOrders.length > 0) {
       setOrdering({ type: 'existing', tableId: table.id, tableNumber: table.number, orderId: tableOrders[0].id });
     } else {
-      setOrdering({ type: 'new', tableId: table.id, tableNumber: table.number });
+      // Mesa nueva: antes de cargar el pedido, el mozo indica cuántas personas atiende.
+      setGuestDialog({ ...table, startOrder: true });
+      setGuestCount('');
     }
+  };
+
+  const startOrderWithGuests = (table: any, count: number) => {
+    if (!(count >= 1)) {
+      toast.error('Indicá cuántas personas hay en la mesa');
+      return;
+    }
+    db.from('tables').update({ guest_count: count } as any).eq('id', table.id)
+      .then(() => queryClient.invalidateQueries({ queryKey: ['tables'] }));
+    setGuestDialog(null);
+    setGuestCount('');
+    setOrdering({ type: 'new', tableId: table.id, tableNumber: table.number, guestCount: count });
   };
 
   const handleSubmitOrder = (cart: any[]) => {
@@ -612,12 +631,29 @@ export default function WaiterTables() {
       <Dialog open={!!guestDialog} onOpenChange={v => { if (!v) setGuestDialog(null); }}>
         <DialogContent className="max-w-xs">
           <DialogHeader><DialogTitle>Personas en Mesa {guestDialog?.number}</DialogTitle></DialogHeader>
-          <form onSubmit={e => { e.preventDefault(); updateGuestCount.mutate({ tableId: guestDialog.id, count: parseInt(guestCount) || 0 }); }} className="space-y-4">
+          <form onSubmit={e => {
+            e.preventDefault();
+            const count = parseInt(guestCount) || 0;
+            if (guestDialog.startOrder) startOrderWithGuests(guestDialog, count);
+            else updateGuestCount.mutate({ tableId: guestDialog.id, count });
+          }} className="space-y-4">
             <div className="space-y-2">
-              <Label>Cantidad de personas</Label>
-              <Input type="number" min="0" value={guestCount} onChange={e => setGuestCount(e.target.value)} />
+              <Label>{guestDialog?.startOrder ? '¿Cuántas personas estás atendiendo?' : 'Cantidad de personas'}</Label>
+              {guestDialog?.startOrder && (
+                <div className="grid grid-cols-4 gap-2">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
+                    <Button key={n} type="button" variant="outline" className="h-12 text-lg"
+                      onClick={() => startOrderWithGuests(guestDialog, n)}>
+                      {n}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              <Input type="number" min={guestDialog?.startOrder ? 1 : 0} inputMode="numeric"
+                placeholder={guestDialog?.startOrder ? 'Otra cantidad' : undefined}
+                value={guestCount} onChange={e => setGuestCount(e.target.value)} />
             </div>
-            <Button type="submit" className="w-full">Guardar</Button>
+            <Button type="submit" className="w-full">{guestDialog?.startOrder ? 'Tomar pedido' : 'Guardar'}</Button>
           </form>
         </DialogContent>
       </Dialog>

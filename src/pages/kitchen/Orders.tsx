@@ -248,6 +248,7 @@ export default function KitchenOrders() {
       isAddition,
       reprint,
       waiterName: waiterForTicket(order, items),
+      guestCount: isDelivery ? null : (order.guest_count ?? null),
       items: items.map((i: any) => ({
         id: i.id,
         quantity: i.quantity,
@@ -527,7 +528,7 @@ export default function KitchenOrders() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">{order.channel === 'delivery'
                     ? (order.external_platform === 'propio' ? 'Delivery propio' : `Delivery${order.external_platform ? ' · ' + (PLATFORM_LABELS[order.external_platform as DeliveryPlatform] ?? order.external_platform) : ''}`)
-                    : `Mesa ${order.tables?.number}`}</CardTitle>
+                    : `Mesa ${order.tables?.number}${order.guest_count ? ` · ${order.guest_count} pers.` : ''}`}</CardTitle>
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm font-mono text-muted-foreground">{formatElapsed(order.created_at)}</span>
@@ -536,6 +537,7 @@ export default function KitchenOrders() {
                 <Badge variant={order.status === 'new' ? 'default' : 'secondary'}>
                   {order.status === 'new' ? '🆕 Nuevo' : '🔥 Preparando'}
                 </Badge>
+                {order.waiter_name && <p className="text-sm font-medium text-muted-foreground">Mozo: {order.waiter_name}</p>}
               </CardHeader>
               <CardContent className="space-y-2">
                 {order.order_items?.map((item: any) => (

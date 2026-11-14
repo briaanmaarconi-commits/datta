@@ -23,6 +23,8 @@ export interface KitchenTicketData {
   reprint?: boolean;
   /** Nombre del sector cuando la comanda es de un solo sector (ej. ENTRADA). */
   areaName?: string | null;
+  /** Personas que atiende el mozo en la mesa (lo carga al tomar el pedido). */
+  guestCount?: number | null;
   /** Quién tomó el pedido (mozo, o cajero si se cargó en caja). Vacío en pedidos por QR. */
   waiterName?: string | null;
   items: KitchenTicketItem[];
@@ -52,6 +54,7 @@ export function KitchenTicketBody({ data }: { data: KitchenTicketData }) {
             {data.sectorName && <p className="text-xs">Sector: {data.sectorName}</p>}
           </>
         )}
+        {!data.isDelivery && !!data.guestCount && <p className="text-lg font-bold">PERSONAS: {data.guestCount}</p>}
         {data.waiterName && <p className="text-sm font-bold">Mozo: {data.waiterName}</p>}
         <p className="text-xs">
           {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
