@@ -4,7 +4,7 @@ Lo más nuevo arriba. Una línea por cambio, en palabras simples. "Publicado" = 
 Contexto general del sistema: [CONTEXTO-PROYECTO.md](CONTEXTO-PROYECTO.md).
 
 ## 2026-11-14
-- Personas en la mesa en la comanda (pedido de Restaurant Olavarría, para todos los locales): al abrir una mesa nueva el mozo tiene que indicar cuántas personas está atendiendo (aparte de las sillas del plano). Sale como "PERSONAS: N" en la comanda impresa (caja, cocina y agente de impresión; en el agente hace falta reinstalarlo para verlo) y en la pantalla de cocina ("Mesa 7 · 3 pers."). La pantalla de cocina ahora también muestra qué mozo tomó el pedido.
+- Personas en la mesa en la comanda (pedido de Restaurant Olavarría, para todos los locales): al abrir una mesa nueva el mozo tiene que indicar cuántas personas está atendiendo (aparte de las sillas del plano). Sale como "PERSONAS: N" en la comanda impresa (caja, cocina y agente de impresión; en el agente hace falta reinstalarlo para verlo) y en la pantalla de cocina ("Mesa 7 · 3 pers."). La pantalla de cocina ahora también muestra qué mozo tomó el pedido. Publicado.
 
 ## 2026-11-12
 - Recetas de tragos (modo bebidas y tragos): en Stock → Tragos se carga cuánto lleva cada trago de cada bebida, en ml u onzas (ej.: fernet con coca = 60 ml de fernet + 180 ml de coca). Al cobrar la mesa se descuenta solo. Ahora aparecen también los tragos que estaban marcados "por unidad" y se puede crear una botella nueva desde la misma receta. Publicado.
