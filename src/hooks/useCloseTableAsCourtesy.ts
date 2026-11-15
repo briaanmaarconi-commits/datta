@@ -116,6 +116,8 @@ export async function closeTableAsCourtesy(params: CloseAsCourtesyParams) {
       description: `${typeLabel} — Mesa ${tableNumber}${notes ? ` (${notes})` : ''}`,
       date: toArgDate(),
       created_by: userId,
+      // Es el costo de la mercadería regalada: no sale plata del cajón, no entra al arqueo.
+      affects_cash: false,
     }).select('id').single();
     if (txErr) throw txErr;
     financeTxId = tx.id;
