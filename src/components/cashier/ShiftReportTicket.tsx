@@ -10,6 +10,12 @@ export interface ShiftReportData {
   totalSales: number;
   closedOrders: number;
   avgTicket: number;
+  /** Cubiertos atendidos (personas en mesas cobradas, sin delivery). */
+  covers?: number;
+  /** Ventas de esas mesas / cubiertos. */
+  avgPerCover?: number;
+  /** Mesas cobradas en las que no se cargó cuántas personas eran. */
+  tablesWithoutCovers?: number;
   cash: number;
   card: number;
   transfer: number;
@@ -77,6 +83,23 @@ export function ShiftReportBody({ data, reprint }: { data: ShiftReportData; repr
         <Row label="Pedidos cerrados" value={String(data.closedOrders)} />
         <Row label="Ticket promedio" value={fmt(data.avgTicket)} />
       </div>
+
+      {data.covers !== undefined && (
+        <>
+          <div className="border-t border-dashed border-foreground my-1" />
+          <p className="text-xs font-bold">CUBIERTOS</p>
+          <div className="text-xs space-y-0.5">
+            <Row label="Cubiertos atendidos" value={String(data.covers)} bold />
+            <Row label="Promedio por cubierto" value={fmt(data.avgPerCover ?? 0)} />
+            <p className="text-[10px]">(no incluye delivery)</p>
+            {(data.tablesWithoutCovers ?? 0) > 0 && (
+              <p className="text-[10px]">
+                ({data.tablesWithoutCovers} mesa{data.tablesWithoutCovers === 1 ? '' : 's'} sin personas cargadas, no suma{data.tablesWithoutCovers === 1 ? '' : 'n'})
+              </p>
+            )}
+          </div>
+        </>
+      )}
 
       <div className="border-t border-dashed border-foreground my-1" />
 

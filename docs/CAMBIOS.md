@@ -3,6 +3,9 @@
 Lo más nuevo arriba. Una línea por cambio, en palabras simples. "Publicado" = ya está en dattagestion.com.
 Contexto general del sistema: [CONTEXTO-PROYECTO.md](CONTEXTO-PROYECTO.md).
 
+## 2026-11-19
+- Cubiertos atendidos en el cierre de turno (pedido de Restaurant Olavarría, para todos los locales): el ticket de cierre de turno trae un bloque "CUBIERTOS" con la cantidad de personas atendidas en las mesas cobradas del turno y el promedio vendido por cubierto. No incluye delivery (lo aclara el ticket). Una cuenta dividida o con agregados no cuenta dos veces a las mismas personas; si alguna mesa no tenía personas cargadas, el ticket avisa cuántas quedaron afuera. Publicado.
+
 ## 2026-11-14
 - Recibo de pago duplicado (pedido de Restaurant Olavarría, para todos los locales): la copia del cliente y la de control ahora salen como dos impresiones separadas, así la comandera corta el papel entre una y otra (antes salían pegadas y había que cortarlas a mano). Vale al cerrar la mesa en caja y al reimprimir desde Facturación. Publicado.
 - Personas en la mesa en la comanda (pedido de Restaurant Olavarría, para todos los locales): al abrir una mesa nueva el mozo tiene que indicar cuántas personas está atendiendo (aparte de las sillas del plano). Sale como "PERSONAS: N" en la comanda impresa (caja, cocina y agente de impresión; en el agente hace falta reinstalarlo para verlo) y en la pantalla de cocina ("Mesa 7 · 3 pers."). La pantalla de cocina ahora también muestra qué mozo tomó el pedido. Publicado.

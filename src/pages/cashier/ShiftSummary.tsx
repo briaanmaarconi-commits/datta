@@ -61,6 +61,57 @@ export default function ShiftSummary() {
     enabled: !!establishmentId,
   });
 
+  // Cubiertos atendidos del turno: personas de las mesas cobradas (sin delivery).
+  // Una mesa cobrada en partes genera varios comprobantes con los mismos pedidos, y
+  // cada agregado repite las personas de la mesa: se agrupa por pedidos compartidos
+  // y se toma el mayor número de personas del grupo.
+  const computeCovers = async (invoices: { total: number; order_ids?: string[] | null }[]) => {
+    const ids = Array.from(new Set(invoices.flatMap(i => i.order_ids ?? [])));
+    const orderInfo = new Map<string, { guests: number; delivery: boolean }>();
+    for (let i = 0; i < ids.length; i += 200) {
+      const { data } = await db
+        .from('orders')
+        .select('id, guest_count, channel')
+        .in('id', ids.slice(i, i + 200));
+      for (const o of (data ?? []) as any[]) {
+        orderInfo.set(o.id, { guests: Number(o.guest_count || 0), delivery: o.channel === 'delivery' });
+      }
+    }
+
+    // Agrupa comprobantes que comparten algún pedido (cuenta dividida = una sola mesa)
+    const parent = invoices.map((_, i) => i);
+    const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+    const ownerOf = new Map<string, number>();
+    invoices.forEach((inv, i) => {
+      for (const id of inv.order_ids ?? []) {
+        const prev = ownerOf.get(id);
+        if (prev === undefined) ownerOf.set(id, i);
+        else parent[find(i)] = find(prev);
+      }
+    });
+
+    const groups = new Map<number, { sales: number; guests: number; delivery: boolean }>();
+    invoices.forEach((inv, i) => {
+      const g = groups.get(find(i)) ?? { sales: 0, guests: 0, delivery: false };
+      g.sales += Number(inv.total || 0);
+      for (const id of inv.order_ids ?? []) {
+        const info = orderInfo.get(id);
+        if (!info) continue;
+        if (info.delivery) g.delivery = true;
+        else g.guests = Math.max(g.guests, info.guests);
+      }
+      groups.set(find(i), g);
+    });
+
+    let covers = 0, sales = 0, tablesWithoutCovers = 0;
+    for (const g of groups.values()) {
+      if (g.delivery) continue;
+      if (g.guests > 0) { covers += g.guests; sales += g.sales; }
+      else tablesWithoutCovers += 1;
+    }
+    return { covers, sales, tablesWithoutCovers };
+  };
+
   // Builds the printable report for any shift (open window or closed range)
   const buildReport = async (shift: any, actualCash: number): Promise<ShiftReportData> => {
     const { from, to } = getShiftWindow(shift);
@@ -69,7 +120,7 @@ export default function ShiftSummary() {
       // Ventas del turno = comprobantes emitidos (momento del cobro)
       db
         .from('invoices')
-        .select('total, payment_method, payments')
+        .select('total, payment_method, payments, order_ids')
         .eq('establishment_id', establishmentId!)
         .gte('created_at', from)
         .lte('created_at', to),
@@ -130,6 +181,7 @@ export default function ShiftSummary() {
 
     const orders = ordersRes.data ?? [];
     const totalSales = orders.reduce((s, o) => s + Number(o.total), 0);
+    const covers = await computeCovers(orders as any[]);
     const sumBy = (m: string) =>
       orders.reduce((s, o) => s + amountForMethod(o, m), 0);
     const cashSales = sumBy('cash');
@@ -171,6 +223,9 @@ export default function ShiftSummary() {
       totalSales,
       closedOrders: orders.length,
       avgTicket: orders.length ? totalSales / orders.length : 0,
+      covers: covers.covers,
+      avgPerCover: covers.covers ? covers.sales / covers.covers : 0,
+      tablesWithoutCovers: covers.tablesWithoutCovers,
       cash: cashSales,
       card: sumBy('card'),
       transfer: sumBy('transfer'),
