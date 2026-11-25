@@ -3,6 +3,9 @@
 Lo más nuevo arriba. Una línea por cambio, en palabras simples. "Publicado" = ya está en dattagestion.com.
 Contexto general del sistema: [CONTEXTO-PROYECTO.md](CONTEXTO-PROYECTO.md).
 
+## 2026-11-25
+- Precios desactualizados en el celular del mozo (reclamo de Restaurant Olavarría, para todos los locales): tras una actualización del sistema o con el celular bloqueado, la pantalla del mozo podía quedar con la carta vieja y cargar pedidos con el precio anterior. Ahora la pantalla se reconecta sola y recarga la carta al volver a la app, y justo antes de mandar un pedido (mozo y caja en mesas) se toma el precio actual de cada plato, avisando "Se actualizó el precio de: …" si cambió. El mozo ahora también ve y cobra el precio de promoción cuando está activa, igual que la caja. Publicado.
+
 ## 2026-11-19
 - Cubiertos atendidos en el cierre de turno (pedido de Restaurant Olavarría, para todos los locales): el ticket de cierre de turno trae un bloque "CUBIERTOS" con la cantidad de personas atendidas en las mesas cobradas del turno y el promedio vendido por cubierto. No incluye delivery (lo aclara el ticket). Una cuenta dividida o con agregados no cuenta dos veces a las mismas personas; si alguna mesa no tenía personas cargadas, el ticket avisa cuántas quedaron afuera. Publicado.
 

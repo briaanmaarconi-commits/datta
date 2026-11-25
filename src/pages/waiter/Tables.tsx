@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { db } from '@/lib/db';
+import { withCurrentPrices } from '@/lib/currentPrices';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -288,11 +289,22 @@ export default function WaiterTables() {
 
   const { data: combos = [] } = useActiveCombos(establishmentId);
 
+  /** Antes de mandar el pedido: precios actuales (la carta en pantalla pudo quedar vieja). */
+  const pricedCart = async <T extends { product_id: string; price: number }>(raw: T[]): Promise<T[]> => {
+    const { cart, changed } = await withCurrentPrices(raw);
+    if (changed.length) {
+      queryClient.invalidateQueries({ queryKey: ['products', establishmentId] });
+      toast.info(`Se actualizó el precio de: ${changed.join(', ')}`, { duration: 8000 });
+    }
+    return cart;
+  };
+
   const createOrder = useMutation({
-    mutationFn: async (cart: { product_id: string; price: number; quantity: number; notes: string }[]) => {
-      if (!ordering || cart.length === 0) return;
+    mutationFn: async (rawCart: { product_id: string; price: number; quantity: number; notes: string }[]) => {
+      if (!ordering || rawCart.length === 0) return;
       // Save to localStorage before attempting (resilience)
-      savePendingOrder(cart, ordering);
+      savePendingOrder(rawCart, ordering);
+      const cart = await pricedCart(rawCart);
       const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
       // Un agregado que sale como pedido nuevo lleva las personas que ya tiene la mesa.
       const guests = ordering.guestCount ?? ((tables.find(t => t.id === ordering.tableId) as any)?.guest_count || null);
@@ -328,9 +340,10 @@ export default function WaiterTables() {
   });
 
   const addToExistingOrder = useMutation({
-    mutationFn: async (cart: { product_id: string; price: number; quantity: number; notes: string }[]) => {
-      if (!ordering?.orderId || cart.length === 0) return;
-      savePendingOrder(cart, ordering);
+    mutationFn: async (rawCart: { product_id: string; price: number; quantity: number; notes: string }[]) => {
+      if (!ordering?.orderId || rawCart.length === 0) return;
+      savePendingOrder(rawCart, ordering);
+      const cart = await pricedCart(rawCart);
       const items = cart.map(i => ({
         order_id: ordering.orderId!,
         product_id: i.product_id,

@@ -80,7 +80,10 @@ export async function registerRealtime(app: FastifyInstance) {
     res.write("retry: 3000\n\n");
     const sub: Subscriber = { user, acting: req.viewAs?.establishmentId ?? null, write: (chunk) => res.write(chunk) };
     subscribers.add(sub);
-    const beat = setInterval(() => res.write(": ping\n\n"), 20_000);
+    // Latido visible para el navegador (un comentario ": ping" no le llega a la app): si deja de
+    // recibirlo, la app sabe que la conexión quedó muerta (p. ej. tras una actualización) y reconecta.
+    res.write("event: ping\ndata: \n\n");
+    const beat = setInterval(() => res.write("event: ping\ndata: \n\n"), 20_000);
     req.raw.on("close", () => {
       clearInterval(beat);
       subscribers.delete(sub);

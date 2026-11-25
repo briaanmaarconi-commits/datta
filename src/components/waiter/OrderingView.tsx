@@ -8,6 +8,7 @@ import { ComboExpandedLine } from '@/hooks/useMenuCombos';
 import DailySpecialDialog from '@/components/menu/DailySpecialDialog';
 import { useDailySpecials, isDailySpecial } from '@/hooks/useDailySpecials';
 import { useAuth } from '@/hooks/useAuth';
+import { effectivePrice } from '@/lib/currentPrices';
 
 /** Chip especial "Plato del día" (no es una categoría real). */
 const DAILY = '__daily__';
@@ -79,7 +80,7 @@ export default function OrderingView({
       // Sólo agrupamos con líneas sueltas: las líneas de combo (line_id) tienen precio propio
       const existing = prev.find(i => !i.line_id && i.product_id === product.id);
       if (existing) return prev.map(i => (!i.line_id && i.product_id === product.id) ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, { product_id: product.id, name: product.name, price: Number(product.price), quantity: 1, notes: '' }];
+      return [...prev, { product_id: product.id, name: product.name, price: effectivePrice(product), quantity: 1, notes: '' }];
     });
   };
 
@@ -213,7 +214,7 @@ export default function OrderingView({
                 <div key={p.id} className="flex items-center gap-3 py-3 border-b last:border-0">
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{p.name}</p>
-                    <p className="text-sm text-muted-foreground">${Number(p.price).toFixed(2)}</p>
+                    <p className="text-sm text-muted-foreground">${effectivePrice(p).toFixed(2)}</p>
                   </div>
                   {showingDaily && p.category_id === dailyCategoryId && (
                     <Button

@@ -31,6 +31,7 @@ import { toast } from 'sonner';
 import { DollarSign, CreditCard, Banknote, Smartphone, AlertTriangle, Gift, HandCoins, Receipt, Plus, X, Utensils, Sparkles, Building2, Split } from 'lucide-react';
 import SplitPaymentEditor, { defaultSplit, splitSum } from '@/components/shared/SplitPaymentEditor';
 import { MIXED, describePayments, parsePayments, splitAcrossOrders, type PaymentPart } from '@/lib/payments';
+import { withCurrentPrices } from '@/lib/currentPrices';
 import CourtesyDialog from '@/components/shared/CourtesyDialog';
 import { useCloseTableAsCourtesy, CourtesyType } from '@/hooks/useCloseTableAsCourtesy';
 import PreBillTicket from '@/components/cashier/PreBillTicket';
@@ -232,8 +233,11 @@ export default function CashierTables() {
 
   /** Agrega productos reales de la carta a la cuenta de la mesa (pedido del turno actual). */
   const addProductsToTable = useMutation({
-    mutationFn: async ({ cart, sendToKitchen }: { cart: CartLine[]; sendToKitchen: boolean }) => {
-      if (!selectedTable || cart.length === 0) return;
+    mutationFn: async ({ cart: rawCart, sendToKitchen }: { cart: CartLine[]; sendToKitchen: boolean }) => {
+      if (!selectedTable || rawCart.length === 0) return;
+      // Precios actuales al momento de cargar (la lista en pantalla pudo quedar vieja).
+      const { cart, changed } = await withCurrentPrices(rawCart);
+      if (changed.length) toast.info(`Se actualizó el precio de: ${changed.join(', ')}`, { duration: 8000 });
       const addedTotal = cart.reduce((s, l) => s + l.price * l.quantity, 0);
       const target = (tableOrders as any[])[0];
       const itemStatus = sendToKitchen ? 'pending' : 'ready';
